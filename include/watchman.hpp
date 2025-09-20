@@ -8,19 +8,27 @@
 namespace watchman {
 
     struct Node {
+        int node_id;
         Position pos;
         std::vector<bool> seen;
+        int cost;
         int heuristic;
+        int num_seen;
+        int f_value;
 
-        Node(Position p, std::vector<bool> s, int h){
+        Node(int id, Position p, std::vector<bool> s, int c, int h, int n){
+            node_id = id;
             pos = p;
             seen = s;
+            cost = c;
             heuristic = h;
+            num_seen = n;
+            f_value = c + h;
         }
 
-        bool operator<(const Node& rhs) const
+        bool operator>(const Node& rhs) const
         {
-            return heuristic < rhs.heuristic;
+            return f_value > rhs.f_value;
         }
 
     };
@@ -138,8 +146,10 @@ namespace watchman {
         return los;
     }
 
-    void add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);
-    int get_heuristic(Position pos);
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map);
+    using LOSLookup = std::vector<std::vector<Position>>;
 
+    int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);
+    int get_heuristic(Position pos);
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const LOSLookup& los_lookup);
+    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement);
 }

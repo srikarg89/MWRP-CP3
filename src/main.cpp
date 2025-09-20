@@ -1,7 +1,24 @@
 #include <iostream>
 #include "watchman.hpp"
 
-Map create_example_map(){
+Map create_figure_1_map(){
+    int x_size = 5;
+    int y_size = 5;
+    std::vector<bool> occupancy = {
+        0, 0, 0, 0, 0,
+        1, 1, 0, 1, 1,
+        0, 0, 0, 0, 0,
+        0, 1, 1, 1, 0,
+        0, 1, 0, 0, 0
+    };
+    return Map {
+        .x_size=x_size,
+        .y_size=y_size,
+        .occupancy=occupancy
+    };
+}
+
+Map create_figure_3_map(){
     int x_size = 4;
     int y_size = 5;
     std::vector<bool> occupancy = {
@@ -19,9 +36,16 @@ Map create_example_map(){
 }
 
 int main() {
-    Map map = create_example_map();
-    Position start_pos = {1, 2};
+    // Figure 1 example
+    Map map = create_figure_1_map();
+    Position start_pos = {0, 4};
     watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
+
+    // Figure 3 example
+    // Map map = create_figure_3_map();
+    // Position start_pos = {1, 2};
+    // watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
+
     std::vector<Position> solution = watchman::run_watchman(start_pos, los_type, map, MovementType::FOUR_WAY_MOVEMENT);
     printf("Solution:\n");
     for(Position pos : solution){

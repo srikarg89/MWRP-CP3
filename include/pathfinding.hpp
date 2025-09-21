@@ -77,13 +77,15 @@ namespace pathfinding {
         return path;
     }
 
-    std::vector<int> get_bfs_distances(Position start, MovementType movement, const Map& map){
+    std::vector<int> get_bfs_distances(std::vector<Position> starts, MovementType movement, const Map& map){
         std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
         std::queue<bfs_node_tuple> queue;
 
-        int start_map_idx = map.get_map_idx(start);
-        queue.push(std::make_tuple(/*cost = */ 0, start_map_idx));
-        distances[start_map_idx] = 0;
+        for(Position start : starts){
+            int start_map_idx = map.get_map_idx(start);
+            queue.push(std::make_tuple(/*cost = */ 0, start_map_idx));
+            distances[start_map_idx] = 0;
+        }
 
         while(!queue.empty()){
             bfs_node_tuple curr = queue.front();

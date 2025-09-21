@@ -62,12 +62,8 @@ namespace watchman {
         return neighbor_nodes;
     }
 
-    // Inputs: Agent starting position, LOS type, map.
-    // TODO: Add in radius for LOS.
-    // Output: Optimal path.
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
+    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
-        Lookup lookup;
         printf("Running watchman method!\n");
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
             Position pos = map.get_pos_from_map_idx(map_idx);
@@ -88,7 +84,7 @@ namespace watchman {
                         break;                        
                 }
 
-                std::vector<int> distances = pathfinding::get_bfs_distances(pos, movement, map);
+                std::vector<int> distances = pathfinding::get_bfs_distances({pos}, movement, map);
                 lookup.apsp.push_back(distances);
 
             }
@@ -98,20 +94,75 @@ namespace watchman {
         printf("\n\n");
 
         // Precompute the Singleton heuristic helper lookup table.
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-            std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
-            lookup.min_dist_to_see.push_back(min_dists);
-        }
+        if(heuristic_type == HeuristicType::SINGLETON){
+            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
+                lookup.min_dist_to_see.push_back(min_dists);
+            }
 
-        for(int g_map_idx = 0; g_map_idx < map.x_size * map.y_size; g_map_idx++){
-            const std::vector<Position>& los = lookup.los[g_map_idx];
-            for(Position los_pos : los){
-                int los_idx = map.get_map_idx(los_pos);
-                for(int s_map_idx = 0; s_map_idx < map.x_size * map.y_size; s_map_idx++){
-                    lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][los_idx]);
+            for(int g_map_idx = 0; g_map_idx < map.x_size * map.y_size; g_map_idx++){
+                const std::vector<Position>& los = lookup.los[g_map_idx];
+                for(Position los_pos : los){
+                    int los_idx = map.get_map_idx(los_pos);
+                    for(int s_map_idx = 0; s_map_idx < map.x_size * map.y_size; s_map_idx++){
+                        lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][los_idx]);
+                    }
                 }
             }
         }
+
+        // Precompute the distance between pivots in G_DLC
+        if(heuristic_type == HeuristicType::MIN_SPAN || heuristic_type == HeuristicType::TSP){
+            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
+                lookup.pivot_pivot_dists.push_back(min_dists);
+            }
+
+            for(int pivot_idx = 0; pivot_idx < map.x_size * map.y_size; pivot_idx++){
+                if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
+                    std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
+                    lookup.pivot_cell_dists.push_back(infinite_distances);
+                    lookup.pivot_pivot_dists.push_back(infinite_distances);
+                    continue;
+                }
+
+                // For each pivot, we want to compute the distances from the pivot component to every other location.
+                // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
+                std::vector<int> pivot_cell_dists = pathfinding::get_bfs_distances(lookup.los[pivot_idx], movement, map);
+                lookup.pivot_cell_dists.push_back(pivot_cell_dists);
+
+                for(int cell_idx = 0; cell_idx < map.x_size * map.y_size; cell_idx++){
+                    for(Position los_pos : lookup.los[cell_idx]){
+                        int los_map_idx = map.get_map_idx(los_pos);
+                        lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[los_map_idx]);
+                    }
+                }
+            }
+
+            // Verified using Figure 3b / 3d in https://cdn.aaai.org/ojs/6668/6668-40-9897-1-10-20200521.pdf
+
+            printf("C <-> F: %d / %d / %d / %d / %d / %d / %d / %d, D <-> C: %d, D <-> F: %d\n",
+                lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 4})],
+                lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({3, 0})],
+                lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({2, 4})],
+                lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({3, 0})],
+                lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({1, 4})],
+                lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({2, 0})],
+                lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 4})],
+                lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({2, 0})],
+                lookup.pivot_cell_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 2})],
+                lookup.pivot_cell_dists[map.get_map_idx({1, 4})][map.get_map_idx({1, 2})]
+            );
+        }
+
+    }
+
+    // Inputs: Agent starting position, LOS type, map.
+    // TODO: Add in radius for LOS.
+    // Output: Optimal path.
+    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
+        Lookup lookup;
+        precompute_lookup(lookup, los, map, movement, heuristic_type);
 
         // Initialize search data structures.
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;

@@ -157,6 +157,8 @@ namespace watchman {
         std::vector<std::vector<Position>> los;
         std::vector<std::vector<int>> apsp;
         std::vector<std::vector<int>> min_dist_to_see;
+        std::vector<std::vector<int>> pivot_cell_dists;
+        std::vector<std::vector<int>> pivot_pivot_dists;
     };
 
     int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);

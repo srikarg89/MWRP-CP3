@@ -37,18 +37,20 @@ Map create_figure_3_map(){
 
 int main() {
     // watchman::HeuristicType heuristic_type = watchman::HeuristicType::BFS;
-    watchman::HeuristicType heuristic_type = watchman::HeuristicType::SINGLETON;
+    // watchman::HeuristicType heuristic_type = watchman::HeuristicType::SINGLETON;
+    watchman::HeuristicType heuristic_type = watchman::HeuristicType::MIN_SPAN;
     MovementType movement_type = MovementType::FOUR_WAY_MOVEMENT;
 
     // Figure 1 example
-    Map map = create_figure_1_map();
-    Position start_pos = {0, 4};
-    watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
+    // Map map = create_figure_1_map();
+    // Position start_pos = {0, 4};
+    // watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
+    // watchman::LOSType los_type = watchman::LOSType::BRES_LOS;
 
     // Figure 3 example
-    // Map map = create_figure_3_map();
-    // Position start_pos = {1, 2};
-    // watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
+    Map map = create_figure_3_map();
+    Position start_pos = {1, 2};
+    watchman::LOSType los_type = watchman::LOSType::FOUR_WAY_LOS;
 
     std::vector<Position> solution = watchman::run_watchman(start_pos, los_type, map, movement_type, heuristic_type);
     printf("Solution:\n");

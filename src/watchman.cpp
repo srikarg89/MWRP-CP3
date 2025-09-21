@@ -34,12 +34,28 @@ namespace watchman {
         return heuristic;
     }
 
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
+    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const std::vector<bool>& seen){
+        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
+        printf("\nComputation for node idx: %d\n", node_map_idx);
+        printf("Disjoint Graph Nodes:\n");
+        for(int node : disjoint_graph.nodes){
+            printf("\t%d\n", node);
+        }
+        printf("Disjoint Graph Edges:\n");
+        for(auto edge : disjoint_graph.edges){
+            printf("\t(%d, %d) with cost %d\n", edge.node_a, edge.node_b, edge.cost);
+        }
+        assert(false);
+    }
+
+    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const Lookup& lookup){
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
             case SINGLETON:
-                return get_singleton_heuristic(node_map_idx, seen, min_dist_to_see);
+                return get_singleton_heuristic(node_map_idx, seen, lookup.min_dist_to_see);
+            case MIN_SPAN:
+                return get_mst_heuristic(lookup, node_map_idx, seen);
             default:
                 printf("UNKNOWN HEURISTIC TYPE ???\n");
                 assert(false);
@@ -55,7 +71,7 @@ namespace watchman {
         for(Position nbr : neighbors){
             std::vector<bool> nbr_seen = node.seen;
             int new_squares_seen = add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(nbr)], map);
-            int nbr_heuristic = get_heuristic(heuristic_type, map.get_map_idx(nbr), nbr_seen, lookup.min_dist_to_see);
+            int nbr_heuristic = get_heuristic(heuristic_type, map.get_map_idx(nbr), nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, node.cost + 1, nbr_heuristic, node.num_seen + new_squares_seen));
         }
@@ -65,6 +81,7 @@ namespace watchman {
     void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
+        std::vector<int> sorted_los_order;
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
             Position pos = map.get_pos_from_map_idx(map_idx);
             if(map.check_obstacle(pos)){
@@ -86,12 +103,17 @@ namespace watchman {
 
                 std::vector<int> distances = pathfinding::get_bfs_distances({pos}, movement, map);
                 lookup.apsp.push_back(distances);
-
+                sorted_los_order.push_back(map_idx);
             }
             printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
         }
 
         printf("\n\n");
+
+        std::sort(sorted_los_order.begin(), sorted_los_order.end(), [lookup](int a, int b){
+            return lookup.los[a].size() < lookup.los[b].size();
+        });
+        lookup.sorted_los_order = sorted_los_order;
 
         // Precompute the Singleton heuristic helper lookup table.
         if(heuristic_type == HeuristicType::SINGLETON){
@@ -154,8 +176,64 @@ namespace watchman {
                 lookup.pivot_cell_dists[map.get_map_idx({1, 4})][map.get_map_idx({1, 2})]
             );
         }
-
     }
+
+    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const std::vector<bool>& seen){
+        // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
+        std::vector<int> pivots;
+        std::vector<DisjointGraphEdge> edges;
+
+        for(int potential_pivot : lookup.sorted_los_order){
+            printf("Processing potential pivot: %d\n", potential_pivot);
+            if(seen[potential_pivot]){
+                printf("\tSkipping cuz already seen\n");
+                continue;
+            }
+
+            // We can test if a pivot is valid by checking the pivot <-> pivot distance. If this is 0, then the pivots share a watcher, and thus this pivot is invalid.
+            // Technically still O(N^2) but now only checking against pivots instead of every cell, which should be much faster.
+            bool valid = true;
+            for(int existing_pivot : pivots){
+                if(lookup.pivot_pivot_dists[existing_pivot][potential_pivot] == 0){
+                    valid = false;
+                    printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
+                    break;
+                }
+            }
+            if(!valid){
+                continue;
+            }
+
+            // Add edges between the pivot and every existing pivot in the graph.
+            for(int pivot : pivots){
+                edges.push_back(DisjointGraphEdge{
+                    .node_a=pivot,
+                    .node_b=potential_pivot,
+                    .cost=lookup.pivot_pivot_dists[pivot][potential_pivot]
+                });
+            }
+
+            // Add edge between the agent node and the pivot.
+            edges.push_back(DisjointGraphEdge{
+                .node_a=agent_map_idx,
+                .node_b=potential_pivot,
+                .cost=lookup.pivot_pivot_dists[agent_map_idx][potential_pivot]
+            });
+
+            // Add the pivot to the list of pivots.
+            pivots.push_back(potential_pivot);
+        }
+
+        // Nodes = pivots + agent position.
+        std::vector<int> nodes = pivots;
+        nodes.push_back(agent_map_idx);
+
+        return DisjointGraph {
+            .nodes=nodes,
+            .edges=edges
+        };
+    }
+
 
     // Inputs: Agent starting position, LOS type, map.
     // TODO: Add in radius for LOS.
@@ -180,7 +258,7 @@ namespace watchman {
         }
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
         printf("Start idx: %d\n", map.get_map_idx(start));
-        int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup.min_dist_to_see);
+        int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup);
         queue.push(Node(/* id = */ 0, start, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 
         // assert(false);

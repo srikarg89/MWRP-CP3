@@ -34,17 +34,6 @@ namespace watchman {
     };
 
 
-    struct Edge {
-        Node* from;
-        Node* to;
-    };
-
-
-    struct Graph {
-        std::vector<Node> nodes;
-        std::vector<Edge> edges;
-    };
-
     ////////////////////////////////
     ///////// Forms of LOS /////////
     ////////////////////////////////
@@ -159,12 +148,27 @@ namespace watchman {
         std::vector<std::vector<int>> min_dist_to_see;
         std::vector<std::vector<int>> pivot_cell_dists;
         std::vector<std::vector<int>> pivot_pivot_dists;
+        std::vector<int> sorted_los_order;
+    };
+
+    struct DisjointGraphEdge {
+        int node_a;
+        int node_b;
+        int cost;
+    };
+
+    struct DisjointGraph {
+        std::vector<int> nodes;
+        std::vector<DisjointGraphEdge> edges;
     };
 
     int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);
     int get_bfs_heuristic();
     int get_singleton_heuristic(int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
+    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const std::vector<bool>& seen);
+    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const Lookup& lookup);
     std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned);
+    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type);
+    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const std::vector<bool>& seen);
     std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type);
 }

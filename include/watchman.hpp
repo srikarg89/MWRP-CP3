@@ -151,15 +151,9 @@ namespace watchman {
         std::vector<int> sorted_los_order;
     };
 
-    struct DisjointGraphEdge {
-        int node_a;
-        int node_b;
-        int cost;
-    };
-
     struct DisjointGraph {
         std::vector<int> nodes;
-        std::vector<DisjointGraphEdge> edges;
+        std::vector<std::vector<int>> edge_costs;
     };
 
     int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);

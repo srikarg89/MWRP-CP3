@@ -3,6 +3,7 @@
 #include "pathfinding.hpp"
 #include <queue>
 #include <unordered_map>
+#include <iostream>
 
 namespace watchman {
     // Returns the number of new squares marked as seen.
@@ -35,17 +36,60 @@ namespace watchman {
     }
 
     int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const std::vector<bool>& seen){
+        // Calculate the disjoint graph.
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
-        printf("\nComputation for node idx: %d\n", node_map_idx);
-        printf("Disjoint Graph Nodes:\n");
-        for(int node : disjoint_graph.nodes){
-            printf("\t%d\n", node);
+        // printf("\nComputation for node idx: %d\n", node_map_idx);
+        // printf("Disjoint Graph Nodes:\n");
+        // for(int node : disjoint_graph.nodes){
+        //     printf("\t%d\n", node);
+        // }
+        // printf("Disjoint Graph Edges:\n");
+        // for(int i = 0; i < disjoint_graph.nodes.size(); i++){
+        //     for(int j = 0; j < disjoint_graph.nodes.size(); j++){
+        //         printf("\t(%d, %d) with cost %d\n", disjoint_graph.nodes[i], disjoint_graph.nodes[j], disjoint_graph.edge_costs[i][j]);
+        //     }
+        // }
+
+        // Calculate minimum spanning tree.
+        std::priority_queue<std::tuple<int, int, int>> edge_set; // 
+        int mst_heuristic = 0;
+        std::vector<int> distances(disjoint_graph.nodes.size(), INT_MAX);
+        std::vector<bool> added(disjoint_graph.nodes.size(), false);
+
+        // printf("\nMST Calculation:\n");
+
+        for(int i = 0; i < disjoint_graph.nodes.size(); i++){
+            // Find the min cost node.
+            int next_node_to_add = 0;
+            int min_cost = INT_MAX;
+            for(int j = 0; j < distances.size(); j++){
+                if(added[j]){
+                    continue;
+                }
+                if(distances[j] < min_cost){
+                    next_node_to_add = j;
+                    min_cost = distances[j];
+                }
+            }
+
+            // printf("Popping: %d with cost %d\n", disjoint_graph.nodes[next_node_to_add], min_cost);
+
+            if(i > 0){
+                mst_heuristic += min_cost;
+                // printf("Adding min cost to mst heuristic: %d\n", min_cost);
+            }
+
+            for(int j = 0; j < distances.size(); j++){
+                distances[j] = std::min(distances[j], disjoint_graph.edge_costs[next_node_to_add][j]);
+            }
+
+            added[next_node_to_add] = true;
         }
-        printf("Disjoint Graph Edges:\n");
-        for(auto edge : disjoint_graph.edges){
-            printf("\t(%d, %d) with cost %d\n", edge.node_a, edge.node_b, edge.cost);
-        }
-        assert(false);
+
+        // printf("MST Heuristic: %d\n", mst_heuristic);
+        return mst_heuristic;
+
+        // assert(false);
     }
 
     int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const Lookup& lookup){
@@ -105,7 +149,7 @@ namespace watchman {
                 lookup.apsp.push_back(distances);
                 sorted_los_order.push_back(map_idx);
             }
-            printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
+            // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
         }
 
         printf("\n\n");
@@ -163,30 +207,44 @@ namespace watchman {
 
             // Verified using Figure 3b / 3d in https://cdn.aaai.org/ojs/6668/6668-40-9897-1-10-20200521.pdf
 
-            printf("C <-> F: %d / %d / %d / %d / %d / %d / %d / %d, D <-> C: %d, D <-> F: %d\n",
-                lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 4})],
-                lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({3, 0})],
-                lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({2, 4})],
-                lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({3, 0})],
-                lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({1, 4})],
-                lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({2, 0})],
-                lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 4})],
-                lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({2, 0})],
-                lookup.pivot_cell_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 2})],
-                lookup.pivot_cell_dists[map.get_map_idx({1, 4})][map.get_map_idx({1, 2})]
-            );
+            // printf("C <-> F: %d / %d / %d / %d / %d / %d / %d / %d, D <-> C: %d, D <-> F: %d\n",
+            //     lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 4})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({3, 0})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({2, 4})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({3, 0})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({1, 4})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({2, 0})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 4})],
+            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({2, 0})],
+            //     lookup.pivot_cell_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 2})],
+            //     lookup.pivot_cell_dists[map.get_map_idx({1, 4})][map.get_map_idx({1, 2})]
+            // );
+
+            // printf("B <-> next to D: %d\n", lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 0})]);
+
+            // for (int i = 0; i < lookup.pivot_pivot_dists.size(); ++i) {
+            //     // Iterate through columns in the current row
+            //     for (int j = 0; j < lookup.pivot_pivot_dists.size(); ++j) {
+            //         int dist = lookup.pivot_pivot_dists[i][j];
+            //         if(dist == INT_MAX){
+            //             dist = -1;
+            //         }
+            //         std::cout << dist << "\t"; // Print element and a tab for spacing
+            //     }
+            //     std::cout << std::endl; // Move to the next line after printing a row
+            // }
         }
     }
 
     DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const std::vector<bool>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
-        std::vector<DisjointGraphEdge> edges;
+        // std::vector<DisjointGraphEdge> edges;
 
         for(int potential_pivot : lookup.sorted_los_order){
-            printf("Processing potential pivot: %d\n", potential_pivot);
+            // printf("Processing potential pivot: %d\n", potential_pivot);
             if(seen[potential_pivot]){
-                printf("\tSkipping cuz already seen\n");
+                // printf("\tSkipping cuz already seen\n");
                 continue;
             }
 
@@ -196,7 +254,7 @@ namespace watchman {
             for(int existing_pivot : pivots){
                 if(lookup.pivot_pivot_dists[existing_pivot][potential_pivot] == 0){
                     valid = false;
-                    printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
+                    // printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
                     break;
                 }
             }
@@ -204,33 +262,35 @@ namespace watchman {
                 continue;
             }
 
-            // Add edges between the pivot and every existing pivot in the graph.
-            for(int pivot : pivots){
-                edges.push_back(DisjointGraphEdge{
-                    .node_a=pivot,
-                    .node_b=potential_pivot,
-                    .cost=lookup.pivot_pivot_dists[pivot][potential_pivot]
-                });
-            }
-
-            // Add edge between the agent node and the pivot.
-            edges.push_back(DisjointGraphEdge{
-                .node_a=agent_map_idx,
-                .node_b=potential_pivot,
-                .cost=lookup.pivot_pivot_dists[agent_map_idx][potential_pivot]
-            });
-
-            // Add the pivot to the list of pivots.
             pivots.push_back(potential_pivot);
         }
 
-        // Nodes = pivots + agent position.
+        std::vector<std::vector<int>> edge_costs;
+        std::vector<int> agent_costs;
+        for(int p1 : pivots){
+            // Add outgoing edges for each pivot.
+            std::vector<int> pivot_outgoing_costs;
+            for(int p2 : pivots){
+                pivot_outgoing_costs.push_back(lookup.pivot_pivot_dists[p1][p2]);
+            }
+            pivot_outgoing_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
+            agent_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
+            edge_costs.push_back(pivot_outgoing_costs);
+        }
+
+        // Add agent position to the list of nodes.
         std::vector<int> nodes = pivots;
         nodes.push_back(agent_map_idx);
+        agent_costs.push_back(0);
 
+        // Add outgoing edges for the agent.
+        edge_costs.push_back(agent_costs);
+
+
+        // Nodes = pivots + agent position.
         return DisjointGraph {
             .nodes=nodes,
-            .edges=edges
+            .edge_costs=edge_costs
         };
     }
 

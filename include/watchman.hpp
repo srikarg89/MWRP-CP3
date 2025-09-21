@@ -146,10 +146,23 @@ namespace watchman {
         return los;
     }
 
-    using LOSLookup = std::vector<std::vector<Position>>;
+    enum HeuristicType {
+        BFS,
+        SINGLETON,
+        MIN_SPAN,
+        TSP
+    };
+
+    struct Lookup {
+        std::vector<std::vector<Position>> los;
+        std::vector<std::vector<int>> apsp;
+        std::vector<std::vector<int>> min_dist_to_see;
+    };
 
     int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map);
-    int get_heuristic(Position pos);
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const LOSLookup& los_lookup);
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement);
+    int get_bfs_heuristic();
+    int get_singleton_heuristic(int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
+    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned);
+    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type);
 }

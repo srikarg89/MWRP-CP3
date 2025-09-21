@@ -12,13 +12,14 @@
 
 namespace pathfinding {
     using node_tuple = std::tuple<int, int, int, int>; // f, g, pos, pred
+    using bfs_node_tuple = std::tuple<int, int>; // g, pos
 
     int get_heuristic(Position from, Position to){
         return std::max(std::abs(from.x - to.x), std::abs(from.y - to.y));
     }
 
-    std::vector<Position> astar(Position start, Position goal, MovementType movement, Map& map){
-        std::unordered_map<int, int> distances(map.x_size * map.y_size, INT_MAX);
+    std::vector<Position> astar(Position start, Position goal, MovementType movement, const Map& map){
+        std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
         std::unordered_map<int, int> pred_map;
         std::priority_queue<node_tuple, std::vector<node_tuple>, std::greater<node_tuple>> queue;
 
@@ -74,5 +75,42 @@ namespace pathfinding {
         
         std::reverse(path.begin(), path.end());
         return path;
+    }
+
+    std::vector<int> get_bfs_distances(Position start, MovementType movement, const Map& map){
+        std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
+        std::queue<bfs_node_tuple> queue;
+
+        int start_map_idx = map.get_map_idx(start);
+        queue.push(std::make_tuple(/*cost = */ 0, start_map_idx));
+        distances[start_map_idx] = 0;
+
+        while(!queue.empty()){
+            bfs_node_tuple curr = queue.front();
+            queue.pop();
+            
+            int curr_cost = std::get<0>(curr);
+            int curr_map_idx = std::get<1>(curr);
+
+            if(distances[curr_map_idx] < curr_cost){
+                continue;
+            }
+
+            distances[curr_map_idx] = curr_cost;
+
+            Position curr_pos = map.get_pos_from_map_idx(curr_map_idx);
+            std::vector<Position> neighbors = map.get_neighbors(curr_pos, movement);
+            for(Position neighbor : neighbors){
+                int neighbor_cost = curr_cost + 1;
+                int neighbor_map_idx = map.get_map_idx(neighbor);
+                if(distances[neighbor_map_idx] <= neighbor_cost){
+                    continue;
+                }
+                distances[neighbor_map_idx] = neighbor_cost;
+                queue.push(std::make_tuple(neighbor_cost, neighbor_map_idx));
+            }
+        }
+
+        return distances;
     }
 }

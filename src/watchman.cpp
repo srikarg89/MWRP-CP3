@@ -328,6 +328,8 @@ namespace watchman {
         int max_new_squares_seen = 0;
         int num_skipped = 0;
 
+        std::vector<Position> path;
+
         while(!queue.empty()){
             Node curr = queue.top();
             queue.pop();
@@ -354,12 +356,13 @@ namespace watchman {
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");
+                path.push_back(curr.pos);
                 int curr_id = curr.node_id;
-                printf("\tPosition: %s\n", curr.pos.toString().c_str());
                 while(curr_id != 0){
                     curr_id = pred_lookup[curr_id];
-                    printf("\tPosition: %s\n", id_lookup[curr_id].toString().c_str());
+                    path.push_back(id_lookup[curr_id]);
                 }
+                std::reverse(path.begin(), path.end());
                 break;
             }
 
@@ -376,7 +379,7 @@ namespace watchman {
         printf("Total nodes expanded: %d\n", num_expanded);
         printf("Total nodes skipped: %d\n", num_skipped);
 
-        return {};
+        return path;
 
     }
 

@@ -4,17 +4,18 @@
 #include <queue>
 #include <unordered_map>
 #include <iostream>
+#include <boost/functional/hash.hpp> // For boost::hash_value
 
 namespace watchman {
     // Returns the number of new squares marked as seen.
-    int add_los_to_seen(std::vector<bool>& seen, const std::vector<Position>& los, const Map& map){
+    int add_los_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Position>& los, const Map& map){
         int count = 0;
         for(Position pos : los){
             int map_idx = map.get_map_idx(pos);
             if(!seen[map_idx]){
                 count += 1;
             }
-            seen[map_idx] = true;
+            seen[map_idx] = 1;
         }
         return count;
     }
@@ -23,7 +24,7 @@ namespace watchman {
         return 1;
     }
 
-    int get_singleton_heuristic(int node_map_idx, const std::vector<bool>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
+    int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
         int heuristic = 0;
         for(int i = 0; i < seen.size(); i++){
             if(!seen[i]) {
@@ -33,7 +34,7 @@ namespace watchman {
         return heuristic;
     }
 
-    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const std::vector<bool>& seen){
+    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen){
         // Calculate the disjoint graph.
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
         // printf("\nComputation for node idx: %d\n", node_map_idx);
@@ -90,7 +91,7 @@ namespace watchman {
         // assert(false);
     }
 
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const std::vector<bool>& seen, const Lookup& lookup){
+    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
@@ -111,7 +112,7 @@ namespace watchman {
         std::vector<Position> neighbors = map.get_neighbors(node.pos, movement);
         std::vector<Node> neighbor_nodes;
         for(Position nbr : neighbors){
-            std::vector<bool> nbr_seen = node.seen;
+            boost::dynamic_bitset<> nbr_seen = node.seen;
             int new_squares_seen = add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(nbr)], map);
             int nbr_heuristic = get_heuristic(heuristic_type, map.get_map_idx(nbr), nbr_seen, lookup);
             last_id_assigned += 1;
@@ -234,7 +235,7 @@ namespace watchman {
         }
     }
 
-    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const std::vector<bool>& seen){
+    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
         // std::vector<DisjointGraphEdge> edges;
@@ -304,13 +305,14 @@ namespace watchman {
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
         std::unordered_map<int, int> pred_lookup;
         std::unordered_map<int, Position> id_lookup;
+        std::unordered_set<std::tuple<int, size_t>, boost::hash<std::tuple<int, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
 
         // Setup the starting variable. Mark all obstacles as seen.
-        std::vector<bool> start_seen(map.x_size * map.y_size, false);
+        boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
         int num_start_seen = 0;
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
             if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
-                start_seen[map_idx] = true;
+                start_seen[map_idx] = 1;
                 num_start_seen += 1;
             }
         }
@@ -321,16 +323,24 @@ namespace watchman {
         int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup);
         queue.push(Node(/* id = */ 0, start, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 
-        // assert(false);
-
         int num_expanded = 0;
         int last_id_assigned = 0;
         int max_new_squares_seen = 0;
+        int num_skipped = 0;
 
         while(!queue.empty()){
             Node curr = queue.top();
             queue.pop();
 
+            size_t seen_hash = boost::hash_value(curr.seen);
+            std::tuple<int, size_t> visited_key = std::make_tuple(map.get_map_idx(curr.pos), seen_hash);
+            if(visited_nodes.find(visited_key) != visited_nodes.end()){
+                // Already visited this node.
+                num_skipped += 1;
+                continue;
+            }
+
+            visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.pos;
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
@@ -364,6 +374,7 @@ namespace watchman {
         }
 
         printf("Total nodes expanded: %d\n", num_expanded);
+        printf("Total nodes skipped: %d\n", num_skipped);
 
         return {};
 

@@ -1,5 +1,6 @@
-#include "shared.hpp"
 #include "watchman.hpp"
+#include "shared.hpp"
+#include "watchman_utils.hpp"
 #include "pathfinding.hpp"
 #include <queue>
 #include <unordered_map>
@@ -7,18 +8,6 @@
 #include <boost/functional/hash.hpp> // For boost::hash_value
 
 namespace watchman {
-    // Returns the number of new squares marked as seen.
-    int add_los_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Position>& los, const Map& map){
-        int count = 0;
-        for(Position pos : los){
-            int map_idx = map.get_map_idx(pos);
-            if(!seen[map_idx]){
-                count += 1;
-            }
-            seen[map_idx] = 1;
-        }
-        return count;
-    }
 
     int get_bfs_heuristic(){
         return 1;
@@ -37,17 +26,6 @@ namespace watchman {
     int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen){
         // Calculate the disjoint graph.
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
-        // printf("\nComputation for node idx: %d\n", node_map_idx);
-        // printf("Disjoint Graph Nodes:\n");
-        // for(int node : disjoint_graph.nodes){
-        //     printf("\t%d\n", node);
-        // }
-        // printf("Disjoint Graph Edges:\n");
-        // for(int i = 0; i < disjoint_graph.nodes.size(); i++){
-        //     for(int j = 0; j < disjoint_graph.nodes.size(); j++){
-        //         printf("\t(%d, %d) with cost %d\n", disjoint_graph.nodes[i], disjoint_graph.nodes[j], disjoint_graph.edge_costs[i][j]);
-        //     }
-        // }
 
         // Calculate minimum spanning tree.
         std::priority_queue<std::tuple<int, int, int>> edge_set; // 
@@ -71,11 +49,8 @@ namespace watchman {
                 }
             }
 
-            // printf("Popping: %d with cost %d\n", disjoint_graph.nodes[next_node_to_add], min_cost);
-
             if(i > 0){
                 mst_heuristic += min_cost;
-                // printf("Adding min cost to mst heuristic: %d\n", min_cost);
             }
 
             for(int j = 0; j < distances.size(); j++){
@@ -87,8 +62,6 @@ namespace watchman {
 
         // printf("MST Heuristic: %d\n", mst_heuristic);
         return mst_heuristic;
-
-        // assert(false);
     }
 
     int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
@@ -120,179 +93,6 @@ namespace watchman {
         }
         return neighbor_nodes;
     }
-
-    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
-        // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
-        printf("Running watchman method!\n");
-        std::vector<int> sorted_los_order;
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-            Position pos = map.get_pos_from_map_idx(map_idx);
-            if(map.check_obstacle(pos)){
-                lookup.los.push_back({});
-                std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
-                lookup.apsp.push_back(infinite_distances);
-            } else {
-                switch(los){
-                    case FOUR_WAY_LOS:
-                        lookup.los.push_back(four_way_LOS(pos, map));
-                        break;
-                    case EIGHT_WAY_LOS:
-                        lookup.los.push_back(eight_way_LOS(pos, map));
-                        break;
-                    case BRES_LOS:
-                        lookup.los.push_back(bresLOS(pos, map));
-                        break;                        
-                }
-
-                std::vector<int> distances = pathfinding::get_bfs_distances({pos}, movement, map);
-                lookup.apsp.push_back(distances);
-                sorted_los_order.push_back(map_idx);
-            }
-            // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
-        }
-
-        printf("\n\n");
-
-        std::sort(sorted_los_order.begin(), sorted_los_order.end(), [lookup](int a, int b){
-            return lookup.los[a].size() < lookup.los[b].size();
-        });
-        lookup.sorted_los_order = sorted_los_order;
-
-        // Precompute the Singleton heuristic helper lookup table.
-        if(heuristic_type == HeuristicType::SINGLETON){
-            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
-                lookup.min_dist_to_see.push_back(min_dists);
-            }
-
-            for(int g_map_idx = 0; g_map_idx < map.x_size * map.y_size; g_map_idx++){
-                const std::vector<Position>& los = lookup.los[g_map_idx];
-                for(Position los_pos : los){
-                    int los_idx = map.get_map_idx(los_pos);
-                    for(int s_map_idx = 0; s_map_idx < map.x_size * map.y_size; s_map_idx++){
-                        lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][los_idx]);
-                    }
-                }
-            }
-        }
-
-        // Precompute the distance between pivots in G_DLC
-        if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP){
-            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
-                lookup.pivot_pivot_dists.push_back(min_dists);
-            }
-
-            for(int pivot_idx = 0; pivot_idx < map.x_size * map.y_size; pivot_idx++){
-                if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
-                    std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
-                    lookup.pivot_cell_dists.push_back(infinite_distances);
-                    lookup.pivot_pivot_dists.push_back(infinite_distances);
-                    continue;
-                }
-
-                // For each pivot, we want to compute the distances from the pivot component to every other location.
-                // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
-                std::vector<int> pivot_cell_dists = pathfinding::get_bfs_distances(lookup.los[pivot_idx], movement, map);
-                lookup.pivot_cell_dists.push_back(pivot_cell_dists);
-
-                for(int cell_idx = 0; cell_idx < map.x_size * map.y_size; cell_idx++){
-                    for(Position los_pos : lookup.los[cell_idx]){
-                        int los_map_idx = map.get_map_idx(los_pos);
-                        lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[los_map_idx]);
-                    }
-                }
-            }
-
-            // Verified using Figure 3b / 3d in https://cdn.aaai.org/ojs/6668/6668-40-9897-1-10-20200521.pdf
-
-            // printf("C <-> F: %d / %d / %d / %d / %d / %d / %d / %d, D <-> C: %d, D <-> F: %d\n",
-            //     lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 4})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({3, 0})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({3, 0})][map.get_map_idx({2, 4})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({3, 0})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({1, 4})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({1, 4})][map.get_map_idx({2, 0})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 4})],
-            //     lookup.pivot_pivot_dists[map.get_map_idx({2, 4})][map.get_map_idx({2, 0})],
-            //     lookup.pivot_cell_dists[map.get_map_idx({3, 0})][map.get_map_idx({1, 2})],
-            //     lookup.pivot_cell_dists[map.get_map_idx({1, 4})][map.get_map_idx({1, 2})]
-            // );
-
-            // printf("B <-> next to D: %d\n", lookup.pivot_pivot_dists[map.get_map_idx({2, 0})][map.get_map_idx({2, 0})]);
-
-            // for (int i = 0; i < lookup.pivot_pivot_dists.size(); ++i) {
-            //     // Iterate through columns in the current row
-            //     for (int j = 0; j < lookup.pivot_pivot_dists.size(); ++j) {
-            //         int dist = lookup.pivot_pivot_dists[i][j];
-            //         if(dist == INT_MAX){
-            //             dist = -1;
-            //         }
-            //         std::cout << dist << "\t"; // Print element and a tab for spacing
-            //     }
-            //     std::cout << std::endl; // Move to the next line after printing a row
-            // }
-        }
-    }
-
-    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
-        // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
-        std::vector<int> pivots;
-        // std::vector<DisjointGraphEdge> edges;
-
-        for(int potential_pivot : lookup.sorted_los_order){
-            // printf("Processing potential pivot: %d\n", potential_pivot);
-            if(seen[potential_pivot]){
-                // printf("\tSkipping cuz already seen\n");
-                continue;
-            }
-
-            // We can test if a pivot is valid by checking the pivot <-> pivot distance. If this is 0, then the pivots share a watcher, and thus this pivot is invalid.
-            // Technically still O(N^2) but now only checking against pivots instead of every cell, which should be much faster.
-            bool valid = true;
-            for(int existing_pivot : pivots){
-                if(lookup.pivot_pivot_dists[existing_pivot][potential_pivot] == 0){
-                    valid = false;
-                    // printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
-                    break;
-                }
-            }
-            if(!valid){
-                continue;
-            }
-
-            pivots.push_back(potential_pivot);
-        }
-
-        std::vector<std::vector<int>> edge_costs;
-        std::vector<int> agent_costs;
-        for(int p1 : pivots){
-            // Add outgoing edges for each pivot.
-            std::vector<int> pivot_outgoing_costs;
-            for(int p2 : pivots){
-                pivot_outgoing_costs.push_back(lookup.pivot_pivot_dists[p1][p2]);
-            }
-            pivot_outgoing_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
-            agent_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
-            edge_costs.push_back(pivot_outgoing_costs);
-        }
-
-        // Add agent position to the list of nodes.
-        std::vector<int> nodes = pivots;
-        nodes.push_back(agent_map_idx);
-        agent_costs.push_back(0);
-
-        // Add outgoing edges for the agent.
-        edge_costs.push_back(agent_costs);
-
-
-        // Nodes = pivots + agent position.
-        return DisjointGraph {
-            .nodes=nodes,
-            .edge_costs=edge_costs
-        };
-    }
-
 
     // Inputs: Agent starting position, LOS type, map.
     // TODO: Add in radius for LOS.

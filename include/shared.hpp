@@ -37,6 +37,13 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     return str;
 }
 
+enum HeuristicType {
+    BFS,
+    SINGLETON,
+    MST,
+    TSP
+};
+
 enum MovementType {
     FOUR_WAY_MOVEMENT,
     EIGHT_WAY_MOVEMENT
@@ -86,6 +93,21 @@ struct Map {
         return neighbors;
     }
 };
+
+struct Lookup {
+    std::vector<std::vector<Position>> los;
+    std::vector<std::vector<int>> apsp;
+    std::vector<std::vector<int>> min_dist_to_see;
+    std::vector<std::vector<int>> pivot_cell_dists;
+    std::vector<std::vector<int>> pivot_pivot_dists;
+    std::vector<int> sorted_los_order;
+};
+
+struct DisjointGraph {
+    std::vector<int> nodes;
+    std::vector<std::vector<int>> edge_costs;
+};
+
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;

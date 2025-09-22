@@ -8,15 +8,15 @@ int main(int argc, char** argv) {
 
     // Setup solver config.
     std::string heuristic_str = argv[2];
-    watchman::HeuristicType heuristic_type;
+    HeuristicType heuristic_type;
     if(heuristic_str == "BFS") {
-        heuristic_type = watchman::HeuristicType::BFS;
+        heuristic_type = HeuristicType::BFS;
     } else if(heuristic_str == "SINGLETON") {
-        heuristic_type = watchman::HeuristicType::SINGLETON;
+        heuristic_type = HeuristicType::SINGLETON;
     } else if(heuristic_str == "MST") {
-        heuristic_type = watchman::HeuristicType::MST;
+        heuristic_type = HeuristicType::MST;
     } else if(heuristic_str == "TSP") {
-        heuristic_type = watchman::HeuristicType::TSP;
+        heuristic_type = HeuristicType::TSP;
     } else {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }

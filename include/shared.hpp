@@ -3,6 +3,9 @@
 #include <vector>
 #include <string>
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+
 // General, shared types.
 
 struct Position {
@@ -39,6 +42,13 @@ enum MovementType {
     EIGHT_WAY_MOVEMENT
 };
 
+enum LOSType {
+    FOUR_WAY_LOS,
+    EIGHT_WAY_LOS,
+    BRES_LOS        
+};
+
+
 // TODO: Weighted map.
 struct Map {
     int x_size;
@@ -74,5 +84,62 @@ struct Map {
             }
         }
         return neighbors;
+    }
+};
+
+struct ScenarioConfig {
+    std::vector<Position> agent_starts;
+    Map map;
+    MovementType movement_type;
+    LOSType los_type;
+
+    static ScenarioConfig from_json(const std::string& filename) {
+        std::ifstream i(filename);
+        nlohmann::json parsed_data = nlohmann::json::parse(i);
+        auto agents_json = parsed_data["agents"].get<std::vector<std::vector<int>>>();
+        std::vector<Position> agent_starts;
+        for(const auto& agent : agents_json) {
+            if(agent.size() != 2) {
+                throw std::runtime_error("Each agent position must have exactly two coordinates.");
+            }
+            agent_starts.push_back(Position{agent[0], agent[1]});
+        }
+
+        std::vector<bool> occupancy;
+        auto map_json = parsed_data["map"].get<std::vector<std::vector<int>>>();
+        for(const auto& row : map_json) {
+            for(int cell : row) {
+                occupancy.push_back(cell == 1);
+            }
+        }
+
+        Map map;
+        map.x_size = map_json.empty() ? 0 : map_json[0].size();
+        map.y_size = map_json.size();
+        map.occupancy = std::move(occupancy);
+
+        std::string movement_str = parsed_data["movement"].get<std::string>();
+        MovementType movement_type;
+        if(movement_str == "FOUR_WAY_MOVEMENT") {
+            movement_type = FOUR_WAY_MOVEMENT;
+        } else if(movement_str == "EIGHT_WAY_MOVEMENT") {
+            movement_type = EIGHT_WAY_MOVEMENT;
+        } else {
+            throw std::runtime_error("Invalid movement type: " + movement_str);
+        }
+
+        std::string los_str = parsed_data["los"].get<std::string>();
+        LOSType los_type;
+        if(los_str == "FOUR_WAY_LOS") {
+            los_type = FOUR_WAY_LOS;
+        } else if(los_str == "EIGHT_WAY_LOS") {
+            los_type = EIGHT_WAY_LOS;
+        } else if(los_str == "BRES_LOS") {
+            los_type = BRES_LOS;
+        } else {
+            throw std::runtime_error("Invalid LOS type: " + los_str);
+        }
+
+        return {std::move(agent_starts), std::move(map), movement_type, los_type};
     }
 };

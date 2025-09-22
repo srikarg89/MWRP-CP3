@@ -38,12 +38,6 @@ namespace watchman {
     ///////// Forms of LOS /////////
     ////////////////////////////////
 
-    enum LOSType {
-        FOUR_WAY_LOS,
-        EIGHT_WAY_LOS,
-        BRES_LOS        
-    };
-
     // Four-way line of sight (rook movements).
     inline std::vector<Position> four_way_LOS(Position pos, const Map& map){
         int dx[] = {-1, 1, 0, 0};
@@ -138,7 +132,7 @@ namespace watchman {
     enum HeuristicType {
         BFS,
         SINGLETON,
-        MIN_SPAN,
+        MST,
         TSP
     };
 

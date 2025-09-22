@@ -20,7 +20,6 @@ namespace watchman {
     }
 
     int get_bfs_heuristic(){
-        printf("\tUsing BFS heuristic: %d\n", 1);
         return 1;
     }
 
@@ -31,7 +30,6 @@ namespace watchman {
                 heuristic = std::max(heuristic, min_dist_to_see[node_map_idx][i]);
             }
         }
-        printf("\tComputing heuristic for node: %d is %d\n", node_map_idx, heuristic);
         return heuristic;
     }
 
@@ -98,7 +96,7 @@ namespace watchman {
                 return get_bfs_heuristic();
             case SINGLETON:
                 return get_singleton_heuristic(node_map_idx, seen, lookup.min_dist_to_see);
-            case MIN_SPAN:
+            case MST:
                 return get_mst_heuristic(lookup, node_map_idx, seen);
             default:
                 printf("UNKNOWN HEURISTIC TYPE ???\n");
@@ -178,7 +176,7 @@ namespace watchman {
         }
 
         // Precompute the distance between pivots in G_DLC
-        if(heuristic_type == HeuristicType::MIN_SPAN || heuristic_type == HeuristicType::TSP){
+        if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP){
             for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
                 std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
                 lookup.pivot_pivot_dists.push_back(min_dists);
@@ -316,6 +314,8 @@ namespace watchman {
                 num_start_seen += 1;
             }
         }
+        int num_obstacles = num_start_seen;
+        int num_free = map.x_size * map.y_size - num_obstacles;
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
         printf("Start idx: %d\n", map.get_map_idx(start));
         int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup);
@@ -325,6 +325,7 @@ namespace watchman {
 
         int num_expanded = 0;
         int last_id_assigned = 0;
+        int max_new_squares_seen = 0;
 
         while(!queue.empty()){
             Node curr = queue.top();
@@ -332,8 +333,14 @@ namespace watchman {
 
             id_lookup[curr.node_id] = curr.pos;
 
+            max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
-            printf("Expanding node %d. Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            if(num_expanded % 1000 == 0){
+            // if(num_expanded % 1 == 0){
+                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+                printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
+            }
+            // printf("Expanding node %d. Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");

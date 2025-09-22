@@ -10,6 +10,18 @@
 #include <cassert>
 #include <algorithm>
 
+// Used to include Concorde TSP solver C code.
+#define new new_
+#define class class_
+
+extern "C" {
+    #include "concorde.h"
+}
+
+#undef new
+#undef class
+
+
 namespace pathfinding {
     using node_tuple = std::tuple<int, int, int, int>; // f, g, pos, pred
     using bfs_node_tuple = std::tuple<int, int>; // g, pos
@@ -115,4 +127,98 @@ namespace pathfinding {
 
         return distances;
     }
+
+    // Brute-Force TSP Solver for small number of nodes.
+    int solve_tsp_brute_force(const std::vector<std::vector<int>>& dist) {
+        std::vector<int> perm;
+        for(int i = 0; i < dist.size(); i++) {
+            perm.push_back(i);
+        }
+
+        int best = INT_MAX;
+
+        // Loop through every permutation.
+        do {
+            // Calculate cost of this permutation.
+            int cost = 0;
+            for(int i = 0; i < perm.size(); i++){
+                int from = perm[i];
+                int to = perm[(i + 1) % perm.size()]; // wrap around
+                cost += dist[from][to];
+            }
+
+            best = std::min(best, cost);
+        } while (next_permutation(perm.begin(), perm.end()));
+
+        return best;
+    }
+
+    // TSP Solver using Concorde solver functions
+    int solve_tsp_concorde(const std::vector<std::vector<int>>& dist) {
+        double optval;
+        int success, foundtour, hit_timebound = 0;
+
+        // Setup adjacency matrix.
+        int ncount = dist.size();
+        int ecount = (ncount * (ncount - 1)) / 2;
+        int *elist = new int[ecount * 2];
+        int *elen = new int[ecount];
+        int edge = 0;
+        int edgeWeight = 0;
+        int idx = 0;
+        for (int i = 0; i < ncount; i++) {
+            for (int j = i + 1; j < ncount; j++) {
+                elist[idx*2] = i;
+                elist[idx*2 + 1] = j;
+                elen[idx] = dist[i][j];
+                idx += 1;
+            }
+        }
+
+        // Random state to seed the solver.
+        CCrandstate rstate;
+        CCutil_sprand(rand(), &rstate);
+
+        int *out_tour = CC_SAFE_MALLOC(ncount, int);
+        char *name = CCtsp_problabel(" ");
+
+        // Redirect stdout and stderr to /dev/null to suppress Concorde output.
+        int devnull = open("/dev/null", O_WRONLY);
+        int saved_stdout = dup(STDOUT_FILENO);
+        dup2(devnull, STDOUT_FILENO);
+        close(devnull);
+
+        // Solve TSP function.
+        CCtsp_solve_sparse(ncount, ecount, elist, elen, /* in_tour = */ NULL, out_tour, /* in_val = */ NULL, &optval, &success, &foundtour, name, NULL, &hit_timebound, /* silent = */ 1, &rstate);
+
+        // Restore stdout
+        dup2(saved_stdout, STDOUT_FILENO);
+        close(saved_stdout);
+
+        // Check return code.
+        if(success != 1 || foundtour != 1) {
+        fprintf(stderr, "TSP solver failed to find a solution: %d, %d\n", success, foundtour);
+        exit(1);
+        }
+
+        // Free allocated variables.
+        CC_IFFREE(elist, int);
+        CC_IFFREE(elen, int);
+        CC_IFFREE(out_tour, int);
+        CC_IFFREE(name, char);
+
+        // return tour;
+        return optval;
+    }
+
+    // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
+    int solve_tsp(const std::vector<std::vector<int>>& dist){
+        if(dist.size() <= 4){
+            return solve_tsp_brute_force(dist);
+        }
+        else{
+            return solve_tsp_concorde(dist);
+        }
+    }
+
 }

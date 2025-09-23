@@ -97,6 +97,7 @@ struct Map {
 struct Lookup {
     std::vector<std::vector<Position>> los;
     std::vector<std::vector<int>> apsp;
+    std::vector<std::vector<int>> apsp_paths;
     std::vector<std::vector<int>> min_dist_to_see;
     std::vector<std::vector<int>> pivot_cell_dists;
     std::vector<std::vector<int>> pivot_pivot_dists;

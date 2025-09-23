@@ -4,8 +4,12 @@
 
 int main(int argc, char** argv) {
     // Setup scenario config.
-    if(argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type>" << std::endl;
+    bool jump_to_frontier = false;
+    if(argc == 4 && std::string(argv[3]) == "JF"){
+        jump_to_frontier = true;
+    }
+    else if(argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type>\nOptionally add in JF as a fourth argument to use Jump-to-Frontier optimization" << std::endl;
         return 1;
     }
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
@@ -26,7 +30,7 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }
 
-    std::vector<Position> solution = watchman::run_watchman(scenario_config.agent_starts[0], scenario_config.los_type, scenario_config.map, scenario_config.movement_type, heuristic_type);
+    std::vector<Position> solution = watchman::run_watchman(scenario_config.agent_starts[0], scenario_config.los_type, scenario_config.map, scenario_config.movement_type, heuristic_type, jump_to_frontier);
     printf("Solution size: %ld\n", solution.size());
     for(Position pos : solution){
         printf("\t%s\n", pos.toString().c_str());

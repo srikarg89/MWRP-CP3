@@ -29,7 +29,7 @@ int TOTAL_TSP_CONCORDE_CALLS = 0;
 
 namespace pathfinding {
     using node_tuple = std::tuple<int, int, int, int>; // f, g, pos, pred
-    using bfs_node_tuple = std::tuple<int, int>; // g, pos
+    using bfs_node_tuple = std::tuple<int, int, int>; // g, pos, pred
 
     int get_heuristic(Position from, Position to){
         return std::max(std::abs(from.x - to.x), std::abs(from.y - to.y));
@@ -94,14 +94,16 @@ namespace pathfinding {
         return path;
     }
 
-    std::vector<int> get_bfs_distances(std::vector<Position> starts, MovementType movement, const Map& map){
+    std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, MovementType movement, const Map& map){
         std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
+        std::vector<int> preds(map.x_size * map.y_size, INT_MAX);
         std::queue<bfs_node_tuple> queue;
 
         for(Position start : starts){
             int start_map_idx = map.get_map_idx(start);
-            queue.push(std::make_tuple(/*cost = */ 0, start_map_idx));
+            queue.push(std::make_tuple(/*cost = */ 0, start_map_idx, -1));
             distances[start_map_idx] = 0;
+            preds[start_map_idx] = -1;
         }
 
         while(!queue.empty()){
@@ -110,12 +112,14 @@ namespace pathfinding {
             
             int curr_cost = std::get<0>(curr);
             int curr_map_idx = std::get<1>(curr);
+            int prev_map_idx = std::get<2>(curr);
 
             if(distances[curr_map_idx] < curr_cost){
                 continue;
             }
 
             distances[curr_map_idx] = curr_cost;
+            preds[curr_map_idx] = prev_map_idx;
 
             Position curr_pos = map.get_pos_from_map_idx(curr_map_idx);
             std::vector<Position> neighbors = map.get_neighbors(curr_pos, movement);
@@ -126,11 +130,11 @@ namespace pathfinding {
                     continue;
                 }
                 distances[neighbor_map_idx] = neighbor_cost;
-                queue.push(std::make_tuple(neighbor_cost, neighbor_map_idx));
+                queue.push(std::make_tuple(neighbor_cost, neighbor_map_idx, curr_map_idx));
             }
         }
 
-        return distances;
+        return std::make_tuple(distances, preds);
     }
 
     // Brute-Force TSP Solver for small number of nodes.

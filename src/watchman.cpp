@@ -139,15 +139,32 @@ namespace watchman {
     }
 
     // TODO: Fix the cost calculation if we do weighted edges instead of just saying "node.cost + 1".
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned){
-        std::vector<Position> neighbors = map.get_neighbors(node.pos, movement);
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier){
+        std::vector<Position> neighbors;
+        if(jump_to_frontier){
+            neighbors = get_frontier_neighbors(lookup, node.seen, map, movement);
+        } else {
+            neighbors = map.get_neighbors(node.pos, movement);
+        }
         std::vector<Node> neighbor_nodes;
+        int node_map_idx = map.get_map_idx(node.pos);
         for(Position nbr : neighbors){
             boost::dynamic_bitset<> nbr_seen = node.seen;
-            int new_squares_seen = add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(nbr)], map);
+            // For each neighbor, loop through path to neighbor.
+            int curr_map_idx = map.get_map_idx(nbr);
+            int new_squares_seen = 0;
+            int nbr_cost = node.cost;
+            while(lookup.apsp_paths[node_map_idx][curr_map_idx] != -1){
+                new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[curr_map_idx], map);
+                curr_map_idx = lookup.apsp_paths[node_map_idx][curr_map_idx];
+                nbr_cost += 1;
+            }
+            // int new_squares_seen = add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(nbr)], map);
+
+            // Calculate heuristic.
             int nbr_heuristic = get_heuristic(heuristic_type, map.get_map_idx(nbr), nbr_seen, lookup);
             last_id_assigned += 1;
-            neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, node.cost + 1, nbr_heuristic, node.num_seen + new_squares_seen));
+            neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_heuristic, node.num_seen + new_squares_seen));
         }
         return neighbor_nodes;
     }
@@ -187,7 +204,7 @@ namespace watchman {
     // Inputs: Agent starting position, LOS type, map.
     // TODO: Add in radius for LOS.
     // Output: Optimal path.
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
+    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
         Lookup lookup;
         precompute_lookup(lookup, los, map, movement, heuristic_type);
 
@@ -218,6 +235,7 @@ namespace watchman {
         queue.push(Node(/* id = */ 0, start, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 
         int num_expanded = 0;
+        int num_generated = 0;
         int last_id_assigned = 0;
         int max_new_squares_seen = 0;
         int num_skipped = 0;
@@ -267,7 +285,8 @@ namespace watchman {
                 break;
             }
 
-            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned);
+            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier);
+            num_generated += neighbors.size();
             if(neighbors.size() > 0){
                 last_id_assigned = neighbors.back().node_id;
             }
@@ -279,6 +298,7 @@ namespace watchman {
 
         printf("Total nodes expanded: %d\n", num_expanded);
         printf("Total nodes skipped: %d\n", num_skipped);
+        printf("Total nodes generated: %d\n", num_generated);
         printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
         printf("Total TSP solver time: %.3f seconds\n", TOTAL_TSP_SOLVER_TIME);
         printf("Total TSP brute force: %.6f seconds\n", TOTAL_TSP_BRUTE_FORCE_TIME);

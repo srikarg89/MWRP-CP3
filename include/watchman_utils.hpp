@@ -125,6 +125,7 @@ namespace watchman {
                 lookup.los.push_back({});
                 std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
                 lookup.apsp.push_back(infinite_distances);
+                lookup.apsp_paths.push_back(infinite_distances);
             } else {
                 switch(los){
                     case FOUR_WAY_LOS:
@@ -138,8 +139,9 @@ namespace watchman {
                         break;                        
                 }
 
-                std::vector<int> distances = pathfinding::get_bfs_distances({pos}, movement, map);
+                auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, movement, map);
                 lookup.apsp.push_back(distances);
+                lookup.apsp_paths.push_back(preds);
                 sorted_los_order.push_back(map_idx);
             }
             // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
@@ -187,7 +189,7 @@ namespace watchman {
 
                 // For each pivot, we want to compute the distances from the pivot component to every other location.
                 // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
-                std::vector<int> pivot_cell_dists = pathfinding::get_bfs_distances(lookup.los[pivot_idx], movement, map);
+                auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.los[pivot_idx], movement, map);
                 lookup.pivot_cell_dists.push_back(pivot_cell_dists);
 
                 for(int cell_idx = 0; cell_idx < map.x_size * map.y_size; cell_idx++){
@@ -203,7 +205,6 @@ namespace watchman {
     DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
-        // std::vector<DisjointGraphEdge> edges;
 
         for(int potential_pivot : lookup.sorted_los_order){
             // printf("Processing potential pivot: %d\n", potential_pivot);
@@ -262,4 +263,95 @@ namespace watchman {
         };
     }
 
+    std::vector<Position> get_frontier_neighbors(const Lookup& lookup, const boost::dynamic_bitset<>& seen, const Map& map, MovementType movement){
+        std::unordered_set<int> watchers;
+        std::vector<int> pivots;
+        std::vector<Position> neighbors;
+
+        for(int potential_pivot : lookup.sorted_los_order){
+            // printf("Processing potential pivot: %d\n", potential_pivot);
+            if(seen[potential_pivot]){
+                // printf("\tSkipping cuz already seen\n");
+                continue;
+            }
+
+            // We can test if a pivot is valid by checking the pivot <-> pivot distance. If this is 0, then the pivots share a watcher, and thus this pivot is invalid.
+            // Technically still O(N^2) but now only checking against pivots instead of every cell, which should be much faster.
+            bool valid = true;
+            for(int existing_pivot : pivots){
+                if(lookup.pivot_pivot_dists[existing_pivot][potential_pivot] == 0){
+                    valid = false;
+                    // printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
+                    break;
+                }
+            }
+            if(!valid){
+                continue;
+            }
+
+            pivots.push_back(potential_pivot);
+            watchers.insert(potential_pivot);
+            std::unordered_set<int> component;
+            for(Position los_pos : lookup.los[potential_pivot]){
+                int los_map_idx = map.get_map_idx(los_pos);
+                component.insert(los_map_idx);
+                watchers.insert(los_map_idx);
+            }
+
+            for(Position los_pos : lookup.los[potential_pivot]){
+                std::vector<Position> los_neighbors = map.get_neighbors(los_pos, movement);
+                bool is_frontier = false;
+                for(Position neighbor : los_neighbors){
+                    int neighbor_map_idx = map.get_map_idx(neighbor);
+                    if(component.find(neighbor_map_idx) == component.end()){
+                        is_frontier = true;
+                        break;
+                    }
+                }
+                if(is_frontier){
+                    neighbors.push_back(los_pos);
+                }
+            }
+        }
+
+        // Add in white cells.
+        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+            if(seen[map_idx] || watchers.find(map_idx) != watchers.end()){
+                continue;
+            }
+
+            int white_pivot = map_idx;
+            pivots.push_back(white_pivot);
+            std::unordered_set<int> component;
+            for(Position los_pos : lookup.los[white_pivot]){
+                int los_map_idx = map.get_map_idx(los_pos);
+                if(seen[los_map_idx] || watchers.find(los_map_idx) != watchers.end()){
+                    continue;
+                }
+                component.insert(los_map_idx);
+                watchers.insert(los_map_idx);
+            }
+
+            for(Position los_pos : lookup.los[white_pivot]){
+                int los_map_idx = map.get_map_idx(los_pos);
+                if(los_map_idx == white_pivot){
+                    continue;
+                }
+                std::vector<Position> los_neighbors = map.get_neighbors(los_pos, movement);
+                bool is_frontier = false;
+                for(Position neighbor : los_neighbors){
+                    int neighbor_map_idx = map.get_map_idx(neighbor);
+                    if(component.find(neighbor_map_idx) == component.end()){
+                        is_frontier = true;
+                        break;
+                    }
+                }
+                if(is_frontier){
+                    neighbors.push_back(los_pos);
+                }
+            }
+        }
+
+        return neighbors;
+    }
 }

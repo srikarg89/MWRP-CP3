@@ -229,6 +229,7 @@ namespace watchman {
             pivots.push_back(potential_pivot);
         }
 
+        int max_edge_cost = 0;
         std::vector<std::vector<int>> edge_costs;
         std::vector<int> agent_costs;
         for(int p1 : pivots){
@@ -236,10 +237,13 @@ namespace watchman {
             std::vector<int> pivot_outgoing_costs;
             for(int p2 : pivots){
                 pivot_outgoing_costs.push_back(lookup.pivot_pivot_dists[p1][p2]);
+                max_edge_cost = std::max(max_edge_cost, lookup.pivot_pivot_dists[p1][p2]);
             }
             pivot_outgoing_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
             agent_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
             edge_costs.push_back(pivot_outgoing_costs);
+
+            max_edge_cost = std::max(max_edge_cost, lookup.pivot_cell_dists[p1][agent_map_idx]);
         }
 
         // Add agent position to the list of nodes.
@@ -250,11 +254,11 @@ namespace watchman {
         // Add outgoing edges for the agent.
         edge_costs.push_back(agent_costs);
 
-
         // Nodes = pivots + agent position.
         return DisjointGraph {
             .nodes=nodes,
-            .edge_costs=edge_costs
+            .edge_costs=edge_costs,
+            .max_edge_cost=max_edge_cost
         };
     }
 

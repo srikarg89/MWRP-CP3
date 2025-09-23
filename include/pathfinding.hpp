@@ -9,6 +9,7 @@
 #include <climits>
 #include <cassert>
 #include <algorithm>
+#include <chrono>
 
 // Used to include Concorde TSP solver C code.
 #define new new_
@@ -21,6 +22,10 @@ extern "C" {
 #undef new
 #undef class
 
+double TOTAL_TSP_BRUTE_FORCE_TIME = 0.0;
+double TOTAL_TSP_CONCORDE_TIME = 0.0;
+int TOTAL_TSP_BRUTE_FORCE_CALLS = 0;
+int TOTAL_TSP_CONCORDE_CALLS = 0;
 
 namespace pathfinding {
     using node_tuple = std::tuple<int, int, int, int>; // f, g, pos, pred
@@ -197,8 +202,8 @@ namespace pathfinding {
 
         // Check return code.
         if(success != 1 || foundtour != 1) {
-        fprintf(stderr, "TSP solver failed to find a solution: %d, %d\n", success, foundtour);
-        exit(1);
+            fprintf(stderr, "TSP solver failed to find a solution: %d, %d\n", success, foundtour);
+            exit(1);
         }
 
         // Free allocated variables.
@@ -213,11 +218,25 @@ namespace pathfinding {
 
     // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
     int solve_tsp(const std::vector<std::vector<int>>& dist){
+        auto start = std::chrono::high_resolution_clock::now();
         if(dist.size() <= 4){
-            return solve_tsp_brute_force(dist);
+            // printf("Dist size: %ld. Solving brute force\n", dist.size());
+            TOTAL_TSP_BRUTE_FORCE_CALLS += 1;
+            int ret = solve_tsp_brute_force(dist);
+            auto end = std::chrono::high_resolution_clock::now();
+            auto seconds_taken = std::chrono::duration<double>(end - start).count();
+            TOTAL_TSP_BRUTE_FORCE_TIME += seconds_taken;
+            return ret;
         }
         else{
-            return solve_tsp_concorde(dist);
+            // printf("Dist size: %ld. Solving Concorde\n", dist.size());
+            TOTAL_TSP_CONCORDE_CALLS += 1;
+            int ret = solve_tsp_concorde(dist);
+            auto end = std::chrono::high_resolution_clock::now();
+            auto seconds_taken = std::chrono::duration<double>(end - start).count();
+            TOTAL_TSP_CONCORDE_TIME += seconds_taken;
+            // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
+            return ret;
         }
     }
 

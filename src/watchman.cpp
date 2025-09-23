@@ -5,10 +5,13 @@
 #include <queue>
 #include <unordered_map>
 #include <iostream>
+#include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
 
-namespace watchman {
+double TOTAL_HEURISTIC_TIME = 0.0;
+double TOTAL_TSP_SOLVER_TIME = 0.0;
 
+namespace watchman {
     int get_bfs_heuristic(){
         return 1;
     }
@@ -64,6 +67,58 @@ namespace watchman {
         return mst_heuristic;
     }
 
+    int get_tsp_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen){
+        auto heuristic_start = std::chrono::high_resolution_clock::now();
+        // Calculate the disjoint graph.
+        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
+
+        // Create distance matrix. Add in a dummy node that connects to agent with cost 0 and all pivots with large cost (U).
+
+        // // Max cost for any edge is map width * map height.
+        // // Number of edges is number of pivots squared.
+        // // Since U must be greater than sum of all edges, a safe value is width * height * number_of_pivots^2 + 1.
+        // int U = los.size() * disjoint_graph.nodes.size() * disjoint_graph.nodes.size() + 1;
+
+        // TSP path length is at most number of nodes * max cost per edge.
+        int U = disjoint_graph.max_edge_cost * (disjoint_graph.nodes.size() + 3); // +3 just to be safe.
+
+        // The last node in distjoint_graph.edge_costs is the agent position.
+        // We're adding a new dummy node at the end, so now the last row / col will be the dummy node and
+        // the second to last row / col will be the agent node.
+        std::vector<std::vector<int>> dist = disjoint_graph.edge_costs;
+        for(auto& row : dist){
+            row.push_back(U);
+        }
+        dist.push_back(std::vector<int>(disjoint_graph.nodes.size() + 1, U));
+
+        // Dummy <-> Dummy cost is 0. Dummy <-> Agent cost is 0. Dummy <-> Pivot cost is U.
+        dist[dist.size() - 1][dist.size() - 1] = 0;
+        dist[dist.size() - 1][dist.size() - 2] = 0;
+        dist[dist.size() - 2][dist.size() - 1] = 0;
+
+        // Print dist matrix.
+        // printf("TSP Distance Matrix:\n");
+        // for(int i = 0; i < dist.size(); i++){
+        //     for(int j = 0; j < dist[i].size(); j++){
+        //         printf("%d ", dist[i][j]);
+        //     }
+        //     printf("\n");
+        // }
+
+        auto solver_start = std::chrono::high_resolution_clock::now();
+        int tsp_solution = pathfinding::solve_tsp(dist);
+        int tsp_heuristic = tsp_solution - U; // Subtract out the cost of the dummy -> pivot edge.
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto heuristic_seconds_taken = std::chrono::duration<double>(end - heuristic_start).count();
+        auto tsp_solver_seconds_taken = std::chrono::duration<double>(end - solver_start).count();
+        TOTAL_HEURISTIC_TIME += heuristic_seconds_taken;
+        TOTAL_TSP_SOLVER_TIME += tsp_solver_seconds_taken;
+
+        assert(tsp_heuristic >= 0);
+        return tsp_heuristic;
+    }
+
     int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         switch(heuristic_type){
             case BFS:
@@ -72,9 +127,12 @@ namespace watchman {
                 return get_singleton_heuristic(node_map_idx, seen, lookup.min_dist_to_see);
             case MST:
                 return get_mst_heuristic(lookup, node_map_idx, seen);
+            case TSP:
+                return get_tsp_heuristic(lookup, node_map_idx, seen);
             default:
                 printf("UNKNOWN HEURISTIC TYPE ???\n");
                 assert(false);
+                exit(1);
         }
         assert(false);
         return -1;
@@ -94,6 +152,38 @@ namespace watchman {
         return neighbor_nodes;
     }
 
+    void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map){
+        std::unordered_set<int> pivots;
+        std::unordered_set<int> watchers;
+        int node_map_idx = map.get_map_idx(node.pos);
+        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, node.seen);
+        for(int pivot : disjoint_graph.nodes){
+            if(pivot == node_map_idx){
+                continue;
+            }
+            pivots.insert(pivot);
+            for(Position watcher : lookup.los[pivot]){
+                watchers.insert(map.get_map_idx(watcher));
+            }
+        }
+
+        std::string map_list = "";
+        for(int i = 0; i < node.seen.size(); i++){
+            if(pivots.find(i) != pivots.end()){
+                map_list += "3"; // Pivot
+            } else if(watchers.find(i) != watchers.end()){
+                map_list += "4"; // Watcher
+            }
+            else if(node.seen[i]){
+                map_list += "2"; // Seen
+            } else {
+                map_list += "0"; // Not seen
+            }
+        }
+        // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
+        file << node.node_id << "," << node.pos.x << "," << node.pos.y << "," << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
+    }
+
     // Inputs: Agent starting position, LOS type, map.
     // TODO: Add in radius for LOS.
     // Output: Optimal path.
@@ -107,6 +197,10 @@ namespace watchman {
         std::unordered_map<int, Position> id_lookup;
         std::unordered_set<std::tuple<int, size_t>, boost::hash<std::tuple<int, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
 
+        std::ofstream debug_file;
+        debug_file.open("watchman_debug.csv");
+        debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
+
         // Setup the starting variable. Mark all obstacles as seen.
         boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
         int num_start_seen = 0;
@@ -119,8 +213,8 @@ namespace watchman {
         int num_obstacles = num_start_seen;
         int num_free = map.x_size * map.y_size - num_obstacles;
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        printf("Start idx: %d\n", map.get_map_idx(start));
         int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup);
+        printf("Start idx: %d, Start heuristic: %d\n", map.get_map_idx(start), start_heuristic);
         queue.push(Node(/* id = */ 0, start, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 
         int num_expanded = 0;
@@ -129,6 +223,8 @@ namespace watchman {
         int num_skipped = 0;
 
         std::vector<Position> path;
+
+        auto start_time = std::chrono::high_resolution_clock::now();
 
         while(!queue.empty()){
             Node curr = queue.top();
@@ -145,6 +241,8 @@ namespace watchman {
             visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.pos;
 
+            write_node_to_file(debug_file, curr, lookup, map);
+
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
             if(num_expanded % 1000 == 0){
@@ -156,6 +254,9 @@ namespace watchman {
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");
+                auto end_time = std::chrono::high_resolution_clock::now();
+                auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
+                printf("Search time taken: %.3f seconds\n", seconds_taken);
                 path.push_back(curr.pos);
                 int curr_id = curr.node_id;
                 while(curr_id != 0){
@@ -178,6 +279,13 @@ namespace watchman {
 
         printf("Total nodes expanded: %d\n", num_expanded);
         printf("Total nodes skipped: %d\n", num_skipped);
+        printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
+        printf("Total TSP solver time: %.3f seconds\n", TOTAL_TSP_SOLVER_TIME);
+        printf("Total TSP brute force: %.6f seconds\n", TOTAL_TSP_BRUTE_FORCE_TIME);
+        printf("Total TSP concorde time: %.6f seconds\n", TOTAL_TSP_CONCORDE_TIME);
+        printf("Total brute force calls: %d\n", TOTAL_TSP_BRUTE_FORCE_CALLS);
+        printf("Total concorde calls: %d\n", TOTAL_TSP_CONCORDE_CALLS);
+        debug_file.close();
 
         return path;
 

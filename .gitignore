@@ -41,3 +41,4 @@
 *.dwo
 
 build/
+animation*.mp4

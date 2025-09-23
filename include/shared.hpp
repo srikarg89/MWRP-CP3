@@ -106,6 +106,7 @@ struct Lookup {
 struct DisjointGraph {
     std::vector<int> nodes;
     std::vector<std::vector<int>> edge_costs;
+    int max_edge_cost;
 };
 
 

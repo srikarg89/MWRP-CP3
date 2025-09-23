@@ -142,7 +142,8 @@ namespace watchman {
     std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier){
         std::vector<Position> neighbors;
         if(jump_to_frontier){
-            neighbors = get_frontier_neighbors(lookup, node.seen, map, movement);
+            auto tup = get_frontier_neighbors(lookup, node.seen, map, movement);
+            neighbors = std::get<0>(tup);
         } else {
             neighbors = map.get_neighbors(node.pos, movement);
         }
@@ -171,9 +172,18 @@ namespace watchman {
 
     void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map){
         std::unordered_set<int> pivots;
+        std::unordered_set<int> white_pivots;
         std::unordered_set<int> watchers;
+        std::unordered_set<int> frontier_neighbors;
         int node_map_idx = map.get_map_idx(node.pos);
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, node.seen);
+
+        auto [frontier_neighbors_pos, frontier_neighbors_pivots, white_components] = get_frontier_neighbors(lookup, node.seen, map, MovementType::FOUR_WAY_MOVEMENT);
+        for(Position pos : frontier_neighbors_pos){
+            // printf("\tFrontier neighbor: %s\n", pos.toString().c_str());
+            frontier_neighbors.insert(map.get_map_idx(pos));
+        }
+
         for(int pivot : disjoint_graph.nodes){
             if(pivot == node_map_idx){
                 continue;
@@ -184,9 +194,21 @@ namespace watchman {
             }
         }
 
+        for(int pivot : frontier_neighbors_pivots){
+            if(pivot == node_map_idx || pivots.find(pivot) != pivots.end()){
+                continue;
+            }
+            white_pivots.insert(pivot);
+        }
+
         std::string map_list = "";
         for(int i = 0; i < node.seen.size(); i++){
-            if(pivots.find(i) != pivots.end()){
+            // if(frontier_neighbors.find(i) != frontier_neighbors.end()){
+            //     map_list += "6"; // Frontier Neighbor
+            // } else
+            if(white_pivots.find(i) != white_pivots.end()){
+                map_list += "5"; // White Pivot
+            } else if(pivots.find(i) != pivots.end()){
                 map_list += "3"; // Pivot
             } else if(watchers.find(i) != watchers.end()){
                 map_list += "4"; // Watcher
@@ -259,7 +281,9 @@ namespace watchman {
             visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.pos;
 
-            write_node_to_file(debug_file, curr, lookup, map);
+            // write_node_to_file(debug_file, curr, lookup, map);
+
+            // debug_file.close(); exit(0);
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
@@ -268,7 +292,7 @@ namespace watchman {
                 printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
             }
-            // printf("Expanding node %d. Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, curr.pos.toString().c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");
@@ -291,6 +315,7 @@ namespace watchman {
                 last_id_assigned = neighbors.back().node_id;
             }
             for(Node& nbr : neighbors){
+                printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
                 pred_lookup[nbr.node_id] = curr.node_id;
                 queue.push(nbr);
             }

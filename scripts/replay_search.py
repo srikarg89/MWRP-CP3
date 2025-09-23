@@ -1,4 +1,4 @@
-import json
+import json, sys
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors
@@ -32,7 +32,7 @@ map = config["map"]
 
 fig, ax = plt.subplots()
 
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","black"])
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","orange","pink","black"])
 im = ax.imshow(map, cmap=cmap)
 
 ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=1.5)
@@ -57,9 +57,9 @@ def animate_func(frame_num):
         row = i // len(map[0])
         col = i % len(map[0])
         if arr[row][col] == 0:  # Only mark non obstacle cells
-            arr[row][col] = int(seen_bitset[i]) / 5
+            arr[row][col] = int(seen_bitset[i]) / 7
 
-    arr[y][x] = 1 / 5
+    arr[y][x] = 1 / 7
 
     im.set_array(arr)
 
@@ -71,7 +71,6 @@ print("Creating animation...")
 print("Number of frames: ", len(data))
 num_frames = len(data)
 # num_frames = 100
-interval_ms = 50 # 50 milliseconds between frames
+interval_ms = 1000 # 50 milliseconds between frames
 anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
-
-anim.save('animationwhaaa.mp4', writer='ffmpeg', fps=20)
+anim.save(f'{sys.argv[1]}.mp4', writer='ffmpeg', fps=1)

@@ -263,7 +263,7 @@ namespace watchman {
         };
     }
 
-    std::vector<Position> get_frontier_neighbors(const Lookup& lookup, const boost::dynamic_bitset<>& seen, const Map& map, MovementType movement){
+    std::tuple<std::vector<Position>, std::vector<int>, std::vector<std::unordered_set<int>>> get_frontier_neighbors(const Lookup& lookup, const boost::dynamic_bitset<>& seen, const Map& map, MovementType movement){
         std::unordered_set<int> watchers;
         std::vector<int> pivots;
         std::vector<Position> neighbors;
@@ -291,6 +291,7 @@ namespace watchman {
 
             pivots.push_back(potential_pivot);
             watchers.insert(potential_pivot);
+            printf("Adding pivot: %s\n", map.get_pos_from_map_idx(potential_pivot).toString().c_str());
             std::unordered_set<int> component;
             for(Position los_pos : lookup.los[potential_pivot]){
                 int los_map_idx = map.get_map_idx(los_pos);
@@ -309,30 +310,36 @@ namespace watchman {
                     }
                 }
                 if(is_frontier){
+                    printf("\tAdding frontier watcher: %s\n", los_pos.toString().c_str());
                     neighbors.push_back(los_pos);
                 }
             }
         }
 
         // Add in white cells.
+        std::vector<std::unordered_set<int>> white_components;
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
             if(seen[map_idx] || watchers.find(map_idx) != watchers.end()){
                 continue;
             }
 
             int white_pivot = map_idx;
+            printf("Adding white pivot: %s\n", map.get_pos_from_map_idx(white_pivot).toString().c_str());
             pivots.push_back(white_pivot);
             std::unordered_set<int> component;
+            std::vector<Position> component_pos;
             for(Position los_pos : lookup.los[white_pivot]){
                 int los_map_idx = map.get_map_idx(los_pos);
                 if(seen[los_map_idx] || watchers.find(los_map_idx) != watchers.end()){
                     continue;
                 }
                 component.insert(los_map_idx);
+                component_pos.push_back(los_pos);
                 watchers.insert(los_map_idx);
             }
+            white_components.push_back(component);
 
-            for(Position los_pos : lookup.los[white_pivot]){
+            for(Position los_pos : component_pos){
                 int los_map_idx = map.get_map_idx(los_pos);
                 if(los_map_idx == white_pivot){
                     continue;
@@ -343,6 +350,7 @@ namespace watchman {
                     int neighbor_map_idx = map.get_map_idx(neighbor);
                     if(component.find(neighbor_map_idx) == component.end()){
                         is_frontier = true;
+                        printf("\tAdding frontier neighbor: %s since its neighbor %s isn't in component.\n", los_pos.toString().c_str(), neighbor.toString().c_str());
                         break;
                     }
                 }
@@ -352,6 +360,8 @@ namespace watchman {
             }
         }
 
-        return neighbors;
+        return std::make_tuple(neighbors, pivots, white_components);
     }
 }
+
+// TODO: LOS isn't reversible T_T.

@@ -13,14 +13,15 @@ with open('../build/watchman_debug.csv', 'r') as file:
     for line in file:
         parts = line.strip().split(',')
         node_id = int(parts[0])
-        x = int(parts[1])
-        y = int(parts[2])
-        cost = int(parts[3])
-        heuristic = int(parts[4])
-        f_value = int(parts[5])
-        num_seen = int(parts[6])
-        seen_bitset = parts[7]
-        data.append((node_id, x, y, cost, heuristic, f_value, num_seen, seen_bitset))
+        num_agents = int(parts[1])
+        x = int(parts[2])
+        y = int(parts[3])
+        cost = int(parts[4])
+        heuristic = int(parts[5])
+        f_value = int(parts[6])
+        num_seen = int(parts[7])
+        seen_bitset = parts[8]
+        data.append((node_id, num_agents, x, y, cost, heuristic, f_value, num_seen, seen_bitset))
 
 print("Data length:", len(data))
 
@@ -32,7 +33,9 @@ map = config["map"]
 
 fig, ax = plt.subplots()
 
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","orange","pink","black"])
+# cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","orange","pink","black"])
+# cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","black"])
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","black"])
 im = ax.imshow(map, cmap=cmap)
 
 ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=1.5)
@@ -44,33 +47,36 @@ ax.set_xticklabels([])
 
 map_copy = [r.copy() for r in map.copy()]
 
-text = plt.text(0, -1, "", fontsize=10)
+text = plt.text(0, -1, "", fontsize=9)
 
 def animate_func(frame_num):
     print("Animating frame:", frame_num)
     # Generate or load data for the current frame
     # im.set_array(new_data)
     df = data[frame_num]
-    node_id, x, y, cost, heuristic, f_value, num_seen, seen_bitset = df
+    node_id, num_agents, x, y, cost, heuristic, f_value, num_seen, seen_bitset = df
     arr = [r.copy() for r in map_copy]
     for i in range(len(seen_bitset)):
         row = i // len(map[0])
         col = i % len(map[0])
         if arr[row][col] == 0:  # Only mark non obstacle cells
-            arr[row][col] = int(seen_bitset[i]) / 7
+            arr[row][col] = int(seen_bitset[i]) / 3
 
-    arr[y][x] = 1 / 7
+    arr[y][x] = 1 / 3
 
     im.set_array(arr)
 
-    text.set_text(f"Node ID: {node_id}, Pos: ({x},{y}), Cost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
+    text.set_text(f"Expansion #: {frame_num}, Node ID: {node_id}, Pos: ({x},{y}), Cost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
 
     return [im, text] # Return a list of artists that were modified
+
+name = sys.argv[1]
+fps = int(sys.argv[2])
 
 print("Creating animation...")
 print("Number of frames: ", len(data))
 num_frames = len(data)
 # num_frames = 100
-interval_ms = 1000 # 50 milliseconds between frames
+interval_ms = 1000 // fps # 50 milliseconds between frames
 anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
-anim.save(f'{sys.argv[1]}.mp4', writer='ffmpeg', fps=1)
+anim.save(f'{name}.mp4', writer='ffmpeg', fps=fps)

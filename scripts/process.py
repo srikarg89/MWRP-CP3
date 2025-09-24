@@ -12,6 +12,8 @@ def find_line_in_old(line):
             return old_line
     return None
 
+print(len(new_data), len(old_data))
+
 lookup = {}
 not_found = []
 for line in new_data:
@@ -37,6 +39,6 @@ for line in new_data:
     #         print("\tNew: ", line)
     #         print("\tOld: ", old_line)
 
-
+print("Not found count: ", len(not_found))
 
 

@@ -209,7 +209,7 @@ namespace watchman {
     }
 
     // TODO: Fix the cost calculation if we do weighted edges instead of just saying "node.cost + 1".
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::vector<std::vector<Node>>& all_nodes, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
         std::vector<Node> neighbor_nodes;
         auto neighbors = get_possible_moves(map, node.agents, movement);
         for(const auto& nbr : neighbors){
@@ -238,38 +238,6 @@ namespace watchman {
             } else {
                 generated_costs[nbr_key] = nbr_cost;
             }
-
-
-            // Check if duplicate
-            // bool duplicate = false;
-            // const auto& existing_nodes = all_nodes[map.get_map_idx(nbr[0].pos)];
-            // if(existing_nodes.size() > MAX_EXISTING_NODES_SIZE){
-            //     printf("Updating MAX_EXISTING_NODES_SIZE from %d to %d for position %s\n", MAX_EXISTING_NODES_SIZE, (int)existing_nodes.size(), nbr[0].pos.toString().c_str());
-            // }
-            // MAX_EXISTING_NODES_SIZE = std::max(MAX_EXISTING_NODES_SIZE, (int)existing_nodes.size());
-            // if(MAX_EXISTING_NODES_SIZE == 10){
-            //     printf("Existing nodes for position %s:\n", nbr[0].pos.toString().c_str());
-            //     for(const Node& existing_node : existing_nodes){
-            //         printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
-            //     }
-            //     exit(0);
-            // }
-            // for(const Node& existing_node : existing_nodes){
-            //     if(is_subset(nbr[0].pos, nbr_seen, nbr_num_seen, existing_node) && nbr_cost >= existing_node.cost){
-            //         // int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
-            //         // if(nbr_seen != existing_node.seen && nbr_cost + nbr_heuristic < 74){
-            //             // printf("Skipping duplicate generation that would've been expanded:\n");
-            //         //     printf("\t%s, %s, %d\n", nbr[0].pos.toString().c_str(), bitset_to_string(nbr_seen).c_str(), nbr_cost);
-            //         //     printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
-            //         // }
-            //         NUM_SKIPPED += 1;
-            //         duplicate = true;
-            //         break;
-            //     }
-            // }
-            // if(duplicate){
-            //     continue;
-            // }
 
             // Calculate heuristic.
             int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
@@ -344,8 +312,6 @@ namespace watchman {
         debug_file.open("watchman_debug.csv");
         debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
 
-        std::vector<std::vector<Node>> all_nodes(map.x_size * map.y_size, std::vector<Node>());
-
         // Setup the starting variable. Mark all obstacles as seen.
         boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
         int num_start_seen = 0;
@@ -366,7 +332,6 @@ namespace watchman {
         int start_heuristic = get_heuristic(heuristic_type, map, start_agent_states, start_seen, lookup);
         printf("Start heuristic: %d\n", start_heuristic);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
-        all_nodes[map.get_map_idx(start_agent_states[0].pos)].push_back(queue.top());
 
         std::vector<Node> expanded_nodes;
 
@@ -389,43 +354,9 @@ namespace watchman {
             std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
             if(visited_nodes.find(visited_key) != visited_nodes.end()){
                 // Already visited this node.
-                // bool sanity = false;
-                // for(const Node& existing_node : expanded_nodes){
-                //     if(is_subset(curr.agents[0].pos, curr.seen, existing_node) && curr.cost >= existing_node.cost){
-                //         printf("Sanity check worked\n");
-                //         printf("\t%s, %s, %d\n", curr.agents[0].pos.toString().c_str(), bitset_to_string(curr.seen).c_str(), curr.cost);
-                //         printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
-                //         sanity = true;
-                //         break;
-                //     }
-                // }
-                // if(!sanity){
-                //     printf("Sanity check failed!\n");
-                //     printf("\t%s, %s, %d\n", curr.agents[0].pos.toString().c_str(), bitset_to_string(curr.seen).c_str(), curr.cost);
-                //     for(const Node& existing_node : expanded_nodes){
-                //         printf("\tExisting: %s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
-                //     }
-                //     assert(false);
-                // }
-
                 num_skipped += 1;
                 continue;
             }
-
-            // bool duplicate = false;
-            // for(const Node& existing_node : expanded_nodes){
-            //     if(is_subset(curr.agents[0].pos, curr.seen, curr.num_seen, existing_node) && curr.cost >= existing_node.cost){
-            //         printf("Found duplicate expansion: %d / %d\n", curr.node_id, num_expanded);
-            //         printf("\t%s, %s, %d, %d\n", curr.agents[0].pos.toString().c_str(), bitset_to_string(curr.seen).c_str(), curr.num_seen, curr.cost);
-            //         printf("\t%s, %s, %d, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.num_seen, existing_node.cost);
-            //         duplicate = true;
-            //         break;
-            //     }
-            // }
-            // if(duplicate){
-            //     num_skipped_dom += 1;
-            //     continue;
-            // }
 
             expanded_nodes.push_back(curr);
 
@@ -461,7 +392,7 @@ namespace watchman {
                 break;;
             }
 
-            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier, all_nodes, generated_costs);
+            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier, generated_costs);
             num_generated += neighbors.size();
             if(neighbors.size() > 0){
                 last_id_assigned = neighbors.back().node_id;
@@ -470,17 +401,7 @@ namespace watchman {
                 // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
                 pred_lookup[nbr.node_id] = curr.node_id;
                 queue.push(nbr);
-                all_nodes[map.get_map_idx(nbr.agents[0].pos)].push_back(nbr);
             }
-
-            // if(curr.node_id == 2556){
-            //     printf("Exiting on: %d, %d, %d, %d, %d\n", curr.agents[0].pos.x, curr.agents[0].pos.y, curr.cost, curr.heuristic, curr.num_seen);
-            //     for(Node& nbr : neighbors){
-            //         printf("\tNeighbor: %d, %d, %d, %d, %d, %d, %d\n", nbr.node_id, nbr.agents[0].pos.x, nbr.agents[0].pos.y, nbr.cost, nbr.heuristic, nbr.num_seen, nbr.f_value);
-            //     }
-            //     exit(0);
-            // }
-
         }
 
         printf("Total nodes expanded: %d\n", num_expanded);

@@ -8,18 +8,23 @@
 
 namespace watchman {
 
+    struct AgentState{
+        Position pos;
+        bool terminated;
+    };
+
     struct Node {
         int node_id;
-        Position pos;
+        std::vector<AgentState> agents;
         boost::dynamic_bitset<> seen;
         int cost;
         int heuristic;
         int num_seen;
         int f_value;
 
-        Node(int id, Position p, boost::dynamic_bitset<> s, int c, int h, int n){
+        Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int h, int n){
             node_id = id;
-            pos = p;
+            agents = a;
             seen = s;
             cost = c;
             heuristic = h;
@@ -37,7 +42,7 @@ namespace watchman {
     int get_bfs_heuristic();
     int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
     int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen);
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup);
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier);
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier);
+    int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup);
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::vector<Node>& all_nodes);
+    std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier);
 }

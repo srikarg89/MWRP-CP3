@@ -30,10 +30,14 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }
 
-    std::vector<Position> solution = watchman::run_watchman(scenario_config.agent_starts[0], scenario_config.los_type, scenario_config.map, scenario_config.movement_type, heuristic_type, jump_to_frontier);
+    auto solution = watchman::run_watchman(scenario_config.agent_starts, scenario_config.los_type, scenario_config.map, scenario_config.movement_type, heuristic_type, jump_to_frontier);
     printf("Solution size: %ld\n", solution.size());
-    for(Position pos : solution){
-        printf("\t%s\n", pos.toString().c_str());
+    for(const std::vector<Position>& agent_positions : solution){
+        printf("\t");
+        for(const Position& pos : agent_positions){
+            printf("%s ", pos.toString().c_str());
+        }
+        printf("\n");
     }
 
     return 0;

@@ -23,7 +23,7 @@ struct Position {
         return x == other.x && y == other.y;
     }
 
-    std::string toString(){
+    std::string toString() const {
         return "(" + std::to_string(x) + "," + std::to_string(y) + ")";
     }
 };
@@ -64,6 +64,14 @@ struct Map {
 
     int get_map_idx(Position pos) const {
         return pos.y * x_size + pos.x;
+    }
+
+    std::vector<int> get_map_idxs(const std::vector<Position>& pos) const {
+        std::vector<int> idxs;
+        for(const auto& p : pos) {
+            idxs.push_back(get_map_idx(p));
+        }
+        return idxs;
     }
 
     Position get_pos_from_map_idx(int map_idx) const {

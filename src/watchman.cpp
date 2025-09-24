@@ -10,6 +10,7 @@
 
 double TOTAL_HEURISTIC_TIME = 0.0;
 double TOTAL_TSP_SOLVER_TIME = 0.0;
+int NUM_SKIPPED = 0;
 
 namespace watchman {
     int get_bfs_heuristic(){
@@ -119,16 +120,31 @@ namespace watchman {
         return tsp_heuristic;
     }
 
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+    int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
             case SINGLETON:
-                return get_singleton_heuristic(node_map_idx, seen, lookup.min_dist_to_see);
+                if(agent_states.size() != 1){
+                    printf("SINGLETON heuristic only supports single-agent watchman.\n");
+                    assert(false);
+                    exit(1);
+                }
+                return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
             case MST:
-                return get_mst_heuristic(lookup, node_map_idx, seen);
+                if(agent_states.size() != 1){
+                    printf("MST heuristic only supports single-agent watchman.\n");
+                    assert(false);
+                    exit(1);
+                }
+                return get_mst_heuristic(lookup, map.get_map_idx(agent_states[0].pos), seen);
             case TSP:
-                return get_tsp_heuristic(lookup, node_map_idx, seen);
+                if(agent_states.size() != 1){
+                    printf("TSP heuristic only supports single-agent watchman.\n");
+                    assert(false);
+                    exit(1);
+                }
+                return get_tsp_heuristic(lookup, map.get_map_idx(agent_states[0].pos), seen);
             default:
                 printf("UNKNOWN HEURISTIC TYPE ???\n");
                 assert(false);
@@ -138,32 +154,89 @@ namespace watchman {
         return -1;
     }
 
-    // TODO: Fix the cost calculation if we do weighted edges instead of just saying "node.cost + 1".
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier){
-        std::vector<Position> neighbors;
-        if(jump_to_frontier){
-            auto tup = get_frontier_neighbors(lookup, node.seen, map, movement);
-            neighbors = std::get<0>(tup);
-        } else {
-            neighbors = map.get_neighbors(node.pos, movement);
+    std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, MovementType movement){
+        std::vector<std::vector<AgentState>> options; 
+        for(AgentState agent : agents){
+            if(agent.terminated){
+                // If any agent is terminated, we don't generate any neighbors.
+                options.push_back({agent});
+                continue;
+            }
+            std::vector<AgentState> agent_options;
+            std::vector<Position> nbrs = map.get_neighbors(agent.pos, movement);
+            // TODO: Jump to frontier.
+            for(Position nbr : nbrs){
+                AgentState new_agent_state = AgentState{.pos=nbr, .terminated=false};
+                agent_options.push_back(new_agent_state);
+            }
+            agent_options.push_back(AgentState{.pos=agent.pos, .terminated=true}); // Option to terminate.
+            options.push_back(agent_options);
         }
+        // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
+        std::vector<std::vector<AgentState>> all_moves;
+        std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
+            if(idx == options.size()){
+                if(has_non_terminated_agent){
+                    all_moves.push_back(current);
+                }
+                return;
+            }
+            for(AgentState option : options[idx]){
+                current.push_back(option);
+                backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
+                current.pop_back();
+            }
+        };
+        backtrack(0, {}, false);
+        return all_moves;
+    }
+
+    bool is_subset(Position pos, boost::dynamic_bitset<>& seen, const Node& node){
+        return (pos.x == node.agents[0].pos.x) && (pos.y == node.agents[0].pos.y) && ((seen & node.seen) == seen);
+    }
+
+    std::string bitset_to_string(const boost::dynamic_bitset<>& seen){
+        std::string str = "[";
+        for(int i = 0; i < seen.size(); i++){
+            str += seen[i] ? "1" : "0";
+        }
+        str += "]";
+        return str;
+    }
+
+    // TODO: Fix the cost calculation if we do weighted edges instead of just saying "node.cost + 1".
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::vector<Node>& all_nodes){
         std::vector<Node> neighbor_nodes;
-        int node_map_idx = map.get_map_idx(node.pos);
-        for(Position nbr : neighbors){
+        auto neighbors = get_possible_moves(map, node.agents, movement);
+        for(const auto& nbr : neighbors){
             boost::dynamic_bitset<> nbr_seen = node.seen;
             // For each neighbor, loop through path to neighbor.
-            int curr_map_idx = map.get_map_idx(nbr);
             int new_squares_seen = 0;
             int nbr_cost = node.cost;
-            while(lookup.apsp_paths[node_map_idx][curr_map_idx] != -1){
-                new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[curr_map_idx], map);
-                curr_map_idx = lookup.apsp_paths[node_map_idx][curr_map_idx];
-                nbr_cost += 1;
+            for(const AgentState& agent : nbr){
+                new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
+                if(!agent.terminated){
+                    nbr_cost += 1;
+                }
             }
-            // int new_squares_seen = add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(nbr)], map);
+            // Check if duplicate
+            bool duplicate = false;
+            for(const Node& existing_node : all_nodes){
+                if(is_subset(nbr[0].pos, nbr_seen, existing_node) && nbr_cost >= existing_node.cost){
+                    printf("Skipping duplicate generation:\n");
+                    printf("\t%s, %s, %d\n", nbr[0].pos.toString().c_str(), bitset_to_string(nbr_seen).c_str(), nbr_cost);
+                    printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
+                    NUM_SKIPPED += 1;
+                    duplicate = true;
+                    break;
+                }
+            }
+            if(duplicate){
+                continue;
+            }
 
             // Calculate heuristic.
-            int nbr_heuristic = get_heuristic(heuristic_type, map.get_map_idx(nbr), nbr_seen, lookup);
+            int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_heuristic, node.num_seen + new_squares_seen));
         }
@@ -172,43 +245,26 @@ namespace watchman {
 
     void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map){
         std::unordered_set<int> pivots;
-        std::unordered_set<int> white_pivots;
         std::unordered_set<int> watchers;
-        std::unordered_set<int> frontier_neighbors;
-        int node_map_idx = map.get_map_idx(node.pos);
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, node.seen);
-
-        auto [frontier_neighbors_pos, frontier_neighbors_pivots, white_components] = get_frontier_neighbors(lookup, node.seen, map, MovementType::FOUR_WAY_MOVEMENT);
-        for(Position pos : frontier_neighbors_pos){
-            // printf("\tFrontier neighbor: %s\n", pos.toString().c_str());
-            frontier_neighbors.insert(map.get_map_idx(pos));
+        std::unordered_set<int> agents;
+        for(const AgentState& agent : node.agents){
+            agents.insert(map.get_map_idx(agent.pos));
         }
 
-        for(int pivot : disjoint_graph.nodes){
-            if(pivot == node_map_idx){
-                continue;
-            }
-            pivots.insert(pivot);
-            for(Position watcher : lookup.los[pivot]){
-                watchers.insert(map.get_map_idx(watcher));
-            }
-        }
-
-        for(int pivot : frontier_neighbors_pivots){
-            if(pivot == node_map_idx || pivots.find(pivot) != pivots.end()){
-                continue;
-            }
-            white_pivots.insert(pivot);
-        }
+        // DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agents, node.seen);
+        // for(int pivot : disjoint_graph.nodes){
+        //     if(agents.find(pivot) != agents.end()){
+        //         continue;
+        //     }
+        //     pivots.insert(pivot);
+        //     for(Position watcher : lookup.los[pivot]){
+        //         watchers.insert(map.get_map_idx(watcher));
+        //     }
+        // }
 
         std::string map_list = "";
         for(int i = 0; i < node.seen.size(); i++){
-            // if(frontier_neighbors.find(i) != frontier_neighbors.end()){
-            //     map_list += "6"; // Frontier Neighbor
-            // } else
-            if(white_pivots.find(i) != white_pivots.end()){
-                map_list += "5"; // White Pivot
-            } else if(pivots.find(i) != pivots.end()){
+            if(pivots.find(i) != pivots.end()){
                 map_list += "3"; // Pivot
             } else if(watchers.find(i) != watchers.end()){
                 map_list += "4"; // Watcher
@@ -220,25 +276,31 @@ namespace watchman {
             }
         }
         // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
-        file << node.node_id << "," << node.pos.x << "," << node.pos.y << "," << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
+        file << node.node_id << "," << node.agents.size() << ", ";
+        for(AgentState agent : node.agents){
+            file << agent.pos.x << "," << agent.pos.y << ",";
+        }
+        file << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
     }
 
-    // Inputs: Agent starting position, LOS type, map.
+    // Inputs: Agent starting positions, LOS type, map.
     // TODO: Add in radius for LOS.
     // Output: Optimal path.
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
+    std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
         Lookup lookup;
         precompute_lookup(lookup, los, map, movement, heuristic_type);
 
         // Initialize search data structures.
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
         std::unordered_map<int, int> pred_lookup;
-        std::unordered_map<int, Position> id_lookup;
-        std::unordered_set<std::tuple<int, size_t>, boost::hash<std::tuple<int, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
+        std::unordered_map<int, std::vector<AgentState>> id_lookup;
+        std::unordered_set<std::tuple<std::string, size_t>, boost::hash<std::tuple<std::string, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
 
         std::ofstream debug_file;
         debug_file.open("watchman_debug.csv");
         debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
+
+        std::vector<Node> all_nodes;
 
         // Setup the starting variable. Mark all obstacles as seen.
         boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
@@ -251,10 +313,16 @@ namespace watchman {
         }
         int num_obstacles = num_start_seen;
         int num_free = map.x_size * map.y_size - num_obstacles;
-        num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        int start_heuristic = get_heuristic(heuristic_type, map.get_map_idx(start), start_seen, lookup);
-        printf("Start idx: %d, Start heuristic: %d\n", map.get_map_idx(start), start_heuristic);
-        queue.push(Node(/* id = */ 0, start, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
+
+        std::vector<AgentState> start_agent_states;
+        for(Position start : starts){
+            num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
+            start_agent_states.push_back(AgentState{.pos=start, .terminated=false});
+        }
+        int start_heuristic = get_heuristic(heuristic_type, map, start_agent_states, start_seen, lookup);
+        printf("Start heuristic: %d\n", start_heuristic);
+        queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
+        all_nodes.push_back(queue.top());
 
         int num_expanded = 0;
         int num_generated = 0;
@@ -262,16 +330,16 @@ namespace watchman {
         int max_new_squares_seen = 0;
         int num_skipped = 0;
 
-        std::vector<Position> path;
-
         auto start_time = std::chrono::high_resolution_clock::now();
+
+        std::vector<std::vector<Position>> path;
 
         while(!queue.empty()){
             Node curr = queue.top();
             queue.pop();
 
             size_t seen_hash = boost::hash_value(curr.seen);
-            std::tuple<int, size_t> visited_key = std::make_tuple(map.get_map_idx(curr.pos), seen_hash);
+            std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
             if(visited_nodes.find(visited_key) != visited_nodes.end()){
                 // Already visited this node.
                 num_skipped += 1;
@@ -279,7 +347,7 @@ namespace watchman {
             }
 
             visited_nodes.insert(visited_key);
-            id_lookup[curr.node_id] = curr.pos;
+            id_lookup[curr.node_id] = curr.agents;
 
             // write_node_to_file(debug_file, curr, lookup, map);
 
@@ -289,40 +357,43 @@ namespace watchman {
             num_expanded += 1;
             if(num_expanded % 1000 == 0){
             // if(num_expanded % 1 == 0){
-                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, curr.pos.toString().c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
             }
-            printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, curr.pos.toString().c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");
                 auto end_time = std::chrono::high_resolution_clock::now();
                 auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
                 printf("Search time taken: %.3f seconds\n", seconds_taken);
-                path.push_back(curr.pos);
+
+                path.push_back(agent_states_to_positions(curr.agents));
                 int curr_id = curr.node_id;
                 while(curr_id != 0){
                     curr_id = pred_lookup[curr_id];
-                    path.push_back(id_lookup[curr_id]);
+                    path.push_back(agent_states_to_positions(id_lookup[curr_id]));
                 }
                 std::reverse(path.begin(), path.end());
-                break;
+                break;;
             }
 
-            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier);
+            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier, all_nodes);
             num_generated += neighbors.size();
             if(neighbors.size() > 0){
                 last_id_assigned = neighbors.back().node_id;
             }
             for(Node& nbr : neighbors){
-                printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
+                // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
                 pred_lookup[nbr.node_id] = curr.node_id;
                 queue.push(nbr);
+                all_nodes.push_back(nbr);
             }
         }
 
         printf("Total nodes expanded: %d\n", num_expanded);
-        printf("Total nodes skipped: %d\n", num_skipped);
+        printf("Total expansions skipped: %d\n", num_skipped);
+        printf("Total generations skipped: %d\n", NUM_SKIPPED);
         printf("Total nodes generated: %d\n", num_generated);
         printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
         printf("Total TSP solver time: %.3f seconds\n", TOTAL_TSP_SOLVER_TIME);
@@ -333,7 +404,6 @@ namespace watchman {
         debug_file.close();
 
         return path;
-
     }
 
 }

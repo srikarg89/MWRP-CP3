@@ -219,13 +219,17 @@ namespace watchman {
                     nbr_cost += 1;
                 }
             }
+
             // Check if duplicate
             bool duplicate = false;
             for(const Node& existing_node : all_nodes){
                 if(is_subset(nbr[0].pos, nbr_seen, existing_node) && nbr_cost >= existing_node.cost){
-                    printf("Skipping duplicate generation:\n");
-                    printf("\t%s, %s, %d\n", nbr[0].pos.toString().c_str(), bitset_to_string(nbr_seen).c_str(), nbr_cost);
-                    printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
+                    // int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
+                    // if(nbr_seen != existing_node.seen && nbr_cost + nbr_heuristic < 74){
+                    //     printf("Skipping duplicate generation that would've been expanded:\n");
+                    //     printf("\t%s, %s, %d\n", nbr[0].pos.toString().c_str(), bitset_to_string(nbr_seen).c_str(), nbr_cost);
+                    //     printf("\t%s, %s, %d\n", existing_node.agents[0].pos.toString().c_str(), bitset_to_string(existing_node.seen).c_str(), existing_node.cost);
+                    // }
                     NUM_SKIPPED += 1;
                     duplicate = true;
                     break;
@@ -243,7 +247,7 @@ namespace watchman {
         return neighbor_nodes;
     }
 
-    void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map){
+    void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id){
         std::unordered_set<int> pivots;
         std::unordered_set<int> watchers;
         std::unordered_set<int> agents;
@@ -262,25 +266,32 @@ namespace watchman {
         //     }
         // }
 
-        std::string map_list = "";
-        for(int i = 0; i < node.seen.size(); i++){
-            if(pivots.find(i) != pivots.end()){
-                map_list += "3"; // Pivot
-            } else if(watchers.find(i) != watchers.end()){
-                map_list += "4"; // Watcher
-            }
-            else if(node.seen[i]){
-                map_list += "2"; // Seen
-            } else {
-                map_list += "0"; // Not seen
-            }
-        }
-        // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
-        file << node.node_id << "," << node.agents.size() << ", ";
+        file << node.node_id << "," << parent_id << "," << node.agents.size() << ", " << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << ",";
         for(AgentState agent : node.agents){
             file << agent.pos.x << "," << agent.pos.y << ",";
         }
-        file << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
+        file << bitset_to_string(node.seen) << "\n";
+
+
+        // std::string map_list = "";
+        // for(int i = 0; i < node.seen.size(); i++){
+        //     if(pivots.find(i) != pivots.end()){
+        //         map_list += "3"; // Pivot
+        //     } else if(watchers.find(i) != watchers.end()){
+        //         map_list += "4"; // Watcher
+        //     }
+        //     else if(node.seen[i]){
+        //         map_list += "2"; // Seen
+        //     } else {
+        //         map_list += "0"; // Not seen
+        //     }
+        // }
+        // // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
+        // file << node.node_id << "," << node.agents.size() << ", ";
+        // for(AgentState agent : node.agents){
+        //     file << agent.pos.x << "," << agent.pos.y << ",";
+        // }
+        // file << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
     }
 
     // Inputs: Agent starting positions, LOS type, map.
@@ -349,7 +360,7 @@ namespace watchman {
             visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.agents;
 
-            // write_node_to_file(debug_file, curr, lookup, map);
+            write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id]);
 
             // debug_file.close(); exit(0);
 
@@ -389,6 +400,15 @@ namespace watchman {
                 queue.push(nbr);
                 all_nodes.push_back(nbr);
             }
+
+            // if(curr.node_id == 2556){
+            //     printf("Exiting on: %d, %d, %d, %d, %d\n", curr.agents[0].pos.x, curr.agents[0].pos.y, curr.cost, curr.heuristic, curr.num_seen);
+            //     for(Node& nbr : neighbors){
+            //         printf("\tNeighbor: %d, %d, %d, %d, %d, %d, %d\n", nbr.node_id, nbr.agents[0].pos.x, nbr.agents[0].pos.y, nbr.cost, nbr.heuristic, nbr.num_seen, nbr.f_value);
+            //     }
+            //     exit(0);
+            // }
+
         }
 
         printf("Total nodes expanded: %d\n", num_expanded);

@@ -34,7 +34,7 @@ namespace watchman {
 
         bool operator>(const Node& rhs) const
         {
-            return f_value > rhs.f_value;
+            return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
         }
 
     };

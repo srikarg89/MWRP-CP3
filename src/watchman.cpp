@@ -349,28 +349,25 @@ namespace watchman {
             agents.insert(map.get_map_idx(agent.pos));
         }
 
-        // DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agents, node.seen);
-        // for(int pivot : disjoint_graph.nodes){
-        //     if(agents.find(pivot) != agents.end()){
-        //         continue;
-        //     }
-        //     pivots.insert(pivot);
-        //     for(Position watcher : lookup.los[pivot]){
-        //         watchers.insert(map.get_map_idx(watcher));
-        //     }
-        // }
-
-        // file << node.node_id << "," << parent_id << "," << node.agents.size() << ", " << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << ",";
-        // for(AgentState agent : node.agents){
-        //     file << agent.pos.x << "," << agent.pos.y << ",";
-        // }
-        // file << bitset_to_string(node.seen) << "\n";
-
+        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, map.get_map_idx(node.agents[0].pos), node.seen);
+        DisjointGraph original_graph = disjoint_graph;
+        prune_graph(disjoint_graph, lookup);
+        for(int pivot : disjoint_graph.nodes){
+            if(agents.find(pivot) != agents.end()){
+                continue;
+            }
+            pivots.insert(pivot);
+            for(Position watcher : lookup.los[pivot]){
+                watchers.insert(map.get_map_idx(watcher));
+            }
+        }
 
         std::string map_list = "";
         for(int i = 0; i < node.seen.size(); i++){
             if(pivots.find(i) != pivots.end()){
                 map_list += "3"; // Pivot
+            } else if(std::find(original_graph.nodes.begin(), original_graph.nodes.end(), i) != original_graph.nodes.end()){
+                map_list += "5"; // Original Graph Pivot
             } else if(watchers.find(i) != watchers.end()){
                 map_list += "4"; // Watcher
             }
@@ -381,12 +378,11 @@ namespace watchman {
             }
         }
         // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
-        file << node.node_id << "," << node.agents.size() << ",";
+        file << node.node_id << "," << parent_id << "," << node.agents.size() << ", " << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << ",";
         for(AgentState agent : node.agents){
             file << agent.pos.x << "," << agent.pos.y << ",";
         }
-        file << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << "," << map_list << "\n";
-    }
+        file << map_list << "\n";}
 
     // Inputs: Agent starting positions, LOS type, map.
     // TODO: Add in radius for LOS.
@@ -466,12 +462,12 @@ namespace watchman {
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
-            if(num_expanded % 1000 == 0){
+            if(num_expanded % 100 == 0){
             // if(num_expanded % 1 == 0){
                 printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
             }
-            printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");

@@ -41,7 +41,8 @@ namespace watchman {
 
     int get_bfs_heuristic();
     int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
-    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen);
+    int get_mst_heuristic(const DisjointGraph& disjoint_graph);
+    int get_tsp_heuristic(const DisjointGraph& disjoint_graph);
     int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup);
     std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::vector<Node>& all_nodes);
     std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier);

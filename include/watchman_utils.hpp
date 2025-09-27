@@ -132,7 +132,7 @@ namespace watchman {
         return count;
     }
 
-    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type){
+    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, Position agent_start){
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
         std::vector<int> sorted_los_order;
@@ -164,11 +164,38 @@ namespace watchman {
             // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
         }
 
-        printf("\n\n");
-
         std::sort(sorted_los_order.begin(), sorted_los_order.end(), [lookup](int a, int b){
             return lookup.los[a].size() < lookup.los[b].size();
         });
+
+        printf("\n\n");
+
+        // boost::dynamic_bitset<> start_seen(map.x_size * map.y_size, 0);
+        // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
+        //     start_seen[map.get_map_idx(los_pos)] = 1;
+        // }
+
+        // // TODO: Is this "start_seen" part necessary??
+        // std::vector<std::tuple<int, int>> sorted_order;
+        // for(int i = 0; i < lookup.apsp.size(); i++){
+        //     if(start_seen[i] || lookup.los[i].size() == 0){
+        //         continue;
+        //     }
+        //     int centrality = 0;
+        //     for(int j = 0; j < lookup.apsp.size(); j++){
+        //         if(start_seen[j] || lookup.los[j].size() == 0){
+        //             continue;
+        //         }
+        //         centrality += lookup.apsp[i][j];
+        //     }
+        //     sorted_order.push_back(std::make_tuple(centrality, i));
+        // }
+        // std::sort(sorted_order.begin(), sorted_order.end(), std::greater<>());
+        // std::vector<int> sorted_los_order;
+        // for(const auto& [centrality, idx] : sorted_order){
+        //     sorted_los_order.push_back(idx);
+        // }
+
         lookup.sorted_los_order = sorted_los_order;
 
         // Precompute the Singleton heuristic helper lookup table.
@@ -219,12 +246,13 @@ namespace watchman {
         }
     }
 
+
     DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
 
         for(int potential_pivot : lookup.sorted_los_order){
-            // printf("Processing potential pivot: %d\n", potential_pivot);
+        // for(auto [_, potential_pivot] : sorted_order){
             if(seen[potential_pivot]){
                 // printf("\tSkipping cuz already seen\n");
                 continue;
@@ -244,6 +272,7 @@ namespace watchman {
                 continue;
             }
 
+            // printf("\tUsing pivot: %d\n", potential_pivot);
             pivots.push_back(potential_pivot);
         }
 

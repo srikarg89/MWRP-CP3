@@ -28,10 +28,7 @@ namespace watchman {
         return heuristic;
     }
 
-    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen){
-        // Calculate the disjoint graph.
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
-
+    int get_mst_heuristic(const DisjointGraph& disjoint_graph){
         // Calculate minimum spanning tree.
         std::priority_queue<std::tuple<int, int, int>> edge_set; // 
         int mst_heuristic = 0;
@@ -69,10 +66,8 @@ namespace watchman {
         return mst_heuristic;
     }
 
-    int get_tsp_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen){
+    int get_tsp_heuristic(const DisjointGraph& disjoint_graph){
         auto heuristic_start = std::chrono::high_resolution_clock::now();
-        // Calculate the disjoint graph.
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, node_map_idx, seen);
 
         // Create distance matrix. Add in a dummy node that connects to agent with cost 0 and all pivots with large cost (U).
 
@@ -121,6 +116,61 @@ namespace watchman {
         return tsp_heuristic;
     }
 
+    // void prune_graph(DisjointGraph& graph, const Lookup& lookup){
+    //     while(true){
+    //         bool removed = false;
+    //         for(int i = 0; i < graph.nodes.size() - 1; i++){
+    //             int pivot = graph.nodes[i];
+    //             // BFS out to find distance to every other pivot.
+    //             std::vector<int> distances(graph.nodes.size(), INT_MAX);
+    //             std::vector<int> pred(graph.nodes.size(), -1);
+    //             distances[i] = 0;
+    //             std::priority_queue<std::tuple<int, int>, std::vector<std::tuple<int, int>>, std::greater<>> queue; // cost, node idx
+    //             queue.push(std::make_tuple(0, i));
+    //             while(!queue.empty()){
+    //                 auto [curr_cost, curr_idx] = queue.top();
+    //                 queue.pop();
+
+    //                 if(distances[curr_idx] < curr_cost){
+    //                     continue;
+    //                 }
+
+    //                 distances[curr_idx] = curr_cost;
+
+    //                 for(int neighbor_idx = 0; neighbor_idx < graph.nodes.size(); neighbor_idx++){
+    //                     if(neighbor_idx == curr_idx){
+    //                         continue;
+    //                     }
+    //                     int edge_cost = graph.edge_costs[curr_idx][neighbor_idx];
+    //                     if(edge_cost == INT_MAX){
+    //                         continue;
+    //                     }
+    //                     int new_cost = curr_cost + edge_cost;
+    //                     if(new_cost < distances[neighbor_idx]){
+    //                         distances[neighbor_idx] = new_cost;
+    //                         pred[neighbor_idx] = curr_idx;
+    //                         queue.push(std::make_tuple(new_cost, neighbor_idx));
+    //                     }
+    //                 }
+    //             }
+
+    //             for(int j = 0; j < graph.nodes.size() - 1; j++){
+    //                 if(i == j || pred[j] == -1){
+    //                     continue;
+    //                 }
+    //                 if(pred[j] != i){
+    //                     printf("Found a faster path from %d to %d that goes through %d\n", i, j, pred[j]);
+    //                     break;
+    //                 }
+    //             }
+
+    //         }
+    //         if(!removed){
+    //             break;
+    //         }
+    //     }
+    // }
+
     int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         switch(heuristic_type){
             case BFS:
@@ -132,20 +182,71 @@ namespace watchman {
                     exit(1);
                 }
                 return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
-            case MST:
+            case MST: {
                 if(agent_states.size() != 1){
                     printf("MST heuristic only supports single-agent watchman.\n");
                     assert(false);
                     exit(1);
                 }
-                return get_mst_heuristic(lookup, map.get_map_idx(agent_states[0].pos), seen);
-            case TSP:
+                DisjointGraph disjoint_graph_mst = compute_disjoint_graph(lookup, map.get_map_idx(agent_states[0].pos), seen);
+                return get_mst_heuristic(disjoint_graph_mst);
+            }
+            case TSP: {
                 if(agent_states.size() != 1){
                     printf("TSP heuristic only supports single-agent watchman.\n");
                     assert(false);
                     exit(1);
                 }
-                return get_tsp_heuristic(lookup, map.get_map_idx(agent_states[0].pos), seen);
+                // Calculate the disjoint graph.
+                // printf("\n\nCalculating TSP heuristic for state at %s:\n", agent_states[0].pos.toString().c_str());
+                DisjointGraph disjoint_graph_tsp = compute_disjoint_graph(lookup, map.get_map_idx(agent_states[0].pos), seen);
+
+                if(disjoint_graph_tsp.nodes.size() <= 1){
+                    return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
+                }
+
+                int tsp_heuristic = get_tsp_heuristic(disjoint_graph_tsp);
+                // printf("Original heuristic with all pivots: %d\n", tsp_heuristic);
+
+                while(disjoint_graph_tsp.nodes.size() > 1){
+                    int pivot_to_remove = -1;
+                    int best_heuristic_this_iteration = tsp_heuristic;
+                    DisjointGraph best_graph = disjoint_graph_tsp;
+                    for(int i = 0; i < disjoint_graph_tsp.nodes.size() - 1; i++){
+                        DisjointGraph graph_copy = disjoint_graph_tsp;
+                        graph_copy.nodes.erase(graph_copy.nodes.begin() + i);
+                        graph_copy.edge_costs.erase(graph_copy.edge_costs.begin() + i);
+                        for(auto& row : graph_copy.edge_costs){
+                            row.erase(row.begin() + i);
+                        }
+                        int heuristic_with_pivot_removed = get_tsp_heuristic(graph_copy);
+                        if(heuristic_with_pivot_removed > best_heuristic_this_iteration){
+                            best_heuristic_this_iteration = heuristic_with_pivot_removed;
+                            pivot_to_remove = disjoint_graph_tsp.nodes[i];
+                            best_graph = graph_copy;
+                        }
+                    }
+                    if(pivot_to_remove == -1){
+                        break;
+                    } else {
+                        // printf("Removing pivot %d from disjoint graph. New heuristic: %d\n", pivot_to_remove, best_heuristic_this_iteration);
+                        disjoint_graph_tsp = best_graph;
+                        tsp_heuristic = best_heuristic_this_iteration;
+                    }
+                }
+
+                // if(map.get_map_idx(agent_states[0].pos) == 5){
+                //     printf("Calculating TSP heuristic for node idx 5\n");
+                //     printf("Heuristic: %d\n", tsp_heuristic);
+                //     printf("Pivots: ");
+                //     for(int pivot : disjoint_graph_tsp.nodes){
+                //         printf("%d ", pivot);
+                //     }
+                //     printf("\n");
+                //     exit(0);
+                // }
+                return tsp_heuristic;
+            }
             default:
                 printf("UNKNOWN HEURISTIC TYPE ???\n");
                 assert(false);
@@ -299,7 +400,22 @@ namespace watchman {
     // Output: Optimal path.
     std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
         Lookup lookup;
-        precompute_lookup(lookup, los, map, movement, heuristic_type);
+        precompute_lookup(lookup, los, map, movement, heuristic_type, starts[0]);
+
+        // Create initial seen bitset.
+        boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
+        int num_start_seen = 0;
+        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+            if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+                start_seen[map_idx] = 1;
+                num_start_seen += 1;
+            }
+        }
+        std::vector<AgentState> start_agent_states;
+        for(Position start : starts){
+            num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
+            start_agent_states.push_back(AgentState{.pos=start, .terminated=false});
+        }
 
         // Initialize search data structures.
         std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
@@ -313,22 +429,10 @@ namespace watchman {
         debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
 
         // Setup the starting variable. Mark all obstacles as seen.
-        boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
-        int num_start_seen = 0;
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-            if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
-                start_seen[map_idx] = 1;
-                num_start_seen += 1;
-            }
-        }
         int num_obstacles = num_start_seen;
         int num_free = map.x_size * map.y_size - num_obstacles;
 
-        std::vector<AgentState> start_agent_states;
-        for(Position start : starts){
-            num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-            start_agent_states.push_back(AgentState{.pos=start, .terminated=false});
-        }
+
         int start_heuristic = get_heuristic(heuristic_type, map, start_agent_states, start_seen, lookup);
         printf("Start heuristic: %d\n", start_heuristic);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
@@ -374,7 +478,7 @@ namespace watchman {
                 printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
             }
-            // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");

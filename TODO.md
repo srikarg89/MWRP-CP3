@@ -9,6 +9,7 @@
 - Implement expanding borders function.
 - Handle collisions.
 - Duplicate / Dominance Detection.
+- Implement makespan cost.
 
 
 **Extensions**

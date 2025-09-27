@@ -110,10 +110,21 @@ namespace watchman {
         return positions;
     }
 
+    // Used for hashing visited nodes.
     std::string agent_states_to_string(const std::vector<AgentState>& agents){
         std::string str = "[";
         for(const AgentState& agent : agents){
-            str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
+            str += agent.pos.toString() + " / " + (agent.terminated ? " / T" : "") + ", ";
+        }
+        str += "]";
+        return str;
+    }
+
+    // Used for printing debug information.
+    std::string agent_states_to_print_string(const std::vector<AgentState>& agents){
+        std::string str = "[";
+        for(const AgentState& agent : agents){
+            str += agent.pos.toString() + " / " + std::to_string(agent.cost) + (agent.terminated ? " / T" : "") + ", ";
         }
         str += "]";
         return str;
@@ -130,6 +141,47 @@ namespace watchman {
             seen[map_idx] = 1;
         }
         return count;
+    }
+
+    std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, MovementType movement, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+        std::queue<std::tuple<Position, int>> queue; // (position, cost)
+        std::unordered_set<int> visited;
+        std::vector<std::tuple<Position, int>> extended_neighbors;
+
+        queue.push(std::make_tuple(pos, 0));
+
+        while(!queue.empty()){
+            auto [curr_pos, curr_cost] = queue.front();
+            queue.pop();
+
+            int curr_map_idx = map.get_map_idx(curr_pos);
+            if(visited.find(curr_map_idx) != visited.end()){
+                continue;
+            }
+            visited.insert(curr_map_idx);
+
+            std::vector<Position> neighbors = map.get_neighbors(curr_pos, movement);
+            for(Position neighbor : neighbors){
+                int neighbor_map_idx = map.get_map_idx(neighbor);
+                if(visited.find(neighbor_map_idx) != visited.end()){
+                    continue;
+                }
+
+                bool is_new = false;
+                for(Position visible : lookup.los[neighbor_map_idx]){
+                    if(!seen[map.get_map_idx(visible)]){
+                        is_new = true;
+                        break;
+                    }
+                }
+                if(is_new){
+                    extended_neighbors.push_back(std::make_tuple(neighbor, curr_cost + 1));
+                } else {
+                    queue.push(std::make_tuple(neighbor, curr_cost + 1));
+                }
+            }
+        }
+        return extended_neighbors;
     }
 
     void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, Position agent_start){

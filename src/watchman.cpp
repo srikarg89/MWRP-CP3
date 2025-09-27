@@ -249,7 +249,7 @@ namespace watchman {
         return -1;
     }
 
-    std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, MovementType movement){
+    std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, MovementType movement, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         std::vector<std::vector<AgentState>> options; 
         for(AgentState agent : agents){
             if(agent.terminated){
@@ -258,13 +258,18 @@ namespace watchman {
                 continue;
             }
             std::vector<AgentState> agent_options;
-            std::vector<Position> nbrs = map.get_neighbors(agent.pos, movement);
-            // TODO: Jump to frontier.
-            for(Position nbr : nbrs){
-                AgentState new_agent_state = AgentState{.pos=nbr, .terminated=false};
-                agent_options.push_back(new_agent_state);
+            // std::vector<Position> nbrs = map.get_neighbors(agent.pos, movement);
+            // for(Position nbr : nbrs){
+            //     agent_options.push_back(AgentState(nbr, false, agent.cost + 1));
+            // }
+
+            // Expanding borders implementation.
+            std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, movement, seen, lookup);
+            for(auto [nbr, added_cost] : nbrs_with_added_cost){
+                agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
             }
-            agent_options.push_back(AgentState{.pos=agent.pos, .terminated=true}); // Option to terminate.
+
+            agent_options.push_back(AgentState(agent.pos, true, agent.cost)); // Option to terminate.
             options.push_back(agent_options);
         }
         // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
@@ -302,19 +307,18 @@ namespace watchman {
         return str;
     }
 
-    // TODO: Fix the cost calculation if we do weighted edges instead of just saying "node.cost + 1".
     std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
         std::vector<Node> neighbor_nodes;
-        auto neighbors = get_possible_moves(map, node.agents, movement);
+        auto neighbors = get_possible_moves(map, node.agents, movement, node.seen, lookup);
         for(const auto& nbr : neighbors){
             boost::dynamic_bitset<> nbr_seen = node.seen;
             // For each neighbor, loop through path to neighbor.
             int new_squares_seen = 0;
-            int nbr_cost = node.cost;
+            int nbr_cost = 0;
             for(const AgentState& agent : nbr){
                 new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
                 if(!agent.terminated){
-                    nbr_cost += 1;
+                    nbr_cost += agent.cost;
                 }
             }
 
@@ -326,12 +330,9 @@ namespace watchman {
                     // We've already generated a cheaper version of this node.
                     NUM_SKIPPED += 1;
                     continue;
-                } else {
-                    generated_costs[nbr_key] = nbr_cost;
                 }
-            } else {
-                generated_costs[nbr_key] = nbr_cost;
             }
+            generated_costs[nbr_key] = nbr_cost;
 
             // Calculate heuristic.
             int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
@@ -403,7 +404,7 @@ namespace watchman {
         std::vector<AgentState> start_agent_states;
         for(Position start : starts){
             num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-            start_agent_states.push_back(AgentState{.pos=start, .terminated=false});
+            start_agent_states.push_back(AgentState(start, false, 0));
         }
 
         // Initialize search data structures.
@@ -464,16 +465,17 @@ namespace watchman {
             num_expanded += 1;
             if(num_expanded % 100 == 0){
             // if(num_expanded % 1 == 0){
-                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));
             }
-            // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
+            // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
             if(curr.num_seen == map.x_size * map.y_size){
                 printf("Goal condition met!\n");
                 auto end_time = std::chrono::high_resolution_clock::now();
                 auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
                 printf("Search time taken: %.3f seconds\n", seconds_taken);
+                printf("Solution cost: %d\n", curr.cost);
 
                 path.push_back(agent_states_to_positions(curr.agents));
                 int curr_id = curr.node_id;

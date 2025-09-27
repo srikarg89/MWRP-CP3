@@ -11,6 +11,9 @@ namespace watchman {
     struct AgentState{
         Position pos;
         bool terminated;
+        int cost;
+
+        AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
     };
 
     struct Node {

@@ -81,15 +81,17 @@ namespace watchman {
 
 
     int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
-        std::vector<int> agent_map_idxs;
+        std::vector<int> non_terminated_agent_map_idxs;
         for(const auto& agent : agent_states){
-            agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+            if(!agent.terminated){
+                non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+            }
         }
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
             case SINGLETON:
-                return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
+                return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
             case MST: {
                 if(agent_states.size() != 1){
                     printf("MST heuristic only supports single-agent watchman.\n");
@@ -100,7 +102,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_mst.nodes.size() <= 1){
-                    return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_mst, lookup);
@@ -119,7 +121,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_tsp.nodes.size() <= 1){
-                    return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_tsp, lookup);

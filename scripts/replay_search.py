@@ -80,4 +80,4 @@ num_frames = len(data)
 # num_frames = 100
 interval_ms = 1000 // fps # 50 milliseconds between frames
 anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
-anim.save(f'{name}.mp4', writer='ffmpeg', fps=fps)
+anim.save(f'animations/{name}.mp4', writer='ffmpeg', fps=fps)

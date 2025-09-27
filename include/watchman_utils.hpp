@@ -184,7 +184,7 @@ namespace watchman {
         return extended_neighbors;
     }
 
-    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, Position agent_start){
+    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, std::vector<Position> agent_starts){
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
@@ -227,10 +227,13 @@ namespace watchman {
 
         // New sorted LOS method based on centrality. Might be better for multi-agent.
         // boost::dynamic_bitset<> start_seen(map.x_size * map.y_size, 0);
-        // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
-        //     start_seen[map.get_map_idx(los_pos)] = 1;
+        // for(Position agent_start : agent_starts){
+            // Mark all squares visible from the agent start as seen.
+            // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
+                // start_seen[map.get_map_idx(los_pos)] = 1;
+        //     }
         // }
-
+ 
         // // TODO: Is this "start_seen" part necessary??
         // std::vector<std::tuple<int, int>> sorted_order;
         // for(int i = 0; i < lookup.apsp.size(); i++){
@@ -324,6 +327,7 @@ namespace watchman {
                     break;
                 }
             }
+
             if(!valid){
                 continue;
             }

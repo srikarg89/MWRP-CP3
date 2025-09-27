@@ -2,130 +2,17 @@
 #include "shared.hpp"
 #include "watchman_utils.hpp"
 #include "pathfinding.hpp"
+#include "heuristics.hpp"
 #include <queue>
 #include <unordered_map>
 #include <iostream>
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
 
-double TOTAL_HEURISTIC_TIME = 0.0;
-double TOTAL_TSP_SOLVER_TIME = 0.0;
 int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
 
 namespace watchman {
-    int get_bfs_heuristic(){
-        return 1;
-    }
-
-    int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
-        int heuristic = 0;
-        for(int i = 0; i < seen.size(); i++){
-            if(!seen[i]) {
-                heuristic = std::max(heuristic, min_dist_to_see[node_map_idx][i]);
-            }
-        }
-        return heuristic;
-    }
-
-    int get_mst_heuristic(const DisjointGraph& disjoint_graph){
-        // Calculate minimum spanning tree.
-        std::priority_queue<std::tuple<int, int, int>> edge_set; // 
-        int mst_heuristic = 0;
-        std::vector<int> distances(disjoint_graph.nodes.size(), INT_MAX);
-        std::vector<bool> added(disjoint_graph.nodes.size(), false);
-
-        // printf("\nMST Calculation:\n");
-
-        for(int i = 0; i < disjoint_graph.nodes.size(); i++){
-            // Find the min cost node.
-            int next_node_to_add = 0;
-            int min_cost = INT_MAX;
-            for(int j = 0; j < distances.size(); j++){
-                if(added[j]){
-                    continue;
-                }
-                if(distances[j] < min_cost){
-                    next_node_to_add = j;
-                    min_cost = distances[j];
-                }
-            }
-
-            if(i > 0){
-                mst_heuristic += min_cost;
-            }
-
-            for(int j = 0; j < distances.size(); j++){
-                distances[j] = std::min(distances[j], disjoint_graph.edge_costs[next_node_to_add][j]);
-            }
-
-            added[next_node_to_add] = true;
-        }
-
-        // printf("MST Heuristic: %d\n", mst_heuristic);
-        return mst_heuristic;
-    }
-
-    std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoint_graph){
-        auto heuristic_start = std::chrono::high_resolution_clock::now();
-
-        // Create distance matrix. Add in a dummy node that connects to agent with cost 0 and all pivots with large cost (U).
-
-        // // Max cost for any edge is map width * map height.
-        // // Number of edges is number of pivots squared.
-        // // Since U must be greater than sum of all edges, a safe value is width * height * number_of_pivots^2 + 1.
-        // int U = los.size() * disjoint_graph.nodes.size() * disjoint_graph.nodes.size() + 1;
-
-        // TSP path length is at most number of nodes * max cost per edge.
-        int U = disjoint_graph.max_edge_cost * (disjoint_graph.nodes.size() + 3); // +3 just to be safe.
-
-        // The last node in distjoint_graph.edge_costs is the agent position.
-        // We're adding a new dummy node at the end, so now the last row / col will be the dummy node and
-        // the second to last row / col will be the agent node.
-        std::vector<std::vector<int>> dist = disjoint_graph.edge_costs;
-        for(auto& row : dist){
-            row.push_back(U);
-        }
-        dist.push_back(std::vector<int>(disjoint_graph.nodes.size() + 1, U));
-
-        // Dummy <-> Dummy cost is 0. Dummy <-> Agent cost is 0. Dummy <-> Pivot cost is U.
-        dist[dist.size() - 1][dist.size() - 1] = 0;
-        dist[dist.size() - 1][dist.size() - 2] = 0;
-        dist[dist.size() - 2][dist.size() - 1] = 0;
-
-        auto solver_start = std::chrono::high_resolution_clock::now();
-        auto [ tsp_solution, tsp_path ] = pathfinding::solve_tsp(dist);
-
-        // Reorder the path to remove the dummy node and start at the agent node.
-        while(tsp_path[0] != dist.size() - 2){
-            std::rotate(tsp_path.begin(), tsp_path.begin() + 1, tsp_path.end());
-        }
-        if(tsp_path[1] == dist.size() - 1){
-            tsp_path.erase(tsp_path.begin() + 1);
-        } else if(tsp_path.back() == dist.size() - 1){
-            tsp_path.pop_back();
-        } else {
-            printf("WTF WHERE IS THE PATH\n");
-            exit(0);
-        }
-
-        std::vector<int> tsp_pivots_path;
-        for(int i : tsp_path){
-            tsp_pivots_path.push_back(disjoint_graph.nodes[i]);
-        }
-
-        int tsp_heuristic = tsp_solution - U; // Subtract out the cost of the dummy -> pivot edge.
-
-        auto end = std::chrono::high_resolution_clock::now();
-        auto heuristic_seconds_taken = std::chrono::duration<double>(end - heuristic_start).count();
-        auto tsp_solver_seconds_taken = std::chrono::duration<double>(end - solver_start).count();
-        TOTAL_HEURISTIC_TIME += heuristic_seconds_taken;
-        TOTAL_TSP_SOLVER_TIME += tsp_solver_seconds_taken;
-
-        assert(tsp_heuristic >= 0);
-        return std::make_tuple(tsp_heuristic, tsp_pivots_path);
-    }
-
     void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         while(true){
             int shortcut_pivot = -1;
@@ -317,9 +204,7 @@ namespace watchman {
             int nbr_cost = 0;
             for(const AgentState& agent : nbr){
                 new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
-                if(!agent.terminated){
-                    nbr_cost += agent.cost;
-                }
+                nbr_cost += agent.cost;
             }
 
             int nbr_num_seen = node.num_seen + new_squares_seen;
@@ -342,7 +227,8 @@ namespace watchman {
         return neighbor_nodes;
     }
 
-    void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id){
+    void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
+        std::unordered_set<int> original_pivots;
         std::unordered_set<int> pivots;
         std::unordered_set<int> watchers;
         std::unordered_set<int> agents;
@@ -350,16 +236,23 @@ namespace watchman {
             agents.insert(map.get_map_idx(agent.pos));
         }
 
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, map.get_map_idx(node.agents[0].pos), node.seen);
-        DisjointGraph original_graph = disjoint_graph;
-        prune_graph(disjoint_graph, lookup);
-        for(int pivot : disjoint_graph.nodes){
-            if(agents.find(pivot) != agents.end()){
-                continue;
+        if(heuristic_type == TSP || heuristic_type == MST) {
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, map.get_map_idx(node.agents[0].pos), node.seen);
+            for(int pivot : disjoint_graph.nodes){
+                if(agents.find(pivot) != agents.end()){
+                    continue;
+                }
+                original_pivots.insert(pivot);
             }
-            pivots.insert(pivot);
-            for(Position watcher : lookup.los[pivot]){
-                watchers.insert(map.get_map_idx(watcher));
+            prune_graph(disjoint_graph, lookup);
+            for(int pivot : disjoint_graph.nodes){
+                if(agents.find(pivot) != agents.end()){
+                    continue;
+                }
+                pivots.insert(pivot);
+                for(Position watcher : lookup.los[pivot]){
+                    watchers.insert(map.get_map_idx(watcher));
+                }
             }
         }
 
@@ -367,7 +260,7 @@ namespace watchman {
         for(int i = 0; i < node.seen.size(); i++){
             if(pivots.find(i) != pivots.end()){
                 map_list += "3"; // Pivot
-            } else if(std::find(original_graph.nodes.begin(), original_graph.nodes.end(), i) != original_graph.nodes.end()){
+            } else if(original_pivots.find(i) != original_pivots.end()){
                 map_list += "5"; // Original Graph Pivot
             } else if(watchers.find(i) != watchers.end()){
                 map_list += "4"; // Watcher
@@ -390,7 +283,7 @@ namespace watchman {
     // Output: Optimal path.
     std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
         Lookup lookup;
-        precompute_lookup(lookup, los, map, movement, heuristic_type, starts[0]);
+        precompute_lookup(lookup, los, map, movement, heuristic_type, starts);
 
         // Create initial seen bitset.
         boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
@@ -457,13 +350,13 @@ namespace watchman {
             visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.agents;
 
-            write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id]);
+            write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], heuristic_type);
 
             // debug_file.close(); exit(0);
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
-            if(num_expanded % 100 == 0){
+            if(num_expanded % 1000 == 0){
             // if(num_expanded % 1 == 0){
                 printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Next node's f value: %d\n", curr.f_value, (queue.empty() ? -1 : queue.top().f_value));

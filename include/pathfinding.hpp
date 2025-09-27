@@ -138,13 +138,14 @@ namespace pathfinding {
     }
 
     // Brute-Force TSP Solver for small number of nodes.
-    int solve_tsp_brute_force(const std::vector<std::vector<int>>& dist) {
+    std::tuple<int, std::vector<int>> solve_tsp_brute_force(const std::vector<std::vector<int>>& dist) {
         std::vector<int> perm;
         for(int i = 0; i < dist.size(); i++) {
             perm.push_back(i);
         }
 
         int best = INT_MAX;
+        std::vector<int> best_perm;
 
         // Loop through every permutation.
         do {
@@ -156,14 +157,17 @@ namespace pathfinding {
                 cost += dist[from][to];
             }
 
+            if(cost < best) {
+                best_perm = perm;
+            }
             best = std::min(best, cost);
         } while (next_permutation(perm.begin(), perm.end()));
 
-        return best;
+        return std::make_tuple(best, best_perm);
     }
 
     // TSP Solver using Concorde solver functions
-    int solve_tsp_concorde(const std::vector<std::vector<int>>& dist) {
+    std::tuple<int, std::vector<int>> solve_tsp_concorde(const std::vector<std::vector<int>>& dist) {
         double optval;
         int success, foundtour, hit_timebound = 0;
 
@@ -210,6 +214,11 @@ namespace pathfinding {
             exit(1);
         }
 
+        std::vector<int> tour;
+        for(int i = 0; i < ncount; i++){
+            tour.push_back(out_tour[i]);
+        }
+
         // Free allocated variables.
         CC_IFFREE(elist, int);
         CC_IFFREE(elen, int);
@@ -217,16 +226,17 @@ namespace pathfinding {
         CC_IFFREE(name, char);
 
         // return tour;
-        return optval;
+        // return optval;
+        return std::make_tuple((int)optval, tour);
     }
 
     // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
-    int solve_tsp(const std::vector<std::vector<int>>& dist){
+    std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
         auto start = std::chrono::high_resolution_clock::now();
         if(dist.size() <= 4){
             // printf("Dist size: %ld. Solving brute force\n", dist.size());
             TOTAL_TSP_BRUTE_FORCE_CALLS += 1;
-            int ret = solve_tsp_brute_force(dist);
+            auto ret = solve_tsp_brute_force(dist);
             auto end = std::chrono::high_resolution_clock::now();
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_BRUTE_FORCE_TIME += seconds_taken;
@@ -235,7 +245,7 @@ namespace pathfinding {
         else{
             // printf("Dist size: %ld. Solving Concorde\n", dist.size());
             TOTAL_TSP_CONCORDE_CALLS += 1;
-            int ret = solve_tsp_concorde(dist);
+            auto ret = solve_tsp_concorde(dist);
             auto end = std::chrono::high_resolution_clock::now();
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_CONCORDE_TIME += seconds_taken;

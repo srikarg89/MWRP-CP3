@@ -135,7 +135,6 @@ namespace watchman {
     void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, Position agent_start){
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
-        std::vector<int> sorted_los_order;
         for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
             Position pos = map.get_pos_from_map_idx(map_idx);
             if(map.check_obstacle(pos)){
@@ -159,17 +158,23 @@ namespace watchman {
                 auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, movement, map);
                 lookup.apsp.push_back(distances);
                 lookup.apsp_paths.push_back(preds);
-                sorted_los_order.push_back(map_idx);
             }
             // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
         }
 
+        // OG sorted LOS method.
+        std::vector<int> sorted_los_order;
+        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+            if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+                continue;
+            }
+            sorted_los_order.push_back(map_idx);
+        }
         std::sort(sorted_los_order.begin(), sorted_los_order.end(), [lookup](int a, int b){
             return lookup.los[a].size() < lookup.los[b].size();
         });
 
-        printf("\n\n");
-
+        // New sorted LOS method based on centrality.
         // boost::dynamic_bitset<> start_seen(map.x_size * map.y_size, 0);
         // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
         //     start_seen[map.get_map_idx(los_pos)] = 1;

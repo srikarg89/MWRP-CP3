@@ -93,15 +93,6 @@ namespace watchman {
         dist[dist.size() - 1][dist.size() - 2] = 0;
         dist[dist.size() - 2][dist.size() - 1] = 0;
 
-        // Print dist matrix.
-        // printf("TSP Distance Matrix:\n");
-        // for(int i = 0; i < dist.size(); i++){
-        //     for(int j = 0; j < dist[i].size(); j++){
-        //         printf("%d ", dist[i][j]);
-        //     }
-        //     printf("\n");
-        // }
-
         auto solver_start = std::chrono::high_resolution_clock::now();
         auto [ tsp_solution, tsp_path ] = pathfinding::solve_tsp(dist);
 
@@ -137,16 +128,10 @@ namespace watchman {
 
     void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         while(true){
-            bool removed = false;
-            // printf("Graph nodes size: %ld\n", graph.nodes.size());
             int shortcut_pivot = -1;
             int biggest_shortcut = 0;
-            int shortcut_from = -1;
-            int shortcut_to = -1;
 
             for(int i = 0; i < graph.nodes.size() - 1; i++){
-                int pivot = graph.nodes[i];
-                // printf("Testing pivot %d which is node idx %d\n", pivot, i);
                 // BFS out to find distance to every other pivot.
                 std::vector<int> distances(graph.nodes.size(), INT_MAX);
                 std::vector<int> pred(graph.nodes.size(), -1);
@@ -184,39 +169,21 @@ namespace watchman {
                     if(i == j || pred[j] == -1 || pred[j] == graph.nodes.size() - 1){
                         continue;
                     }
-                    // printf("\tChecking path to pivot %d which is idx %d\n", graph.nodes[j], j);
                     if(pred[j] != i && pred[pred[j]] == i){
                         int shortcut = graph.edge_costs[i][j] - distances[j];
-                        // printf("\tFound shortcut between %d and %d that goes through %d. Shortcut amount: %d\n", graph.nodes[i], graph.nodes[j], graph.nodes[pred[j]], shortcut);
                         if(shortcut > biggest_shortcut) {
                             biggest_shortcut = shortcut;
                             shortcut_pivot = pred[j];
-                            shortcut_from = i;
-                            shortcut_to = j;
                         }
-                        // printf("\tFound a faster path from %d to %d that goes through %d\n", i, j, pred[j]);
-                        // printf("Pruning pivot: %d\n", graph.nodes[pred[j]]);
-                        // graph.nodes.erase(graph.nodes.begin() + pred[j]);
-                        // graph.edge_costs.erase(graph.edge_costs.begin() + pred[j]);
-                        // for(auto& row : graph.edge_costs){
-                        //     row.erase(row.begin() + pred[j]);
-                        // }
-                        // removed = true;
-                        // break;
                     }
                 }
-
-                // if(removed){
-                //     break;
-                // }
             }
-            // if(!removed){
-            //     break;
-            // }
+
+            // No pivot provides a shortcut, so we're done pruning.
             if(shortcut_pivot == -1){
                 break;
             }
-            // printf("Pruning pivot: %d which has shortcut: %d in path from %d to %d\n", graph.nodes[shortcut_pivot], biggest_shortcut, graph.nodes[shortcut_from], graph.nodes[shortcut_to]);
+
             graph.nodes.erase(graph.nodes.begin() + shortcut_pivot);
             graph.edge_costs.erase(graph.edge_costs.begin() + shortcut_pivot);
             for(auto& row : graph.edge_costs){
@@ -224,97 +191,6 @@ namespace watchman {
             }
         }
     }
-
-    void prune_graph2(DisjointGraph& graph, const Lookup& lookup){
-        while(true){
-            bool removed = false;
-            // printf("Graph nodes size: %ld\n", graph.nodes.size());
-            int shortcut_pivot = -1;
-            int biggest_shortcut = 0;
-            int shortcut_from = -1;
-            int shortcut_to = -1;
-
-            int i = graph.nodes.size() - 1;
-            int pivot = graph.nodes[i];
-            // printf("Testing pivot %d which is node idx %d\n", pivot, i);
-            // BFS out to find distance to every other pivot.
-            std::vector<int> distances(graph.nodes.size(), INT_MAX);
-            std::vector<int> pred(graph.nodes.size(), -1);
-            distances[i] = 0;
-            std::priority_queue<std::tuple<int, int>, std::vector<std::tuple<int, int>>, std::greater<>> queue; // cost, node idx
-            queue.push(std::make_tuple(0, i));
-            while(!queue.empty()){
-                auto [curr_cost, curr_idx] = queue.top();
-                queue.pop();
-
-                if(distances[curr_idx] < curr_cost){
-                    continue;
-                }
-
-                distances[curr_idx] = curr_cost;
-
-                for(int neighbor_idx = 0; neighbor_idx < graph.nodes.size(); neighbor_idx++){
-                    if(neighbor_idx == curr_idx){
-                        continue;
-                    }
-                    int edge_cost = graph.edge_costs[curr_idx][neighbor_idx];
-                    if(edge_cost == INT_MAX){
-                        continue;
-                    }
-                    int new_cost = curr_cost + edge_cost;
-                    if(new_cost < distances[neighbor_idx]){
-                        distances[neighbor_idx] = new_cost;
-                        pred[neighbor_idx] = curr_idx;
-                        queue.push(std::make_tuple(new_cost, neighbor_idx));
-                    }
-                }
-
-                for(int j = 0; j < graph.nodes.size(); j++){
-                    if(i == j || pred[j] == -1 || pred[j] == graph.nodes.size() - 1){
-                        continue;
-                    }
-                    // printf("\tChecking path to pivot %d which is idx %d\n", graph.nodes[j], j);
-                    if(pred[j] != i && pred[pred[j]] == i){
-                        int shortcut = graph.edge_costs[i][j] - distances[j];
-                        printf("\tFound shortcut between %d and %d that goes through %d. Shortcut amount: %d\n", graph.nodes[i], graph.nodes[j], graph.nodes[pred[j]], shortcut);
-                        if(shortcut > biggest_shortcut) {
-                            biggest_shortcut = shortcut;
-                            shortcut_pivot = pred[j];
-                            shortcut_from = i;
-                            shortcut_to = j;
-                        }
-                        // printf("\tFound a faster path from %d to %d that goes through %d\n", i, j, pred[j]);
-                        // printf("Pruning pivot: %d\n", graph.nodes[pred[j]]);
-                        // graph.nodes.erase(graph.nodes.begin() + pred[j]);
-                        // graph.edge_costs.erase(graph.edge_costs.begin() + pred[j]);
-                        // for(auto& row : graph.edge_costs){
-                        //     row.erase(row.begin() + pred[j]);
-                        // }
-                        // removed = true;
-                        // break;
-                    }
-                }
-
-                // if(removed){
-                //     break;
-                // }
-            }
-            // if(!removed){
-            //     break;
-            // }
-            if(shortcut_pivot == -1){
-                break;
-            }
-            printf("Pruning pivot: %d which has shortcut: %d in path from %d to %d\n", graph.nodes[shortcut_pivot], biggest_shortcut, graph.nodes[shortcut_from], graph.nodes[shortcut_to]);
-            graph.nodes.erase(graph.nodes.begin() + shortcut_pivot);
-            graph.edge_costs.erase(graph.edge_costs.begin() + shortcut_pivot);
-            for(auto& row : graph.edge_costs){
-                row.erase(row.begin() + shortcut_pivot);
-            }
-
-        }
-    }
-
 
 
     int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
@@ -336,9 +212,11 @@ namespace watchman {
                 }
                 DisjointGraph disjoint_graph_mst = compute_disjoint_graph(lookup, map.get_map_idx(agent_states[0].pos), seen);
 
+                // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_mst.nodes.size() <= 1){
                     return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
                 }
+
                 prune_graph(disjoint_graph_mst, lookup);
 
                 return get_mst_heuristic(disjoint_graph_mst);
@@ -349,155 +227,17 @@ namespace watchman {
                     assert(false);
                     exit(1);
                 }
-                // printf("Starting!\n");
-                // Calculate the disjoint graph.
-                // printf("\n\nCalculating TSP heuristic for state at %s:\n", agent_states[0].pos.toString().c_str());
-                DisjointGraph disjoint_graph_tsp = compute_disjoint_graph(lookup, map.get_map_idx(agent_states[0].pos), seen);
-                DisjointGraph original_djg = disjoint_graph_tsp;
 
+                // Calculate the disjoint graph.
+                DisjointGraph disjoint_graph_tsp = compute_disjoint_graph(lookup, map.get_map_idx(agent_states[0].pos), seen);
+
+                // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_tsp.nodes.size() <= 1){
                     return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
                 }
 
-                DisjointGraph copy_to_prune = disjoint_graph_tsp;
-                prune_graph(copy_to_prune, lookup);
-                
-                // int tsp_heuristic = std::get<0>(get_tsp_heuristic(disjoint_graph_tsp));
-                // // printf("Original heuristic with all pivots: %d\n", tsp_heuristic);
-
-                // while(disjoint_graph_tsp.nodes.size() > 1){
-                //     int pivot_to_remove = -1;
-                //     int best_heuristic_this_iteration = tsp_heuristic;
-                //     DisjointGraph best_graph = disjoint_graph_tsp;
-                //     for(int i = 0; i < disjoint_graph_tsp.nodes.size() - 1; i++){
-                //         DisjointGraph graph_copy = disjoint_graph_tsp;
-                //         graph_copy.nodes.erase(graph_copy.nodes.begin() + i);
-                //         graph_copy.edge_costs.erase(graph_copy.edge_costs.begin() + i);
-                //         for(auto& row : graph_copy.edge_costs){
-                //             row.erase(row.begin() + i);
-                //         }
-                //         int heuristic_with_pivot_removed = std::get<0>(get_tsp_heuristic(graph_copy));
-                //         if(heuristic_with_pivot_removed > best_heuristic_this_iteration){
-                //             best_heuristic_this_iteration = heuristic_with_pivot_removed;
-                //             pivot_to_remove = disjoint_graph_tsp.nodes[i];
-                //             best_graph = graph_copy;
-                //         }
-                //     }
-                //     if(pivot_to_remove == -1){
-                //         break;
-                //     } else {
-                //         // printf("Removing pivot %d from disjoint graph. New heuristic: %d\n", pivot_to_remove, best_heuristic_this_iteration);
-                //         disjoint_graph_tsp = best_graph;
-                //         printf("Removing pivot: %d because it decreases heuristic by %d\n", pivot_to_remove, best_heuristic_this_iteration - tsp_heuristic);
-                //         tsp_heuristic = best_heuristic_this_iteration;
-                //     }
-                // }
-
-                // auto [ original_heuristic, original_path ] = get_tsp_heuristic(original_djg);
-                // auto [ prune_heuristic, prune_path ] = get_tsp_heuristic(copy_to_prune);
-                // auto [ final_heuristic, final_path ] = get_tsp_heuristic(disjoint_graph_tsp);
-                // int ori_idx = 0;
-                // int back_idx = original_path.size() - 1;
-
-                // for(int pivot : final_path) {
-                //     if(pivot == map.get_map_idx(agent_states[0].pos)) {
-                //         continue;
-                //     }
-                //     while(ori_idx < original_path.size() && original_path[ori_idx] != pivot) {
-                //         ori_idx++;
-                //     }
-                //     while(back_idx >= 0 && original_path[back_idx] != pivot) {
-                //         back_idx--;
-                //     }
-                // }
-
-                // if(prune_heuristic > final_heuristic) {
-                //     printf("Pruned heuristic %d is greater than final heuristic %d\n", prune_heuristic, final_heuristic);
-                //     printf("Final path: ");
-                //     for(int p : final_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\nOriginal path: ");
-                //     for(int p : original_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\nPruned path: ");
-                //     for(int p : prune_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\n");
-                //     printf("Original heuristic: %d, Pruned heuristic: %d, Final heuristic: %d\n", original_heuristic, prune_heuristic, final_heuristic);
-                //     assert(false);
-                //     exit(0);
-                // }
-
-                auto [ prune_heuristic, prune_path ] = get_tsp_heuristic(copy_to_prune);
-                int tsp_heuristic = prune_heuristic;
-
-
-                // if(ori_idx == original_path.size() && back_idx == -1) {
-                //     printf("Final path: ");
-                //     for(int p : final_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\nOriginal path: ");
-                //     for(int p : original_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\nPruned path: ");
-                //     for(int p : prune_path) {
-                //         printf("%d ", p);
-                //     }
-                //     printf("\n");
-                //     printf("Original heuristic: %d, Pruned heuristic: %d, Final heuristic: %d\n", original_heuristic, prune_heuristic, final_heuristic);
-                //     assert(false);
-                //     exit(0);
-                // }
-                
-
-                // if(copy_to_prune.nodes != disjoint_graph_tsp.nodes && get_tsp_heuristic(copy_to_prune) != tsp_heuristic){
-                // // if(false){
-                //     printf("Original graph nodes: ");
-                //     for(int n : original_djg.nodes){
-                //         printf("%d ", n);
-                //     }
-                //     printf("\nOriginal graph edges: \n");
-                //     for(auto row : original_djg.edge_costs){
-                //         for(int c : row){
-                //             printf("%d ", c);
-                //         }
-                //         printf("\n");
-                //     }
-                //     get_tsp_heuristic(original_djg);
-                //     printf("\nPruned graph nodes: ");
-                //     for(int n : copy_to_prune.nodes){
-                //         printf("%d ", n);
-                //     }
-                //     printf("\nPruned graph edges: \n");
-                //     for(auto row : copy_to_prune.edge_costs){
-                //         for(int c : row){
-                //             printf("%d ", c);
-                //         }
-                //         printf("\n");
-                //     }
-                //     get_tsp_heuristic(copy_to_prune);
-                //     printf("\nElimination chosen graph nodes: ");
-                //     for(int n : disjoint_graph_tsp.nodes){
-                //         printf("%d ", n);
-                //     }
-                //     printf("\nElimination graph edges: \n");
-                //     for(auto row : disjoint_graph_tsp.edge_costs){
-                //         for(int c : row){
-                //             printf("%d ", c);
-                //         }
-                //         printf("\n");
-                //     }
-                //     get_tsp_heuristic(disjoint_graph_tsp);
-                //     printf("\n");
-                //     printf("Original heuristic: %d, Pruned heuristic: %d, Final heuristic: %d\n", get_tsp_heuristic(original_djg), get_tsp_heuristic(copy_to_prune), tsp_heuristic);
-                //     exit(0);
-                // }
-
+                prune_graph(disjoint_graph_tsp, lookup);
+                auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph_tsp);
                 return tsp_heuristic;
             }
             default:

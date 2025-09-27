@@ -159,7 +159,6 @@ namespace watchman {
                 lookup.apsp.push_back(distances);
                 lookup.apsp_paths.push_back(preds);
             }
-            // printf("Position: %s\n\t%s\n", pos.toString().c_str(), pos_array_to_string(lookup.los.back()).c_str());
         }
 
         // OG sorted LOS method.
@@ -174,7 +173,7 @@ namespace watchman {
             return lookup.los[a].size() < lookup.los[b].size();
         });
 
-        // New sorted LOS method based on centrality.
+        // New sorted LOS method based on centrality. Might be better for multi-agent.
         // boost::dynamic_bitset<> start_seen(map.x_size * map.y_size, 0);
         // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
         //     start_seen[map.get_map_idx(los_pos)] = 1;
@@ -315,4 +314,4 @@ namespace watchman {
     }
 }
 
-// TODO: LOS isn't reversible T_T.
+// TODO: Bresham LOS isn't reversible T_T.

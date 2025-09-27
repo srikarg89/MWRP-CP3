@@ -80,18 +80,29 @@ namespace watchman {
     }
 
 
-    int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+    int get_heuristic(HeuristicType heuristic_type, CostType cost_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         std::vector<int> non_terminated_agent_map_idxs;
+        std::vector<int> non_terminated_agent_cost_bonuses;
+        int max_node_cost = 0;
+        for(const auto& agent : agent_states){
+            max_node_cost = std::max(max_node_cost, agent.cost);
+        }
+
         for(const auto& agent : agent_states){
             if(!agent.terminated){
                 non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+                if(cost_type == MAKESPAN){
+                    non_terminated_agent_cost_bonuses.push_back(max_node_cost - agent.cost);
+                } else {
+                    non_terminated_agent_cost_bonuses.push_back(0);
+                }
             }
         }
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
             case SINGLETON:
-                return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
+                return get_singleton_heuristic(non_terminated_agent_map_idxs, non_terminated_agent_cost_bonuses, seen, lookup.min_dist_to_see);
             case MST: {
                 if(agent_states.size() != 1){
                     printf("MST heuristic only supports single-agent watchman.\n");
@@ -102,7 +113,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_mst.nodes.size() <= 1){
-                    return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(non_terminated_agent_map_idxs, non_terminated_agent_cost_bonuses, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_mst, lookup);
@@ -121,7 +132,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_tsp.nodes.size() <= 1){
-                    return get_singleton_heuristic(non_terminated_agent_map_idxs, seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(non_terminated_agent_map_idxs, non_terminated_agent_cost_bonuses, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_tsp, lookup);
@@ -210,7 +221,11 @@ namespace watchman {
             int nbr_cost = 0;
             for(const AgentState& agent : nbr){
                 new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
-                nbr_cost += agent.cost;
+                if(solver_config.cost_type == MAKESPAN){
+                    nbr_cost = std::max(nbr_cost, agent.cost);
+                } else {
+                    nbr_cost += agent.cost;
+                }
             }
 
             int nbr_num_seen = node.num_seen + new_squares_seen;
@@ -226,7 +241,7 @@ namespace watchman {
             generated_costs[nbr_key] = nbr_cost;
 
             // Calculate heuristic.
-            int nbr_heuristic = get_heuristic(solver_config.heuristic_type, map, nbr, nbr_seen, lookup);
+            int nbr_heuristic = get_heuristic(solver_config.heuristic_type, solver_config.cost_type, map, nbr, nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_heuristic, nbr_num_seen));
         }
@@ -321,7 +336,7 @@ namespace watchman {
         int num_free = scenario_config.map.x_size * scenario_config.map.y_size - num_obstacles;
 
 
-        int start_heuristic = get_heuristic(solver_config.heuristic_type, scenario_config.map, start_agent_states, start_seen, lookup);
+        int start_heuristic = get_heuristic(solver_config.heuristic_type, solver_config.cost_type, scenario_config.map, start_agent_states, start_seen, lookup);
         printf("Start heuristic: %d\n", start_heuristic);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 

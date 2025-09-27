@@ -18,13 +18,15 @@ namespace watchman {
         return 0;
     }
 
-    int get_singleton_heuristic(std::vector<int> node_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
+    int get_singleton_heuristic(const std::vector<int>& node_map_idxs, const std::vector<int>& cost_bonuses, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
         int heuristic = 0;
         for(int i = 0; i < seen.size(); i++){
             if(!seen[i]) {
                 int closest_agent_dist_to_see = INT_MAX;
-                for(int node_map_idx : node_map_idxs){
-                    closest_agent_dist_to_see = std::min(closest_agent_dist_to_see, min_dist_to_see[node_map_idx][i]);
+                for(int j = 0; j < node_map_idxs.size(); j++){
+                    int node_map_idx = node_map_idxs[j];
+                    int cost_bonus = cost_bonuses[j];
+                    closest_agent_dist_to_see = std::min(closest_agent_dist_to_see, min_dist_to_see[node_map_idx][i] - cost_bonus);
                 }
 
                 heuristic = std::max(heuristic, closest_agent_dist_to_see);

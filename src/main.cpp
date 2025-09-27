@@ -5,18 +5,28 @@
 int main(int argc, char** argv) {
     // Setup scenario config.
     bool expanding_borders = false;
-    if(argc == 4 && std::string(argv[3]) == "EB"){
+    if(argc == 5 && std::string(argv[4]) == "EB"){
         expanding_borders = true;
     }
-    else if(argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type>\nOptionally add in EB as a fourth argument to use Expanding Borders optimization" << std::endl;
+    else if(argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <cost_type> <heuristic_type>\nOptionally add in EB as a fourth argument to use Expanding Borders optimization" << std::endl;
         return 1;
     }
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
     MovementType movement_type = MovementType::FOUR_WAY_MOVEMENT;
 
     // Setup solver config.
-    std::string heuristic_str = argv[2];
+    std::string cost_str = argv[2];
+    CostType cost_type;
+    if(cost_str == "SOC") {
+        cost_type = CostType::SUM_OF_COSTS;
+    } else if(cost_str == "MKSP") {
+        cost_type = CostType::MAKESPAN;
+    } else {
+        throw std::runtime_error("Invalid cost type: " + cost_str);
+    }
+
+    std::string heuristic_str = argv[3];
     HeuristicType heuristic_type;
     if(heuristic_str == "BFS") {
         heuristic_type = HeuristicType::BFS;
@@ -31,6 +41,7 @@ int main(int argc, char** argv) {
     }
 
     SolverConfig solver_config = SolverConfig{
+        .cost_type = cost_type,
         .heuristic_type = heuristic_type,
         .expanding_borders = expanding_borders
     };

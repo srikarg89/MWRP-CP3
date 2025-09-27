@@ -44,6 +44,11 @@ enum HeuristicType {
     TSP
 };
 
+enum CostType {
+    SUM_OF_COSTS,
+    MAKESPAN
+};
+
 enum MovementType {
     FOUR_WAY_MOVEMENT,
     EIGHT_WAY_MOVEMENT
@@ -132,6 +137,7 @@ struct DisjointGraph {
 
 
 struct SolverConfig {
+    CostType cost_type;
     HeuristicType heuristic_type;
     bool expanding_borders;    
 };

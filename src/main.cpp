@@ -4,12 +4,12 @@
 
 int main(int argc, char** argv) {
     // Setup scenario config.
-    bool jump_to_frontier = false;
-    if(argc == 4 && std::string(argv[3]) == "JF"){
-        jump_to_frontier = true;
+    bool expanding_borders = false;
+    if(argc == 4 && std::string(argv[3]) == "EB"){
+        expanding_borders = true;
     }
     else if(argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type>\nOptionally add in JF as a fourth argument to use Jump-to-Frontier optimization" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type>\nOptionally add in EB as a fourth argument to use Expanding Borders optimization" << std::endl;
         return 1;
     }
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
@@ -30,7 +30,12 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }
 
-    auto solution = watchman::run_watchman(scenario_config.agent_starts, scenario_config.los_type, scenario_config.map, scenario_config.movement_type, heuristic_type, jump_to_frontier);
+    SolverConfig solver_config = SolverConfig{
+        .heuristic_type = heuristic_type,
+        .expanding_borders = expanding_borders
+    };
+
+    auto solution = watchman::run_watchman(scenario_config.agent_starts, scenario_config, solver_config);
     printf("Solution size: %ld\n", solution.size());
     // for(const std::vector<Position>& agent_positions : solution){
     //     printf("\t");

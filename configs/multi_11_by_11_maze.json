@@ -14,5 +14,5 @@
         [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0]
     ],
     "movement": "FOUR_WAY_MOVEMENT",
-    "los": "FOUR_WAY_LOS"
+    "los": "BRES_LOS"
 }

@@ -81,16 +81,15 @@ namespace watchman {
 
 
     int get_heuristic(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+        std::vector<int> agent_map_idxs;
+        for(const auto& agent : agent_states){
+            agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+        }
         switch(heuristic_type){
             case BFS:
                 return get_bfs_heuristic();
             case SINGLETON:
-                if(agent_states.size() != 1){
-                    printf("SINGLETON heuristic only supports single-agent watchman.\n");
-                    assert(false);
-                    exit(1);
-                }
-                return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
+                return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
             case MST: {
                 if(agent_states.size() != 1){
                     printf("MST heuristic only supports single-agent watchman.\n");
@@ -101,7 +100,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_mst.nodes.size() <= 1){
-                    return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_mst, lookup);
@@ -120,7 +119,7 @@ namespace watchman {
 
                 // If there's no pivots, just return the singleton heuristic.
                 if(disjoint_graph_tsp.nodes.size() <= 1){
-                    return get_singleton_heuristic(map.get_map_idx(agent_states[0].pos), seen, lookup.min_dist_to_see);
+                    return get_singleton_heuristic(agent_map_idxs, seen, lookup.min_dist_to_see);
                 }
 
                 prune_graph(disjoint_graph_tsp, lookup);
@@ -136,7 +135,7 @@ namespace watchman {
         return -1;
     }
 
-    std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, MovementType movement, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+    std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, MovementType movement, const boost::dynamic_bitset<>& seen, const Lookup& lookup, bool expanding_borders){
         std::vector<std::vector<AgentState>> options; 
         for(AgentState agent : agents){
             if(agent.terminated){
@@ -145,15 +144,20 @@ namespace watchman {
                 continue;
             }
             std::vector<AgentState> agent_options;
-            // std::vector<Position> nbrs = map.get_neighbors(agent.pos, movement);
-            // for(Position nbr : nbrs){
-            //     agent_options.push_back(AgentState(nbr, false, agent.cost + 1));
-            // }
 
             // Expanding borders implementation.
-            std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, movement, seen, lookup);
-            for(auto [nbr, added_cost] : nbrs_with_added_cost){
-                agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
+            if(expanding_borders){
+                std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, movement, seen, lookup);
+                for(auto [nbr, added_cost] : nbrs_with_added_cost){
+                    agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
+                }
+            }
+            // Generic one-step implementation
+            else {
+                std::vector<Position> nbrs = map.get_neighbors(agent.pos, movement);
+                for(Position nbr : nbrs){
+                    agent_options.push_back(AgentState(nbr, false, agent.cost + 1));
+                }
             }
 
             agent_options.push_back(AgentState(agent.pos, true, agent.cost)); // Option to terminate.
@@ -194,9 +198,9 @@ namespace watchman {
         return str;
     }
 
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned, bool jump_to_frontier, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
+    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
         std::vector<Node> neighbor_nodes;
-        auto neighbors = get_possible_moves(map, node.agents, movement, node.seen, lookup);
+        auto neighbors = get_possible_moves(map, node.agents, movement, node.seen, lookup, solver_config.expanding_borders);
         for(const auto& nbr : neighbors){
             boost::dynamic_bitset<> nbr_seen = node.seen;
             // For each neighbor, loop through path to neighbor.
@@ -220,7 +224,7 @@ namespace watchman {
             generated_costs[nbr_key] = nbr_cost;
 
             // Calculate heuristic.
-            int nbr_heuristic = get_heuristic(heuristic_type, map, nbr, nbr_seen, lookup);
+            int nbr_heuristic = get_heuristic(solver_config.heuristic_type, map, nbr, nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_heuristic, nbr_num_seen));
         }
@@ -279,24 +283,23 @@ namespace watchman {
         file << map_list << "\n";}
 
     // Inputs: Agent starting positions, LOS type, map.
-    // TODO: Add in radius for LOS.
     // Output: Optimal path.
-    std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, bool jump_to_frontier){
+    std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, const ScenarioConfig& scenario_config, const SolverConfig& solver_config){
         Lookup lookup;
-        precompute_lookup(lookup, los, map, movement, heuristic_type, starts);
+        precompute_lookup(lookup, scenario_config, solver_config.heuristic_type, starts);
 
         // Create initial seen bitset.
-        boost::dynamic_bitset<> start_seen(map.x_size * map.y_size);
+        boost::dynamic_bitset<> start_seen(scenario_config.map.x_size * scenario_config.map.y_size);
         int num_start_seen = 0;
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-            if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+        for(int map_idx = 0; map_idx < scenario_config.map.x_size * scenario_config.map.y_size; map_idx++){
+            if(scenario_config.map.check_obstacle(scenario_config.map.get_pos_from_map_idx(map_idx))){
                 start_seen[map_idx] = 1;
                 num_start_seen += 1;
             }
         }
         std::vector<AgentState> start_agent_states;
         for(Position start : starts){
-            num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
+            num_start_seen += add_los_to_seen(start_seen, lookup.los[scenario_config.map.get_map_idx(start)], scenario_config.map);
             start_agent_states.push_back(AgentState(start, false, 0));
         }
 
@@ -313,10 +316,10 @@ namespace watchman {
 
         // Setup the starting variable. Mark all obstacles as seen.
         int num_obstacles = num_start_seen;
-        int num_free = map.x_size * map.y_size - num_obstacles;
+        int num_free = scenario_config.map.x_size * scenario_config.map.y_size - num_obstacles;
 
 
-        int start_heuristic = get_heuristic(heuristic_type, map, start_agent_states, start_seen, lookup);
+        int start_heuristic = get_heuristic(solver_config.heuristic_type, scenario_config.map, start_agent_states, start_seen, lookup);
         printf("Start heuristic: %d\n", start_heuristic);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_heuristic, num_start_seen));
 
@@ -350,7 +353,7 @@ namespace watchman {
             visited_nodes.insert(visited_key);
             id_lookup[curr.node_id] = curr.agents;
 
-            write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], heuristic_type);
+            write_node_to_file(debug_file, curr, lookup, scenario_config.map, pred_lookup[curr.node_id], solver_config.heuristic_type);
 
             // debug_file.close(); exit(0);
 
@@ -363,7 +366,7 @@ namespace watchman {
             }
             // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
-            if(curr.num_seen == map.x_size * map.y_size){
+            if(curr.num_seen == scenario_config.map.x_size * scenario_config.map.y_size){
                 printf("Goal condition met!\n");
                 auto end_time = std::chrono::high_resolution_clock::now();
                 auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
@@ -380,7 +383,7 @@ namespace watchman {
                 break;;
             }
 
-            std::vector<Node> neighbors = get_neighbors(curr, map, movement, lookup, heuristic_type, last_id_assigned, jump_to_frontier, generated_costs);
+            std::vector<Node> neighbors = get_neighbors(curr, scenario_config.map, scenario_config.movement_type, lookup, solver_config, last_id_assigned, generated_costs);
             num_generated += neighbors.size();
             if(neighbors.size() > 0){
                 last_id_assigned = neighbors.back().node_id;

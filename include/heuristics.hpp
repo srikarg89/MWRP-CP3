@@ -15,14 +15,19 @@ namespace watchman {
     double TOTAL_TSP_SOLVER_TIME = 0.0;
 
     int get_bfs_heuristic(){
-        return 1;
+        return 0;
     }
 
-    int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
+    int get_singleton_heuristic(std::vector<int> node_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
         int heuristic = 0;
         for(int i = 0; i < seen.size(); i++){
             if(!seen[i]) {
-                heuristic = std::max(heuristic, min_dist_to_see[node_map_idx][i]);
+                int closest_agent_dist_to_see = INT_MAX;
+                for(int node_map_idx : node_map_idxs){
+                    closest_agent_dist_to_see = std::min(closest_agent_dist_to_see, min_dist_to_see[node_map_idx][i]);
+                }
+
+                heuristic = std::max(heuristic, closest_agent_dist_to_see);
             }
         }
         return heuristic;

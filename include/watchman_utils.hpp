@@ -184,18 +184,23 @@ namespace watchman {
         return extended_neighbors;
     }
 
-    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type, std::vector<Position> agent_starts){
+    void precompute_lookup(Lookup& lookup, const ScenarioConfig& scenario_config, HeuristicType heuristic_type, std::vector<Position> agent_starts){
+        const Map& map = scenario_config.map;
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+        for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+            lookup.watchers.push_back({});
+        }
+
+        for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
             Position pos = map.get_pos_from_map_idx(map_idx);
             if(map.check_obstacle(pos)){
                 lookup.los.push_back({});
-                std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
+                std::vector<int> infinite_distances(map.num_squares, INT_MAX);
                 lookup.apsp.push_back(infinite_distances);
                 lookup.apsp_paths.push_back(infinite_distances);
             } else {
-                switch(los){
+                switch(scenario_config.los_type){
                     case FOUR_WAY_LOS:
                         lookup.los.push_back(four_way_LOS(pos, map));
                         break;
@@ -207,26 +212,33 @@ namespace watchman {
                         break;                        
                 }
 
-                auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, movement, map);
+                for(Position los_pos : lookup.los.back()){
+                    int los_map_idx = map.get_map_idx(los_pos);
+                    lookup.watchers[los_map_idx].push_back(pos);
+                }
+
+                auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, scenario_config.movement_type, map);
                 lookup.apsp.push_back(distances);
                 lookup.apsp_paths.push_back(preds);
             }
         }
 
-        // OG sorted LOS method.
-        std::vector<int> sorted_los_order;
-        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+        // OG sorted LOS method. Sort by which pivots have the least number of watchers.
+        // Watchers are squares that can see the pivot.
+        std::vector<int> sorted_pivot_order;
+        for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
             if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
                 continue;
             }
-            sorted_los_order.push_back(map_idx);
+            sorted_pivot_order.push_back(map_idx);
         }
-        std::sort(sorted_los_order.begin(), sorted_los_order.end(), [lookup](int a, int b){
-            return lookup.los[a].size() < lookup.los[b].size();
+        std::sort(sorted_pivot_order.begin(), sorted_pivot_order.end(), [lookup](int a, int b){
+            return lookup.watchers[a].size() < lookup.watchers[b].size();
         });
 
         // New sorted LOS method based on centrality. Might be better for multi-agent.
-        // boost::dynamic_bitset<> start_seen(map.x_size * map.y_size, 0);
+        // // TODO: Is this "start_seen" part necessary??
+        // boost::dynamic_bitset<> start_seen(map.num_squares, 0);
         // for(Position agent_start : agent_starts){
             // Mark all squares visible from the agent start as seen.
             // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
@@ -234,7 +246,6 @@ namespace watchman {
         //     }
         // }
  
-        // // TODO: Is this "start_seen" part necessary??
         // std::vector<std::tuple<int, int>> sorted_order;
         // for(int i = 0; i < lookup.apsp.size(); i++){
         //     if(start_seen[i] || lookup.los[i].size() == 0){
@@ -250,26 +261,30 @@ namespace watchman {
         //     sorted_order.push_back(std::make_tuple(centrality, i));
         // }
         // std::sort(sorted_order.begin(), sorted_order.end(), std::greater<>());
-        // std::vector<int> sorted_los_order;
+        // std::vector<int> sorted_pivot_order;
         // for(const auto& [centrality, idx] : sorted_order){
-        //     sorted_los_order.push_back(idx);
+        //     sorted_pivot_order.push_back(idx);
         // }
 
-        lookup.sorted_los_order = sorted_los_order;
+        lookup.sorted_pivot_order = sorted_pivot_order;
 
         // Precompute the Singleton heuristic helper lookup table.
         if(heuristic_type == HeuristicType::SINGLETON){
-            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
+            for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+                std::vector<int> min_dists(map.num_squares, INT_MAX);
                 lookup.min_dist_to_see.push_back(min_dists);
             }
 
-            for(int g_map_idx = 0; g_map_idx < map.x_size * map.y_size; g_map_idx++){
-                const std::vector<Position>& los = lookup.los[g_map_idx];
-                for(Position los_pos : los){
-                    int los_idx = map.get_map_idx(los_pos);
-                    for(int s_map_idx = 0; s_map_idx < map.x_size * map.y_size; s_map_idx++){
-                        lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][los_idx]);
+            // For each target position.
+            for(int g_map_idx = 0; g_map_idx < map.num_squares; g_map_idx++){
+                // For each source position.
+                for(int s_map_idx = 0; s_map_idx < map.num_squares; s_map_idx++){
+                    // Loop through each watcher.
+                    for(Position watcher_pos : lookup.watchers[g_map_idx]){
+                        int watcher_idx = map.get_map_idx(watcher_pos);
+   
+                        // Calculate min dist to get to any watcher.
+                        lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][watcher_idx]);
                     }
                 }
             }
@@ -277,14 +292,15 @@ namespace watchman {
 
         // Precompute the distance between pivots in G_DLC
         if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP){
-            for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-                std::vector<int> min_dists(map.x_size * map.y_size, INT_MAX);
+            for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+                std::vector<int> min_dists(map.num_squares, INT_MAX);
                 lookup.pivot_pivot_dists.push_back(min_dists);
             }
 
-            for(int pivot_idx = 0; pivot_idx < map.x_size * map.y_size; pivot_idx++){
+            // Loop through each pivot and compute distances from pivot's watchers to the watchers of any other pivot and to any other cell.
+            for(int pivot_idx = 0; pivot_idx < map.num_squares; pivot_idx++){
                 if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
-                    std::vector<int> infinite_distances(map.x_size * map.y_size, INT_MAX);
+                    std::vector<int> infinite_distances(map.num_squares, INT_MAX);
                     lookup.pivot_cell_dists.push_back(infinite_distances);
                     lookup.pivot_pivot_dists.push_back(infinite_distances);
                     continue;
@@ -292,25 +308,24 @@ namespace watchman {
 
                 // For each pivot, we want to compute the distances from the pivot component to every other location.
                 // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
-                auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.los[pivot_idx], movement, map);
+                auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.watchers[pivot_idx], scenario_config.movement_type, map);
                 lookup.pivot_cell_dists.push_back(pivot_cell_dists);
 
-                for(int cell_idx = 0; cell_idx < map.x_size * map.y_size; cell_idx++){
-                    for(Position los_pos : lookup.los[cell_idx]){
-                        int los_map_idx = map.get_map_idx(los_pos);
-                        lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[los_map_idx]);
+                for(int cell_idx = 0; cell_idx < map.num_squares; cell_idx++){
+                    for(Position watcher_pos : lookup.watchers[cell_idx]){
+                        int watcher_idx = map.get_map_idx(watcher_pos);
+                        lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[watcher_idx]);
                     }
                 }
             }
         }
     }
 
-
     DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
 
-        for(int potential_pivot : lookup.sorted_los_order){
+        for(int potential_pivot : lookup.sorted_pivot_order){
         // for(auto [_, potential_pivot] : sorted_order){
             if(seen[potential_pivot]){
                 // printf("\tSkipping cuz already seen\n");
@@ -369,5 +384,3 @@ namespace watchman {
         };
     }
 }
-
-// TODO: Bresham LOS isn't reversible T_T.

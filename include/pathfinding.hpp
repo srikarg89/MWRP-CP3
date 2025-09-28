@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shared.hpp"
+#include "mtsp.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -22,10 +23,13 @@ extern "C" {
 #undef new
 #undef class
 
+double TOTAL_MTSP_TIME = 0.0;
 double TOTAL_TSP_BRUTE_FORCE_TIME = 0.0;
 double TOTAL_TSP_CONCORDE_TIME = 0.0;
+int TOTAL_MTSP_CALLS = 0;
 int TOTAL_TSP_BRUTE_FORCE_CALLS = 0;
 int TOTAL_TSP_CONCORDE_CALLS = 0;
+
 
 namespace pathfinding {
     using node_tuple = std::tuple<int, int, int, int>; // f, g, pos, pred
@@ -233,6 +237,14 @@ namespace pathfinding {
     // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
     std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
         auto start = std::chrono::high_resolution_clock::now();
+        TOTAL_MTSP_CALLS += 1;
+        printf("Calls: %d\n", TOTAL_MTSP_CALLS);
+        int mtsp_solution = run_mtsp(1, dist.size() - 1, dist);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto seconds_taken = std::chrono::duration<double>(end - start).count();
+        TOTAL_MTSP_TIME += seconds_taken;
+
+        start = std::chrono::high_resolution_clock::now();
         if(dist.size() <= 4){
             // printf("Dist size: %ld. Solving brute force\n", dist.size());
             TOTAL_TSP_BRUTE_FORCE_CALLS += 1;
@@ -240,6 +252,11 @@ namespace pathfinding {
             auto end = std::chrono::high_resolution_clock::now();
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_BRUTE_FORCE_TIME += seconds_taken;
+
+            if(std::get<0>(ret) != mtsp_solution){
+                printf("Brute force TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
+                exit(1);
+            }
             return ret;
         }
         else{
@@ -250,6 +267,16 @@ namespace pathfinding {
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_CONCORDE_TIME += seconds_taken;
             // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
+
+            if(std::get<0>(ret) != mtsp_solution){
+                printf("Concorde TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
+                printf("Concorde path: ");
+                for(int i : std::get<1>(ret)){
+                    printf("%d ", i);
+                }
+                printf("\n");
+                exit(1);
+            }
             return ret;
         }
     }

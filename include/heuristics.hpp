@@ -100,6 +100,15 @@ namespace watchman {
         dist[dist.size() - 1][dist.size() - 2] = 0;
         dist[dist.size() - 2][dist.size() - 1] = 0;
 
+        // printf("U: %d\n", U);
+        // printf("TSP Distance Matrix:\n");
+        // for(auto row : dist){
+        //     for(int val : row){
+        //         printf("%d ", val);
+        //     }
+        //     printf("\n");
+        // }
+
         auto solver_start = std::chrono::high_resolution_clock::now();
         auto [ tsp_solution, tsp_path ] = pathfinding::solve_tsp(dist);
 

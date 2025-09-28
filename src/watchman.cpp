@@ -423,6 +423,8 @@ namespace watchman {
         printf("Total TSP concorde time: %.6f seconds\n", TOTAL_TSP_CONCORDE_TIME);
         printf("Total brute force calls: %d\n", TOTAL_TSP_BRUTE_FORCE_CALLS);
         printf("Total concorde calls: %d\n", TOTAL_TSP_CONCORDE_CALLS);
+        printf("Total MTSP calls: %d\n", TOTAL_MTSP_CALLS);
+        printf("Total MTSP time: %.6f seconds\n", TOTAL_MTSP_TIME);
         debug_file.close();
 
         return path;

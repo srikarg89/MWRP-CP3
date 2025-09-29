@@ -3,10 +3,44 @@
 #include <ilcplex/ilocplex.h>
 #include <vector>
 #include <iostream>
+#include <chrono>
 
 using namespace std;
 
-int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix) {
+double TOTAL_RUNTIME = 0.0;
+double SOLVER_RUNTIME = 0.0;
+
+// TODO: Adapt this for multi-agent TSP.
+std::vector<int> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n) {
+    // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
+    std::vector<int> initial_path;
+    initial_path.push_back(n); // Start at depot
+
+    while(initial_path.size() < n + 1) {
+        int curr = initial_path.back();
+
+        int cheapest = -1;
+        int cheapest_cost = INT_MAX;
+        for(int i = 0; i < n; i++) {
+            if(std::find(initial_path.begin(), initial_path.end(), i) != initial_path.end()){
+                continue;
+            }
+
+            if(cost_matrix[curr][i] < cheapest_cost) {
+                cheapest_cost = cost_matrix[curr][i];
+                cheapest = i;
+            }
+        }
+
+        initial_path.push_back(cheapest);
+    }
+
+    initial_path.push_back(n); // Return to depot
+    return initial_path;
+}
+
+int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, std::vector<int> initial_path) {
+    auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
         IloModel model(env);
@@ -121,7 +155,48 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
 
         model.add(IloMinimize(env, L));
 
-        // std::vector<std::vector<int>> tours;
+
+        // Attach the MIP start to the model
+        IloNumVarArray vars(env);
+        IloNumArray vals(env);
+        if(initial_path.size() == 0){
+            initial_path = get_greedy_solution(cost_matrix, n);
+        } else {
+            printf("Using passed in initial path of size %ld\n", initial_path.size());
+        }
+
+        for(int i = 0; i < initial_path.size() - 1; i++) {
+            int from = initial_path[i];
+            int to = initial_path[i + 1];
+            vars.add(x[0][from][to]);
+            vals.add(1.0);  // activate this edge
+        }
+
+        // Optional: set all other x to 0 (not strictly necessary)
+        for(int agent = 0; agent < m; ++agent){
+            for(int from = 0; from < n+1; ++from){
+                auto it = std::find(initial_path.begin(), initial_path.end(), from);
+                int from_idx = initial_path.size();
+
+                if(it != initial_path.end()){
+                    from_idx = std::distance(initial_path.begin(), it);
+                }
+
+                for(int to = 0; to < n+1; ++to){
+                    if(from == to){
+                        continue;
+                    }
+
+                    if(from_idx < initial_path.size() - 1 && to == initial_path[from_idx + 1]){
+                        continue; // This edge is already added as 1.
+                    }
+
+                    vars.add(x[agent][from][to]);
+                    vals.add(0.0);
+                }
+            }
+        }
+
 
         // Solve
         IloCplex cplex(model);
@@ -130,7 +205,20 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         cplex.setParam(IloCplex::PreInd, 1); // enable presolve.
         cplex.setParam(IloCplex::MIPEmphasis, 1); // emphasize finding feasible solutions faster.
         cplex.setParam(IloCplex::CutsFactor, 1.0); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Threads, 4); // use multiple threads.
+        cplex.setParam(IloCplex::Threads, 1); // Setting it to use 1 thread reduces overhead.
+
+        // cplex.setParam(IloCplex::HeurFreq, 1);        // run heuristics often
+        // cplex.setParam(IloCplex::RINSHeur, 10);       // enable RINS heuristic
+        // cplex.setParam(IloCplex::VarSel, 3);          // strong branching variable selection
+
+        cplex.addMIPStart(vars, vals, IloCplex::MIPStartAuto);
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto seconds_taken = std::chrono::duration<double>(end - start).count();
+        TOTAL_RUNTIME += seconds_taken;
+
+        start = std::chrono::high_resolution_clock::now();
+
         if(cplex.solve()) {
             // cout << "Min makespan: " << cplex.getObjValue() << endl;
 
@@ -147,6 +235,11 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
             //     }
             //     cout << endl;
             // }
+            
+            end = std::chrono::high_resolution_clock::now();
+            seconds_taken = std::chrono::duration<double>(end - start).count();
+            SOLVER_RUNTIME += seconds_taken;
+            printf("Total MTSP time: %.6f seconds. Solver time: %.6f seconds\n", TOTAL_RUNTIME, SOLVER_RUNTIME);
 
             return cplex.getObjValue();
 

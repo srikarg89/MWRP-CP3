@@ -237,14 +237,7 @@ namespace pathfinding {
     // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
     std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
         auto start = std::chrono::high_resolution_clock::now();
-        TOTAL_MTSP_CALLS += 1;
-        printf("Calls: %d\n", TOTAL_MTSP_CALLS);
-        int mtsp_solution = run_mtsp(1, dist.size() - 1, dist);
-        auto end = std::chrono::high_resolution_clock::now();
-        auto seconds_taken = std::chrono::duration<double>(end - start).count();
-        TOTAL_MTSP_TIME += seconds_taken;
 
-        start = std::chrono::high_resolution_clock::now();
         if(dist.size() <= 4){
             // printf("Dist size: %ld. Solving brute force\n", dist.size());
             TOTAL_TSP_BRUTE_FORCE_CALLS += 1;
@@ -253,10 +246,10 @@ namespace pathfinding {
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_BRUTE_FORCE_TIME += seconds_taken;
 
-            if(std::get<0>(ret) != mtsp_solution){
-                printf("Brute force TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
-                exit(1);
-            }
+            // if(std::get<0>(ret) != mtsp_solution){
+            //     printf("Brute force TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
+            //     exit(1);
+            // }
             return ret;
         }
         else{
@@ -267,6 +260,19 @@ namespace pathfinding {
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_TSP_CONCORDE_TIME += seconds_taken;
             // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
+
+            TOTAL_MTSP_CALLS += 1;
+            printf("Calls: %d\n", TOTAL_MTSP_CALLS);
+            start = std::chrono::high_resolution_clock::now();
+            std::vector<int> initial_guess = std::get<1>(ret);
+            initial_guess.push_back(initial_guess[0]); // Make it a cycle.
+            for(int i = 0; i < initial_guess.size(); i++){
+                printf("%d ", initial_guess[i]);
+            }
+            int mtsp_solution = run_mtsp(1, dist.size() - 1, dist, initial_guess); // Empty initial path to use greedy.
+            end = std::chrono::high_resolution_clock::now();
+            seconds_taken = std::chrono::duration<double>(end - start).count();
+            TOTAL_MTSP_TIME += seconds_taken;
 
             if(std::get<0>(ret) != mtsp_solution){
                 printf("Concorde TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);

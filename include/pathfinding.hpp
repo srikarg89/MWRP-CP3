@@ -264,12 +264,14 @@ namespace pathfinding {
             TOTAL_MTSP_CALLS += 1;
             printf("Calls: %d\n", TOTAL_MTSP_CALLS);
             start = std::chrono::high_resolution_clock::now();
-            std::vector<int> initial_guess = std::get<1>(ret);
-            initial_guess.push_back(initial_guess[0]); // Make it a cycle.
-            for(int i = 0; i < initial_guess.size(); i++){
-                printf("%d ", initial_guess[i]);
-            }
-            int mtsp_solution = run_mtsp(1, dist.size() - 1, dist, initial_guess); // Empty initial path to use greedy.
+            // std::vector<int> initial_guess = std::get<1>(ret);
+            // initial_guess.push_back(initial_guess[0]); // Make it a cycle.
+            // for(int i = 0; i < initial_guess.size(); i++){
+            //     printf("%d ", initial_guess[i]);
+            // }
+            // int mtsp_solution = run_mtsp(1, dist.size() - 1, dist, initial_guess); // Empty initial path to use greedy.
+            // int mtsp_solution = run_mtsp(1, dist.size() - 1, dist, {}); // Empty initial path to use greedy.
+            int mtsp_solution = run_mtsp_binary_search(1, dist.size() - 1, dist, {}); // Empty initial path to use greedy.
             end = std::chrono::high_resolution_clock::now();
             seconds_taken = std::chrono::duration<double>(end - start).count();
             TOTAL_MTSP_TIME += seconds_taken;

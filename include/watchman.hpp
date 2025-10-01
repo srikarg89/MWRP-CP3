@@ -24,6 +24,7 @@ namespace watchman {
         int heuristic;
         int num_seen;
         int f_value;
+        bool is_lazy;
 
         Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
             node_id = id;
@@ -33,6 +34,13 @@ namespace watchman {
             heuristic = f - c;
             num_seen = n;
             f_value = f;
+            is_lazy = true;
+        }
+
+        void update_f_value(int new_f_value){
+            f_value = new_f_value;
+            heuristic = f_value - cost;
+            is_lazy = false;
         }
 
         bool operator>(const Node& rhs) const

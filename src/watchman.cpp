@@ -205,21 +205,21 @@ namespace watchman {
         return all_moves;
     }
 
-    bool is_subset(Position pos, const boost::dynamic_bitset<>& seen, int num_seen, const Node& node){
-        if(node.num_seen < num_seen){
-            return false;
-        }
-        return (pos.x == node.agents[0].pos.x) && (pos.y == node.agents[0].pos.y) && ((seen & node.seen) == seen);
-    }
+    // bool is_subset(Position pos, const boost::dynamic_bitset<>& seen, int num_seen, const Node& node){
+    //     if(node.num_seen < num_seen){
+    //         return false;
+    //     }
+    //     return (pos.x == node.agents[0].pos.x) && (pos.y == node.agents[0].pos.y) && ((seen & node.seen) == seen);
+    // }
 
-    std::string bitset_to_string(const boost::dynamic_bitset<>& seen){
-        std::string str = "[";
-        for(int i = 0; i < seen.size(); i++){
-            str += seen[i] ? "1" : "0";
-        }
-        str += "]";
-        return str;
-    }
+    // std::string bitset_to_string(const boost::dynamic_bitset<>& seen){
+    //     std::string str = "[";
+    //     for(int i = 0; i < seen.size(); i++){
+    //         str += seen[i] ? "1" : "0";
+    //     }
+    //     str += "]";
+    //     return str;
+    // }
 
     std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
         std::vector<Node> neighbor_nodes;
@@ -251,7 +251,11 @@ namespace watchman {
             generated_costs[nbr_key] = nbr_cost;
 
             // Calculate heuristic.
-            int nbr_f_value = get_f_value(solver_config.heuristic_type, solver_config.cost_type, map, nbr, nbr_cost, nbr_seen, lookup);
+            HeuristicType heuristic_type = solver_config.heuristic_type;
+            if(heuristic_type == LAZY){
+                heuristic_type = SINGLETON;
+            }
+            int nbr_f_value = get_f_value(heuristic_type, solver_config.cost_type, map, nbr, nbr_cost, nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_f_value, nbr_num_seen));
         }
@@ -339,8 +343,11 @@ namespace watchman {
         int num_obstacles = num_start_seen;
         int num_free = scenario_config.map.x_size * scenario_config.map.y_size - num_obstacles;
 
-
-        int start_f_value = get_f_value(solver_config.heuristic_type, solver_config.cost_type, scenario_config.map, start_agent_states, 0, start_seen, lookup);
+        HeuristicType start_heuristic_type = solver_config.heuristic_type;
+        if(start_heuristic_type == LAZY){
+            start_heuristic_type = SINGLETON;
+        }
+        int start_f_value = get_f_value(start_heuristic_type, solver_config.cost_type, scenario_config.map, start_agent_states, 0, start_seen, lookup);
         printf("Start f value: %d\n", start_f_value);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_f_value, num_start_seen));
 
@@ -352,6 +359,7 @@ namespace watchman {
         int max_new_squares_seen = 0;
         int num_skipped = 0;
         int num_skipped_dom = 0;
+        int num_fully_expanded = 0;
 
         auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -369,6 +377,19 @@ namespace watchman {
                 continue;
             }
 
+            num_expanded += 1;
+
+            if(solver_config.heuristic_type == LAZY && curr.is_lazy){
+                // Recompute f value.
+                int new_f_value = get_f_value(HeuristicType::TSP, solver_config.cost_type, scenario_config.map, curr.agents, curr.cost, curr.seen, lookup);
+                new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
+                curr.update_f_value(new_f_value);
+                queue.push(curr);
+                continue;
+            }
+
+            num_fully_expanded += 1;
+
             expanded_nodes.push_back(curr);
 
             visited_nodes.insert(visited_key);
@@ -379,10 +400,9 @@ namespace watchman {
             // debug_file.close(); exit(0);
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-            num_expanded += 1;
             if(num_expanded % 100 == 0){
             // if(num_expanded % 1 == 0){
-                printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+                printf("Expanded %d nodes. Fully expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, num_fully_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             }
             // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -417,6 +437,7 @@ namespace watchman {
         }
 
         printf("Total nodes expanded: %d\n", num_expanded);
+        printf("Total nodes fully expanded: %d\n", num_fully_expanded);
         printf("Total expansions skipped: %d\n", num_skipped);
         printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
         printf("Total generations skipped: %d\n", NUM_SKIPPED);

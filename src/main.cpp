@@ -38,6 +38,8 @@ int main(int argc, char** argv) {
         heuristic_type = HeuristicType::TSP;
     } else if(heuristic_str == "MAX") {
         heuristic_type = HeuristicType::MAX;
+    } else if(heuristic_str == "LAZY") {
+        heuristic_type = HeuristicType::LAZY;
     } else {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }

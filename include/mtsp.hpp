@@ -12,7 +12,6 @@ using namespace std;
 double TOTAL_RUNTIME = 0.0;
 double SOLVER_RUNTIME = 0.0;
 
-// TODO: Adapt this for multi-agent TSP.
 std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
     std::vector<std::vector<int>> initial_paths(m, std::vector<int>());

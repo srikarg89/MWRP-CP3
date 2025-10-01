@@ -14,37 +14,40 @@ namespace watchman {
     double TOTAL_HEURISTIC_TIME = 0.0;
     double TOTAL_TSP_SOLVER_TIME = 0.0;
 
-    int get_bfs_heuristic(){
-        return 0;
-    }
-
-    int get_singleton_heuristic(const std::vector<int>& node_map_idxs, const std::vector<int>& cost_bonuses, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
-        int heuristic = 0;
+    int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see){
+        int f_value = 0;
         for(int i = 0; i < seen.size(); i++){
             if(!seen[i]) {
-                int closest_agent_dist_to_see = INT_MAX;
-                for(int j = 0; j < node_map_idxs.size(); j++){
-                    int node_map_idx = node_map_idxs[j];
-                    int cost_bonus = cost_bonuses[j];
-                    closest_agent_dist_to_see = std::min(closest_agent_dist_to_see, min_dist_to_see[node_map_idx][i] - cost_bonus);
+                int closest_agent_f_value_to_see = INT_MAX;
+                for(int j = 0; j < agent_map_idxs.size(); j++){
+                    int agent_map_idx = agent_map_idxs[j];
+                    closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, min_dist_to_see[agent_map_idx][i] + agent_current_costs[j]);
                 }
 
-                heuristic = std::max(heuristic, closest_agent_dist_to_see);
+                f_value = std::max(f_value, closest_agent_f_value_to_see);
             }
         }
-        return heuristic;
+        return f_value;
     }
 
+    // NOTE: Assumes that there is only one agent.
     int get_mst_heuristic(const DisjointGraph& disjoint_graph){
+        std::vector<std::vector<int>> adjacency_matrix = disjoint_graph.pivot_pivot_costs;
+        for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+            adjacency_matrix[i].push_back(disjoint_graph.agent_pivot_costs[0][i]);
+        }
+        adjacency_matrix.push_back(disjoint_graph.agent_pivot_costs[0]);
+        adjacency_matrix.back().push_back(0);
+
         // Calculate minimum spanning tree.
         std::priority_queue<std::tuple<int, int, int>> edge_set; // 
         int mst_heuristic = 0;
-        std::vector<int> distances(disjoint_graph.nodes.size(), INT_MAX);
-        std::vector<bool> added(disjoint_graph.nodes.size(), false);
+        std::vector<int> distances(adjacency_matrix.size(), INT_MAX);
+        std::vector<bool> added(adjacency_matrix.size(), false);
 
         // printf("\nMST Calculation:\n");
 
-        for(int i = 0; i < disjoint_graph.nodes.size(); i++){
+        for(int i = 0; i < adjacency_matrix.size(); i++){
             // Find the min cost node.
             int next_node_to_add = 0;
             int min_cost = INT_MAX;
@@ -63,7 +66,7 @@ namespace watchman {
             }
 
             for(int j = 0; j < distances.size(); j++){
-                distances[j] = std::min(distances[j], disjoint_graph.edge_costs[next_node_to_add][j]);
+                distances[j] = std::min(distances[j], adjacency_matrix[next_node_to_add][j]);
             }
 
             added[next_node_to_add] = true;
@@ -73,6 +76,7 @@ namespace watchman {
         return mst_heuristic;
     }
 
+    // NOTE: Assumes that there is only one agent.
     std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoint_graph){
         auto heuristic_start = std::chrono::high_resolution_clock::now();
 
@@ -84,16 +88,22 @@ namespace watchman {
         // int U = los.size() * disjoint_graph.nodes.size() * disjoint_graph.nodes.size() + 1;
 
         // TSP path length is at most number of nodes * max cost per edge.
-        int U = disjoint_graph.max_edge_cost * (disjoint_graph.nodes.size() + 3); // +3 just to be safe.
+        int U = disjoint_graph.max_edge_cost * (disjoint_graph.pivot_pivot_costs.size() + 4); // +4 just to be safe.
 
         // The last node in distjoint_graph.edge_costs is the agent position.
         // We're adding a new dummy node at the end, so now the last row / col will be the dummy node and
         // the second to last row / col will be the agent node.
-        std::vector<std::vector<int>> dist = disjoint_graph.edge_costs;
+        std::vector<std::vector<int>> dist = disjoint_graph.pivot_pivot_costs;
+        for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+            dist[i].push_back(disjoint_graph.agent_pivot_costs[0][i]);
+        }
+        dist.push_back(disjoint_graph.agent_pivot_costs[0]);
+        dist.back().push_back(0);
+
         for(auto& row : dist){
             row.push_back(U);
         }
-        dist.push_back(std::vector<int>(disjoint_graph.nodes.size() + 1, U));
+        dist.push_back(std::vector<int>(disjoint_graph.pivot_pivot_costs.size() + 2, U));
 
         // Dummy <-> Dummy cost is 0. Dummy <-> Agent cost is 0. Dummy <-> Pivot cost is U.
         dist[dist.size() - 1][dist.size() - 1] = 0;
@@ -112,6 +122,19 @@ namespace watchman {
         auto solver_start = std::chrono::high_resolution_clock::now();
         auto [ tsp_solution, tsp_path ] = pathfinding::solve_tsp(dist);
 
+        // printf("TSP Solution: %d\n", tsp_solution);
+        // printf("TSP Path: ");
+        // for(int i : tsp_path){
+        //     if(i == dist.size() - 1){
+        //         printf("Dummy -> ");
+        //     } else if(i == dist.size() - 2){
+        //         printf("Agent -> ");
+        //     } else {
+        //         printf("Pivot %d -> ", i);
+        //     }
+        // }
+        // printf("END\n");
+
         // Reorder the path to remove the dummy node and start at the agent node.
         while(tsp_path[0] != dist.size() - 2){
             std::rotate(tsp_path.begin(), tsp_path.begin() + 1, tsp_path.end());
@@ -127,7 +150,11 @@ namespace watchman {
 
         std::vector<int> tsp_pivots_path;
         for(int i : tsp_path){
-            tsp_pivots_path.push_back(disjoint_graph.nodes[i]);
+            if(i == dist.size() - 2){
+                tsp_pivots_path.push_back(-1); // Agent position
+                continue;
+            }
+            tsp_pivots_path.push_back(disjoint_graph.pivots[i]);
         }
 
         int tsp_heuristic = tsp_solution - U; // Subtract out the cost of the dummy -> pivot edge.
@@ -141,4 +168,29 @@ namespace watchman {
         assert(tsp_heuristic >= 0);
         return std::make_tuple(tsp_heuristic, tsp_pivots_path);
     }
+
+    int get_multi_tsp_heuristic(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs, CostType cost_type){
+        auto heuristic_start = std::chrono::high_resolution_clock::now();
+
+        std::vector<std::vector<int>> cost_map = disjoint_graph.pivot_pivot_costs;
+        for(int i = 0; i < disjoint_graph.agent_pivot_costs.size(); i++){
+            cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
+        }
+
+        TOTAL_MTSP_CALLS += 1;
+        printf("Calls: %d\n", TOTAL_MTSP_CALLS);
+        int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, cost_type); // Empty initial path to use greedy.        
+        int current_cost = agent_costs[0];
+        for(int i = 1; i < agent_costs.size(); i++){
+            int cost = agent_costs[i];
+            if(cost_type == MAKESPAN){
+                current_cost = std::max(current_cost, cost);
+            } else {
+                current_cost += cost;
+            }
+        }
+
+        return mtsp_solution - current_cost;
+   }
+    
 }

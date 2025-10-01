@@ -25,14 +25,14 @@ namespace watchman {
         int num_seen;
         int f_value;
 
-        Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int h, int n){
+        Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
             node_id = id;
             agents = a;
             seen = s;
             cost = c;
-            heuristic = h;
+            heuristic = f - c;
             num_seen = n;
-            f_value = c + h;
+            f_value = f;
         }
 
         bool operator>(const Node& rhs) const

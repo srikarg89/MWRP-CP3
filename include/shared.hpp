@@ -130,8 +130,9 @@ struct Lookup {
 };
 
 struct DisjointGraph {
-    std::vector<int> nodes;
-    std::vector<std::vector<int>> edge_costs;
+    std::vector<int> pivots;
+    std::vector<std::vector<int>> pivot_pivot_costs;
+    std::vector<std::vector<int>> agent_pivot_costs;
     int max_edge_cost;
 };
 

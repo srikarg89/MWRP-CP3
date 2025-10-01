@@ -321,7 +321,7 @@ namespace watchman {
         }
     }
 
-    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen){
+    DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen){
         // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
         std::vector<int> pivots;
 
@@ -352,8 +352,8 @@ namespace watchman {
         }
 
         int max_edge_cost = 0;
-        std::vector<std::vector<int>> edge_costs;
-        std::vector<int> agent_costs;
+        std::vector<std::vector<int>> pivot_pivot_costs;
+        std::vector<std::vector<int>> agent_pivot_costs(agent_map_idxs.size(), std::vector<int>());
         for(int p1 : pivots){
             // Add outgoing edges for each pivot.
             std::vector<int> pivot_outgoing_costs;
@@ -361,25 +361,19 @@ namespace watchman {
                 pivot_outgoing_costs.push_back(lookup.pivot_pivot_dists[p1][p2]);
                 max_edge_cost = std::max(max_edge_cost, lookup.pivot_pivot_dists[p1][p2]);
             }
-            pivot_outgoing_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
-            agent_costs.push_back(lookup.pivot_cell_dists[p1][agent_map_idx]);
-            edge_costs.push_back(pivot_outgoing_costs);
+            pivot_pivot_costs.push_back(pivot_outgoing_costs);
 
-            max_edge_cost = std::max(max_edge_cost, lookup.pivot_cell_dists[p1][agent_map_idx]);
+            for(int i = 0; i < agent_map_idxs.size(); i++){
+                agent_pivot_costs[i].push_back(lookup.pivot_cell_dists[p1][agent_map_idxs[i]]);
+                max_edge_cost = std::max(max_edge_cost, lookup.pivot_cell_dists[p1][agent_map_idxs[i]]);
+            }
         }
-
-        // Add agent position to the list of nodes.
-        std::vector<int> nodes = pivots;
-        nodes.push_back(agent_map_idx);
-        agent_costs.push_back(0);
-
-        // Add outgoing edges for the agent.
-        edge_costs.push_back(agent_costs);
 
         // Nodes = pivots + agent position.
         return DisjointGraph {
-            .nodes=nodes,
-            .edge_costs=edge_costs,
+            .pivots=pivots,
+            .pivot_pivot_costs=pivot_pivot_costs,
+            .agent_pivot_costs=agent_pivot_costs,
             .max_edge_cost=max_edge_cost
         };
     }

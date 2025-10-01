@@ -301,11 +301,60 @@ namespace watchman {
             }
         }
         // file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Map Bitset\n"; // Header
-        file << node.node_id << "," << parent_id << "," << node.agents.size() << ", " << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << ",";
+        file << node.node_id << "," << parent_id << "," << node.agents.size() << "," << node.cost << "," << node.heuristic << "," << node.f_value << "," << node.num_seen << ",";
         for(AgentState agent : node.agents){
             file << agent.pos.x << "," << agent.pos.y << ",";
         }
-        file << map_list << "\n";}
+        file << map_list << "\n";
+    }
+
+    void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, const Map& map, const Lookup& lookup){
+        boost::dynamic_bitset<> seen(map.x_size * map.y_size);
+        int num_seen = 0;
+        for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
+            if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+                seen[map_idx] = 1;
+                num_seen += 1;
+            }
+        }
+        std::vector<AgentState> start_agent_states;
+        size_t max_length = 0;
+        for(int i = 0; i < paths.size(); i++){
+            max_length = std::max(max_length, paths[i].size());
+        }
+
+        for(auto& path : paths){
+            while(path.size() < max_length){
+                path.push_back(path.back());
+            }
+        }
+
+        for(int t = 0; t < max_length; t++){
+            std::vector<Position> curr_positions;
+            for(int p = 0; p < paths.size(); p++){
+                Position pos = paths[p][t];
+                curr_positions.push_back(pos);
+                num_seen += add_los_to_seen(seen, lookup.los[map.get_map_idx(pos)], map);
+            }
+
+            std::string map_list = "";
+            for(int i = 0; i < seen.size(); i++){
+                if(seen[i]){
+                    map_list += "2"; // Seen
+                } else {
+                    map_list += "0"; // Not seen
+                }
+            }
+            // file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset"; // Header
+            file << t << "," << curr_positions.size() << "," << num_seen << ",";
+            for(Position pos : curr_positions){
+                file << pos.x << "," << pos.y << ",";
+            }
+            file << map_list << "\n";
+        }
+
+    }
+
 
     // Inputs: Agent starting positions, LOS type, map.
     // Output: Optimal path.
@@ -363,7 +412,7 @@ namespace watchman {
 
         auto start_time = std::chrono::high_resolution_clock::now();
 
-        std::vector<std::vector<Position>> path;
+        std::vector<std::vector<Position>> paths(starts.size(), std::vector<Position>());
 
         while(!queue.empty()){
             Node curr = queue.top();
@@ -409,19 +458,46 @@ namespace watchman {
 
             if(curr.num_seen == scenario_config.map.x_size * scenario_config.map.y_size){
                 printf("Goal condition met!\n");
+                printf("Num seen: %d / %d\n", curr.num_seen, scenario_config.map.x_size * scenario_config.map.y_size);
+                for(int i = 0; i < curr.seen.size(); i++){
+                    if(!curr.seen[i]){
+                        printf("UNSEEN: %s\n", scenario_config.map.get_pos_from_map_idx(i).toString().c_str());
+                    }
+                }
                 auto end_time = std::chrono::high_resolution_clock::now();
                 auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
                 printf("Search time taken: %.3f seconds\n", seconds_taken);
                 printf("Solution cost: %d\n", curr.cost);
 
-                path.push_back(agent_states_to_positions(curr.agents));
                 int curr_id = curr.node_id;
+                std::vector<Position> curr_positions = agent_states_to_positions(id_lookup[curr_id]);
                 while(curr_id != 0){
                     curr_id = pred_lookup[curr_id];
-                    path.push_back(agent_states_to_positions(id_lookup[curr_id]));
+                    std::vector<Position> prev_positions = agent_states_to_positions(id_lookup[curr_id]);
+                    for(int i = 0; i < paths.size(); i++){
+                        int idx = scenario_config.map.get_map_idx(curr_positions[i]);
+                        int from_idx = scenario_config.map.get_map_idx(prev_positions[i]);
+                        while(idx != from_idx){
+                            paths[i].push_back(scenario_config.map.get_pos_from_map_idx(idx));
+                            idx = lookup.apsp_paths[from_idx][idx];
+                        }
+                    }
+                    curr_positions = prev_positions;
                 }
-                std::reverse(path.begin(), path.end());
-                break;;
+
+                for(int i = 0; i < paths.size(); i++){
+                    paths[i].push_back(starts[i]);
+                }
+
+                for(int i = 0; i < paths.size(); i++){
+                    std::reverse(paths[i].begin(), paths[i].end());
+                    printf("Path for agent (length %ld) %d: ", paths[i].size(), i);
+                    for(Position pos : paths[i]){
+                        printf("%s ", pos.toString().c_str());
+                    }
+                    printf("\n");
+                }
+                break;
             }
 
             std::vector<Node> neighbors = get_neighbors(curr, scenario_config.map, scenario_config.movement_type, lookup, solver_config, last_id_assigned, generated_costs);
@@ -439,20 +515,23 @@ namespace watchman {
         printf("Total nodes expanded: %d\n", num_expanded);
         printf("Total nodes fully expanded: %d\n", num_fully_expanded);
         printf("Total expansions skipped: %d\n", num_skipped);
-        printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
+        // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
         printf("Total generations skipped: %d\n", NUM_SKIPPED);
         printf("Total nodes generated: %d\n", num_generated);
         printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
-        printf("Total TSP solver time: %.3f seconds\n", TOTAL_TSP_SOLVER_TIME);
-        printf("Total TSP brute force: %.6f seconds\n", TOTAL_TSP_BRUTE_FORCE_TIME);
-        printf("Total TSP concorde time: %.6f seconds\n", TOTAL_TSP_CONCORDE_TIME);
-        printf("Total brute force calls: %d\n", TOTAL_TSP_BRUTE_FORCE_CALLS);
-        printf("Total concorde calls: %d\n", TOTAL_TSP_CONCORDE_CALLS);
-        printf("Total MTSP calls: %d\n", TOTAL_MTSP_CALLS);
-        printf("Total MTSP time: %.6f seconds\n", TOTAL_MTSP_TIME);
+        if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
+            printf("Total MTSP time: %.3f seconds\n", TOTAL_MTSP_TIME);
+            printf("Total MTSP calls: %d\n", TOTAL_MTSP_CALLS);
+        }
         debug_file.close();
 
-        return path;
+        std::ofstream solution_file;
+        solution_file.open("watchman_solution.csv");
+        solution_file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset\n"; // Header
+        write_solution_to_file(solution_file, paths, scenario_config.map, lookup);
+        solution_file.close();
+
+        return paths;
     }
 
 }

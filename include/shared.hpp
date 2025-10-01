@@ -41,7 +41,8 @@ enum HeuristicType {
     BFS,
     SINGLETON,
     MST,
-    TSP
+    TSP,
+    MAX
 };
 
 enum CostType {

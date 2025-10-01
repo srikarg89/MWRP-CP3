@@ -36,6 +36,8 @@ int main(int argc, char** argv) {
         heuristic_type = HeuristicType::MST;
     } else if(heuristic_str == "TSP") {
         heuristic_type = HeuristicType::TSP;
+    } else if(heuristic_str == "MAX") {
+        heuristic_type = HeuristicType::MAX;
     } else {
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }

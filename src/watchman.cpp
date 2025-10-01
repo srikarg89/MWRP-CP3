@@ -114,7 +114,7 @@ namespace watchman {
             return node_cost;
         } else if(heuristic_type == SINGLETON) {
             return call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
-        } else if(heuristic_type == MST || heuristic_type == TSP){
+        } else if(heuristic_type == MST || heuristic_type == TSP || heuristic_type == MAX) {
             if(agent_states.size() != 1 && heuristic_type == MST){
                 printf("MST heuristic only supports single-agent watchman.\n");
                 assert(false);
@@ -132,21 +132,23 @@ namespace watchman {
             if(heuristic_type == MST){
                 return node_cost + get_mst_heuristic(disjoint_graph);
             } else {
+                int tsp_f_value = 0;
                 if(agent_states.size() == 1){
                     auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
-                    return node_cost + tsp_heuristic;
+                    tsp_f_value = node_cost + tsp_heuristic;
                 } else {
                     int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs, cost_type);
-                    // if(mtsp_f_value == 0){
-                    //     printf("MTSP f value: %d\n", mtsp_f_value);
-                    //     exit(0);
-                    // }
-                    // exit(0);
                     if(cost_type == SUM_OF_COSTS){
-                        return mtsp_f_value + total_terminated_agent_cost;
+                        tsp_f_value = mtsp_f_value + total_terminated_agent_cost;
                     } else {
-                        return std::max(node_cost, mtsp_f_value);
+                        tsp_f_value = std::max(node_cost, mtsp_f_value);
                     }
+                }
+                if(heuristic_type == TSP){
+                    return tsp_f_value;
+                } else if(heuristic_type == MAX){
+                    int singleton_f_value = call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
+                    return std::max(tsp_f_value, singleton_f_value);
                 }
             }
         }
@@ -265,7 +267,7 @@ namespace watchman {
             agent_map_idxs.push_back(map.get_map_idx(agent.pos));
         }
 
-        if(heuristic_type == TSP || heuristic_type == MST) {
+        if(heuristic_type == TSP || heuristic_type == MST || heuristic_type == MAX) {
             DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen);
             for(int pivot : disjoint_graph.pivots){
                 original_pivots.insert(pivot);

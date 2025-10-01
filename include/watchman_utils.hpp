@@ -269,7 +269,7 @@ namespace watchman {
         lookup.sorted_pivot_order = sorted_pivot_order;
 
         // Precompute the Singleton heuristic helper lookup table.
-        if(heuristic_type == HeuristicType::SINGLETON){
+        if(heuristic_type == HeuristicType::SINGLETON || heuristic_type == HeuristicType::MAX){
             for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
                 std::vector<int> min_dists(map.num_squares, INT_MAX);
                 lookup.min_dist_to_see.push_back(min_dists);
@@ -291,7 +291,7 @@ namespace watchman {
         }
 
         // Precompute the distance between pivots in G_DLC
-        if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP){
+        if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX){
             for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
                 std::vector<int> min_dists(map.num_squares, INT_MAX);
                 lookup.pivot_pivot_dists.push_back(min_dists);

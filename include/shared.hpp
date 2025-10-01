@@ -23,7 +23,7 @@ struct Position {
         return x == other.x && y == other.y;
     }
 
-    std::string toString(){
+    std::string toString() const {
         return "(" + std::to_string(x) + "," + std::to_string(y) + ")";
     }
 };
@@ -41,7 +41,14 @@ enum HeuristicType {
     BFS,
     SINGLETON,
     MST,
-    TSP
+    TSP,
+    MAX,
+    LAZY
+};
+
+enum CostType {
+    SUM_OF_COSTS,
+    MAKESPAN
 };
 
 enum MovementType {
@@ -56,14 +63,22 @@ enum LOSType {
 };
 
 
-// TODO: Weighted map.
 struct Map {
     int x_size;
     int y_size;
+    int num_squares;
     std::vector<bool> occupancy; // 1 = occupied, 0 = not occupied.
 
     int get_map_idx(Position pos) const {
         return pos.y * x_size + pos.x;
+    }
+
+    std::vector<int> get_map_idxs(const std::vector<Position>& pos) const {
+        std::vector<int> idxs;
+        for(const auto& p : pos) {
+            idxs.push_back(get_map_idx(p));
+        }
+        return idxs;
     }
 
     Position get_pos_from_map_idx(int map_idx) const {
@@ -95,19 +110,40 @@ struct Map {
 };
 
 struct Lookup {
+    // LOS lookup table. Indexed by map index, gives list of positions visible from that map index.
     std::vector<std::vector<Position>> los;
+
+    // Inverse LOS lookup table. Indexed by map index, gives list of positions that can see that map index.
+    std::vector<std::vector<Position>> watchers;
+
+    // All Pairs Shortest Path distances and paths. Indexed by map index.
     std::vector<std::vector<int>> apsp;
+    std::vector<std::vector<int>> apsp_paths;
+
+    // Singleton heuristic helper lookup table. Indexed by [source_map_idx][goal_map_idx], gives minimum distance from source to any position that can see goal.
     std::vector<std::vector<int>> min_dist_to_see;
+
+    // Pivot distance lookup tables for MST and TSP heuristics.
     std::vector<std::vector<int>> pivot_cell_dists;
     std::vector<std::vector<int>> pivot_pivot_dists;
-    std::vector<int> sorted_los_order;
+
+    // Sorted order of pivots to consider.
+    std::vector<int> sorted_pivot_order;
 };
 
 struct DisjointGraph {
-    std::vector<int> nodes;
-    std::vector<std::vector<int>> edge_costs;
+    std::vector<int> pivots;
+    std::vector<std::vector<int>> pivot_pivot_costs;
+    std::vector<std::vector<int>> agent_pivot_costs;
+    int max_edge_cost;
 };
 
+
+struct SolverConfig {
+    CostType cost_type;
+    HeuristicType heuristic_type;
+    bool expanding_borders;    
+};
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
@@ -138,6 +174,7 @@ struct ScenarioConfig {
         Map map;
         map.x_size = map_json.empty() ? 0 : map_json[0].size();
         map.y_size = map_json.size();
+        map.num_squares = map.x_size * map.y_size;
         map.occupancy = std::move(occupancy);
 
         std::string movement_str = parsed_data["movement"].get<std::string>();

@@ -8,39 +8,47 @@
 
 namespace watchman {
 
+    struct AgentState{
+        Position pos;
+        bool terminated;
+        int cost;
+
+        AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
+    };
+
     struct Node {
         int node_id;
-        Position pos;
+        std::vector<AgentState> agents;
         boost::dynamic_bitset<> seen;
         int cost;
         int heuristic;
         int num_seen;
         int f_value;
+        bool is_lazy;
 
-        Node(int id, Position p, boost::dynamic_bitset<> s, int c, int h, int n){
+        Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
             node_id = id;
-            pos = p;
+            agents = a;
             seen = s;
             cost = c;
-            heuristic = h;
+            heuristic = f - c;
             num_seen = n;
-            f_value = c + h;
+            f_value = f;
+            is_lazy = true;
+        }
+
+        void update_f_value(int new_f_value){
+            f_value = new_f_value;
+            heuristic = f_value - cost;
+            is_lazy = false;
         }
 
         bool operator>(const Node& rhs) const
         {
-            return f_value > rhs.f_value;
+            return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
         }
 
     };
 
-    int add_los_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Position>& los, const Map& map);
-    int get_bfs_heuristic();
-    int get_singleton_heuristic(int node_map_idx, const boost::dynamic_bitset<>& seen, const std::vector<std::vector<int>>& min_dist_to_see);
-    int get_mst_heuristic(const Lookup& lookup, int node_map_idx, const boost::dynamic_bitset<>& seen);
-    int get_heuristic(HeuristicType heuristic_type, int node_map_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup);
-    std::vector<Node> get_neighbors(Node& node, const Map& map, MovementType movement, const Lookup& lookup, HeuristicType heuristic_type, int last_id_assigned);
-    void precompute_lookup(Lookup& lookup, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type);
-    DisjointGraph compute_disjoint_graph(const Lookup& lookup, int agent_map_idx, const boost::dynamic_bitset<>& seen);
-    std::vector<Position> run_watchman(Position start, LOSType los, const Map& map, MovementType movement, HeuristicType heuristic_type);
+    std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, const ScenarioConfig& scenario_config, const SolverConfig& solver_config);
 }

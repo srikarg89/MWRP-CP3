@@ -169,7 +169,7 @@ namespace watchman {
         return std::make_tuple(tsp_heuristic, tsp_pivots_path);
     }
 
-    int get_multi_tsp_heuristic(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs, CostType cost_type){
+    int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs, CostType cost_type){
         auto heuristic_start = std::chrono::high_resolution_clock::now();
 
         std::vector<std::vector<int>> cost_map = disjoint_graph.pivot_pivot_costs;
@@ -178,19 +178,9 @@ namespace watchman {
         }
 
         TOTAL_MTSP_CALLS += 1;
-        printf("Calls: %d\n", TOTAL_MTSP_CALLS);
+        // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
         int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, cost_type); // Empty initial path to use greedy.        
-        int current_cost = agent_costs[0];
-        for(int i = 1; i < agent_costs.size(); i++){
-            int cost = agent_costs[i];
-            if(cost_type == MAKESPAN){
-                current_cost = std::max(current_cost, cost);
-            } else {
-                current_cost += cost;
-            }
-        }
-
-        return mtsp_solution - current_cost;
+        return mtsp_solution;
    }
     
 }

@@ -115,8 +115,8 @@ namespace watchman {
         } else if(heuristic_type == SINGLETON) {
             return call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
         } else if(heuristic_type == MST || heuristic_type == TSP){
-            if(agent_states.size() != 1){
-                printf("MST and TSP heuristics only support single-agent watchman.\n");
+            if(agent_states.size() != 1 && heuristic_type == MST){
+                printf("MST heuristic only supports single-agent watchman.\n");
                 assert(false);
                 exit(1);
             }
@@ -132,8 +132,22 @@ namespace watchman {
             if(heuristic_type == MST){
                 return node_cost + get_mst_heuristic(disjoint_graph);
             } else {
-                auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
-                return node_cost + tsp_heuristic;
+                if(agent_states.size() == 1){
+                    auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
+                    return node_cost + tsp_heuristic;
+                } else {
+                    int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs, cost_type);
+                    // if(mtsp_f_value == 0){
+                    //     printf("MTSP f value: %d\n", mtsp_f_value);
+                    //     exit(0);
+                    // }
+                    // exit(0);
+                    if(cost_type == SUM_OF_COSTS){
+                        return mtsp_f_value + total_terminated_agent_cost;
+                    } else {
+                        return std::max(node_cost, mtsp_f_value);
+                    }
+                }
             }
         }
 
@@ -364,7 +378,7 @@ namespace watchman {
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
             num_expanded += 1;
-            if(num_expanded % 1000 == 0){
+            if(num_expanded % 100 == 0){
             // if(num_expanded % 1 == 0){
                 printf("Expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);

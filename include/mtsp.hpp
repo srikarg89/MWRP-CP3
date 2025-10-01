@@ -60,6 +60,16 @@ std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<
 }
 
 int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, CostType cost_type) {
+    // printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
+    // printf("Cost Matrix:\n");
+    // for(int i = 0; i < cost_matrix.size(); i++){
+    //     for(int j = 0; j < cost_matrix[i].size(); j++){
+    //         printf("%d ", cost_matrix[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+    // printf("END\n");
+
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -163,7 +173,7 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
             IloExpr total_cost(env);
             for(int agent = 0; agent < m; agent++) {
                 for(int from = 0; from < n + 1; from++) {
-                    for(int to = 0; to < n + 1; to++) {
+                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
                         if(from != to) {
                             int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
                             total_cost += cost_matrix[c_from][to] * x[agent][from][to];
@@ -181,7 +191,7 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
             for(int agent = 0; agent < m; agent++) {
                 IloExpr agent_cost(env);
                 for(int from = 0; from < n + 1; from++) {
-                    for(int to = 0; to < n + 1; to++) {
+                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
                         if(from != to) {
                             int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
                             agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
@@ -203,7 +213,7 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         std::vector<std::vector<int>> initial_paths = get_greedy_solution(cost_matrix, n, m);
 
         for(int agent = 0; agent < m; agent++){
-            // Don't add if 
+            // Don't add if the agent didn't leave its depot.
             if(initial_paths[agent].size() == 2){
                 continue;
             }
@@ -259,23 +269,26 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
 
         start = std::chrono::high_resolution_clock::now();
 
-        if(cplex.solve()) {
-            // cout << "Min makespan: " << cplex.getObjValue() << endl;
 
-            // // Print out x variable:
-            // for(int agent = 0; agent < m; agent++) {
-            //     cout << "Route for agent " << agent << ": ";
-            //     for(int from = 0; from < n + 1; from++) {
-            //         for(int to = 0; to < n + 1; to++) {
-            //             if(from == to) continue;
-            //             if(cplex.getValue(x[agent][from][to]) > 0.5) {
-            //                 cout << from << "->" << to << " ";
+
+        if(cplex.solve()) {
+            // if(cplex.getObjValue() == current_costs[0] && cplex.getObjValue() == current_costs[1]) {
+            //     cout << "Min makespan: " << cplex.getObjValue() << endl;
+
+            //     // Print out x variable:
+            //     for(int agent = 0; agent < m; agent++) {
+            //         cout << "Route for agent " << agent << ": ";
+            //         for(int from = 0; from < n + 1; from++) {
+            //             for(int to = 0; to < n + 1; to++) {
+            //                 if(from == to) continue;
+            //                 if(cplex.getValue(x[agent][from][to]) > 0.5) {
+            //                     cout << from << "->" << to << " ";
+            //                 }
             //             }
             //         }
+            //         cout << endl;
             //     }
-            //     cout << endl;
             // }
-            
             end = std::chrono::high_resolution_clock::now();
             seconds_taken = std::chrono::duration<double>(end - start).count();
             SOLVER_RUNTIME += seconds_taken;

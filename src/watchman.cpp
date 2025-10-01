@@ -87,7 +87,7 @@ namespace watchman {
             std::vector<int> empty_agent_costs(non_terminated_agent_costs.size(), 0);
             return node_cost + get_singleton_f_value(non_terminated_agent_map_idxs, empty_agent_costs, seen, lookup.min_dist_to_see);
         } else if(cost_type == MAKESPAN){
-            return get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, seen, lookup.min_dist_to_see);
+            return std::max(node_cost, get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, seen, lookup.min_dist_to_see));
         } else {
             printf("UNKNOWN COST TYPE ???\n");
             exit(1);

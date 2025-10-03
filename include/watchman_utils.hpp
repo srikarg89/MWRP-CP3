@@ -7,7 +7,7 @@
 
 namespace watchman {
 
-    static const int MAX_PIVOTS = 4;
+    static const int MAX_PIVOTS = INT_MAX;
 
     ////////////////////////////////
     ///////// Forms of LOS /////////

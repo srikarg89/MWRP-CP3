@@ -145,14 +145,38 @@ struct SolverConfig {
     bool expanding_borders;    
 };
 
+inline void strip(std::string& s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+inline std::vector<std::string> splitBySpace(const std::string& str) {
+    std::vector<std::string> words;
+    std::istringstream iss(str); // Create an input string stream from the string
+    std::string word;
+
+    // Read words from the stream, delimited by space
+    while (std::getline(iss, word, ' ')) {
+        if (!word.empty()) { // Avoid adding empty strings if there are multiple spaces
+            words.push_back(word);
+        }
+    }
+    return words;
+}
+
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
     Map map;
     MovementType movement_type;
     LOSType los_type;
 
-    static ScenarioConfig from_json(const std::string& filename) {
-        std::ifstream i(filename);
+    static ScenarioConfig from_json(const std::string& config_filename) {
+        std::ifstream i(config_filename);
         nlohmann::json parsed_data = nlohmann::json::parse(i);
         auto agents_json = parsed_data["agents"].get<std::vector<std::vector<int>>>();
         std::vector<Position> agent_starts;
@@ -163,19 +187,33 @@ struct ScenarioConfig {
             agent_starts.push_back(Position{agent[0], agent[1]});
         }
 
-        std::vector<bool> occupancy;
-        auto map_json = parsed_data["map"].get<std::vector<std::vector<int>>>();
-        for(const auto& row : map_json) {
-            for(int cell : row) {
-                occupancy.push_back(cell == 1);
-            }
+        // Load in map file.
+        std::string map_filename = "../maps/" + parsed_data["map"].get<std::string>();
+        std::ifstream inputFile(map_filename);
+        if (!inputFile.is_open()) {
+            printf("Could not open map file: %s\n", map_filename.c_str());
+            exit(0);
         }
 
+        // Create occupancy map.
         Map map;
-        map.x_size = map_json.empty() ? 0 : map_json[0].size();
-        map.y_size = map_json.size();
+        map.occupancy = std::vector<bool>();
+
+        // Fill in occupancy map.
+        std::string line;
+        std::getline(inputFile, line); // Ignore first line.
+        std::getline(inputFile, line); strip(line); map.y_size = std::stoi(splitBySpace(line)[1]);
+        std::getline(inputFile, line); strip(line); map.x_size = std::stoi(splitBySpace(line)[1]);
+        std::getline(inputFile, line); // Ignore fourth line.
         map.num_squares = map.x_size * map.y_size;
-        map.occupancy = std::move(occupancy);
+
+        for (int i = 0; i < map.y_size; i++) {
+            std::getline(inputFile, line); strip(line);
+            for(char c : line) {
+                map.occupancy.push_back(c == '@' || c == 'T');
+            }
+        }
+        inputFile.close();
 
         std::string movement_str = parsed_data["movement"].get<std::string>();
         MovementType movement_type;

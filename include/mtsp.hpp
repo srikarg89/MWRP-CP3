@@ -60,15 +60,15 @@ std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<
 }
 
 int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, CostType cost_type) {
-    // printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
-    // printf("Cost Matrix:\n");
-    // for(int i = 0; i < cost_matrix.size(); i++){
-    //     for(int j = 0; j < cost_matrix[i].size(); j++){
-    //         printf("%d ", cost_matrix[i][j]);
-    //     }
-    //     printf("\n");
-    // }
-    // printf("END\n");
+    printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
+    printf("Cost Matrix:\n");
+    for(int i = 0; i < cost_matrix.size(); i++){
+        for(int j = 0; j < cost_matrix[i].size(); j++){
+            printf("%d ", cost_matrix[i][j]);
+        }
+        printf("\n");
+    }
+    printf("END\n");
 
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
@@ -277,6 +277,7 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         SOLVER_RUNTIME += seconds_taken;
 
         if(solve) {
+            printf("Objective value: %.6f\n", cplex.getObjValue());
             // if(cplex.getObjValue() == current_costs[0] && cplex.getObjValue() == current_costs[1]) {
             //     cout << "Min makespan: " << cplex.getObjValue() << endl;
 

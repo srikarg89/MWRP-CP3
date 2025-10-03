@@ -7,6 +7,8 @@
 
 namespace watchman {
 
+    static const int MAX_PIVOTS = 4;
+
     ////////////////////////////////
     ///////// Forms of LOS /////////
     ////////////////////////////////
@@ -375,5 +377,109 @@ namespace watchman {
             .agent_pivot_costs=agent_pivot_costs,
             .max_edge_cost=max_edge_cost
         };
+    }
+
+    void prune_graph(DisjointGraph& graph, const Lookup& lookup){
+        while(true){
+            int shortcut_pivot = -1;
+            int biggest_shortcut = 0;
+
+            for(int i = 0; i < graph.pivots.size(); i++){
+                // BFS out to find distance to every other pivot.
+                std::vector<int> distances(graph.pivots.size(), INT_MAX);
+                std::vector<int> pred(graph.pivots.size(), -1);
+                distances[i] = 0;
+                std::priority_queue<std::tuple<int, int>, std::vector<std::tuple<int, int>>, std::greater<>> queue; // cost, node idx
+                queue.push(std::make_tuple(0, i));
+                while(!queue.empty()){
+                    auto [curr_cost, curr_idx] = queue.top();
+                    queue.pop();
+
+                    if(distances[curr_idx] < curr_cost){
+                        continue;
+                    }
+
+                    distances[curr_idx] = curr_cost;
+
+                    for(int neighbor_idx = 0; neighbor_idx < graph.pivots.size(); neighbor_idx++){
+                        if(neighbor_idx == curr_idx){
+                            continue;
+                        }
+                        int edge_cost = graph.pivot_pivot_costs[curr_idx][neighbor_idx];
+                        if(edge_cost == INT_MAX){
+                            continue;
+                        }
+                        int new_cost = curr_cost + edge_cost;
+                        if(new_cost < distances[neighbor_idx]){
+                            distances[neighbor_idx] = new_cost;
+                            pred[neighbor_idx] = curr_idx;
+                            queue.push(std::make_tuple(new_cost, neighbor_idx));
+                        }
+                    }
+                }
+
+                for(int j = 0; j < graph.pivots.size(); j++){
+                    if(i == j || pred[j] == -1){
+                        continue;
+                    }
+                    if(pred[j] != i && pred[pred[j]] == i){
+                        int shortcut = graph.pivot_pivot_costs[i][j] - distances[j];
+                        if(shortcut > biggest_shortcut) {
+                            biggest_shortcut = shortcut;
+                            shortcut_pivot = pred[j];
+                        }
+                    }
+                }
+            }
+
+            // No pivot provides a shortcut, so we're done pruning.
+            if(biggest_shortcut <= 0){
+                break;
+            }
+
+            graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
+            graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);
+            for(auto& row : graph.pivot_pivot_costs){
+                row.erase(row.begin() + shortcut_pivot);
+            }
+            for(auto& row : graph.agent_pivot_costs){
+                row.erase(row.begin() + shortcut_pivot);
+            }
+        }
+
+        // Prune pivots to be under the max allowed using farness centrality.
+        // NOTE: Tried using MAX instead of SUM for farness, but MAX performed much worse.
+        while(graph.pivots.size() > MAX_PIVOTS){
+            int worst_pivot = -1;
+            int worst_farness = INT_MAX;
+
+            for(int i = 0; i < graph.pivots.size(); i++){
+                int farness = 0;
+                for(int j = 0; j < graph.pivots.size(); j++){
+                    if(i == j){
+                        continue;
+                    }
+                    farness += graph.pivot_pivot_costs[i][j];
+                }
+                for(int j = 0; j < graph.agent_pivot_costs.size(); j++){
+                    farness += graph.agent_pivot_costs[j][i];
+                }
+
+                if(farness < worst_farness){
+                    worst_farness = farness;
+                    worst_pivot = i;
+                }
+            }
+
+            graph.pivots.erase(graph.pivots.begin() + worst_pivot);
+            graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + worst_pivot);
+            for(auto& row : graph.pivot_pivot_costs){
+                row.erase(row.begin() + worst_pivot);
+            }
+            for(auto& row : graph.agent_pivot_costs){
+                row.erase(row.begin() + worst_pivot);
+            }
+        }
+
     }
 }

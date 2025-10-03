@@ -13,75 +13,6 @@ int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
 
 namespace watchman {
-    void prune_graph(DisjointGraph& graph, const Lookup& lookup){
-        while(true){
-            int shortcut_pivot = -1;
-            int biggest_shortcut = 0;
-
-            for(int i = 0; i < graph.pivots.size(); i++){
-                // BFS out to find distance to every other pivot.
-                std::vector<int> distances(graph.pivots.size(), INT_MAX);
-                std::vector<int> pred(graph.pivots.size(), -1);
-                distances[i] = 0;
-                std::priority_queue<std::tuple<int, int>, std::vector<std::tuple<int, int>>, std::greater<>> queue; // cost, node idx
-                queue.push(std::make_tuple(0, i));
-                while(!queue.empty()){
-                    auto [curr_cost, curr_idx] = queue.top();
-                    queue.pop();
-
-                    if(distances[curr_idx] < curr_cost){
-                        continue;
-                    }
-
-                    distances[curr_idx] = curr_cost;
-
-                    for(int neighbor_idx = 0; neighbor_idx < graph.pivots.size(); neighbor_idx++){
-                        if(neighbor_idx == curr_idx){
-                            continue;
-                        }
-                        int edge_cost = graph.pivot_pivot_costs[curr_idx][neighbor_idx];
-                        if(edge_cost == INT_MAX){
-                            continue;
-                        }
-                        int new_cost = curr_cost + edge_cost;
-                        if(new_cost < distances[neighbor_idx]){
-                            distances[neighbor_idx] = new_cost;
-                            pred[neighbor_idx] = curr_idx;
-                            queue.push(std::make_tuple(new_cost, neighbor_idx));
-                        }
-                    }
-                }
-
-                for(int j = 0; j < graph.pivots.size(); j++){
-                    if(i == j || pred[j] == -1){
-                        continue;
-                    }
-                    if(pred[j] != i && pred[pred[j]] == i){
-                        int shortcut = graph.pivot_pivot_costs[i][j] - distances[j];
-                        if(shortcut > biggest_shortcut) {
-                            biggest_shortcut = shortcut;
-                            shortcut_pivot = pred[j];
-                        }
-                    }
-                }
-            }
-
-            // No pivot provides a shortcut, so we're done pruning.
-            if(shortcut_pivot == -1){
-                break;
-            }
-
-            graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
-            graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);
-            for(auto& row : graph.pivot_pivot_costs){
-                row.erase(row.begin() + shortcut_pivot);
-            }
-            for(auto& row : graph.agent_pivot_costs){
-                row.erase(row.begin() + shortcut_pivot);
-            }
-        }
-    }
-
     int call_singleton_f_value(CostType cost_type, std::vector<int> non_terminated_agent_map_idxs, std::vector<int> non_terminated_agent_costs, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         if(cost_type == SUM_OF_COSTS){
             std::vector<int> empty_agent_costs(non_terminated_agent_costs.size(), 0);
@@ -128,6 +59,8 @@ namespace watchman {
             }
 
             prune_graph(disjoint_graph, lookup);
+
+            printf("Num pivots: %lu\n", disjoint_graph.pivots.size());
 
             if(heuristic_type == MST){
                 return node_cost + get_mst_heuristic(disjoint_graph);
@@ -519,12 +452,13 @@ namespace watchman {
         printf("Total generations skipped: %d\n", NUM_SKIPPED);
         printf("Total nodes generated: %d\n", num_generated);
         if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
-        if(start_agent_states.size() == 1){
-            printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
-        } else{
-            printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
-            printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
-            printf("Total MTSP calls: %d\n", TOTAL_CALLS);
+            if(start_agent_states.size() == 1){
+                printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
+            } else{
+                printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
+                printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
+                printf("Total MTSP calls: %d\n", TOTAL_CALLS);
+            }
         }
         debug_file.close();
 
@@ -538,3 +472,49 @@ namespace watchman {
     }
 
 }
+
+
+/*
+REGULAR
+
+Running watchman method!
+Start f value: 22
+Goal condition met!
+Num seen: 121 / 121
+Search time taken: 1.617 seconds
+Solution cost: 25
+Path for agent (length 26) 0: (0,0) (0,1) (1,1) (2,1) (2,0) (3,0) (4,0) (4,1) (4,2) (4,3) (5,3) (6,3) (7,3) (8,3) (9,3) (10,3) (9,3) (8,3) (7,3) (6,3) (5,3) (6,3) (6,2) (6,1) (7,1) (7,0) 
+Path for agent (length 26) 1: (10,10) (9,10) (8,10) (8,9) (7,9) (7,8) (7,7) (7,6) (7,5) (7,6) (7,7) (7,8) (6,8) (5,8) (5,9) (5,10) (5,9) (5,8) (4,8) (3,8) (3,7) (2,7) (1,7) (1,6) (1,5) (0,5) 
+Total nodes expanded: 87
+Total nodes fully expanded: 87
+Total expansions skipped: 0
+Total generations skipped: 130
+Total nodes generated: 643
+Total heuristic time: 0.000 seconds
+Total MTSP time: 0.101 seconds
+MTSP Solver time: 1.515 seconds
+Total MTSP calls: 643
+Solution size: 2
+
+
+EB
+
+Running watchman method!
+Start f value: 22
+Goal condition met!
+Num seen: 121 / 121
+Search time taken: 0.968 seconds
+Solution cost: 25
+Path for agent (length 24) 0: (0,0) (0,1) (1,1) (2,1) (2,0) (3,0) (4,0) (4,1) (4,2) (4,3) (5,3) (6,3) (7,3) (8,3) (9,3) (10,3) (9,3) (8,3) (7,3) (6,3) (6,2) (6,1) (7,1) (7,0) 
+Path for agent (length 26) 1: (10,10) (9,10) (8,10) (8,9) (7,9) (7,8) (7,7) (7,6) (7,5) (7,6) (7,7) (7,8) (6,8) (5,8) (5,9) (5,10) (5,9) (5,8) (4,8) (3,8) (3,7) (2,7) (1,7) (1,6) (1,5) (0,5) 
+Total nodes expanded: 36
+Total nodes fully expanded: 36
+Total expansions skipped: 0
+Total generations skipped: 32
+Total nodes generated: 359
+Total heuristic time: 0.000 seconds
+Total MTSP time: 0.057 seconds
+MTSP Solver time: 0.918 seconds
+Total MTSP calls: 359
+Solution size: 2
+*/

@@ -4,7 +4,10 @@ from matplotlib import pyplot as plt
 import matplotlib.colors
 from matplotlib.animation import FuncAnimation
 
-MAP_NAME = "11_by_11_maze.json"
+# MAP_NAME = "11_by_11_maze.json"
+MAP_NAME = sys.argv[1]
+if not "configs/" in MAP_NAME:
+    MAP_NAME = "../configs/" + MAP_NAME
 
 # Read in watchman_solution.csv
 data = []
@@ -21,7 +24,7 @@ with open('../build/watchman_solution.csv', 'r') as file:
 
 print("Data length:", len(data))
 
-with open("../configs/" + MAP_NAME) as f:
+with open(MAP_NAME) as f:
     config = json.load(f)
 
 agents = config["agents"]
@@ -67,8 +70,8 @@ def animate_func(frame_num):
 
     return [im, text] # Return a list of artists that were modified
 
-name = sys.argv[1]
-fps = int(sys.argv[2])
+name = sys.argv[2]
+fps = int(sys.argv[3])
 
 print("Creating animation...")
 print("Solution length: ", len(data))

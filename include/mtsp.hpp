@@ -11,6 +11,7 @@ using namespace std;
 
 double TOTAL_RUNTIME = 0.0;
 double SOLVER_RUNTIME = 0.0;
+int TOTAL_CALLS = 0;
 
 std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
@@ -265,12 +266,17 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         auto end = std::chrono::high_resolution_clock::now();
         auto seconds_taken = std::chrono::duration<double>(end - start).count();
         TOTAL_RUNTIME += seconds_taken;
+        TOTAL_CALLS += 1;
 
         start = std::chrono::high_resolution_clock::now();
 
+        auto solve = cplex.solve();
 
+        end = std::chrono::high_resolution_clock::now();
+        seconds_taken = std::chrono::duration<double>(end - start).count();
+        SOLVER_RUNTIME += seconds_taken;
 
-        if(cplex.solve()) {
+        if(solve) {
             // if(cplex.getObjValue() == current_costs[0] && cplex.getObjValue() == current_costs[1]) {
             //     cout << "Min makespan: " << cplex.getObjValue() << endl;
 
@@ -288,9 +294,6 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
             //         cout << endl;
             //     }
             // }
-            end = std::chrono::high_resolution_clock::now();
-            seconds_taken = std::chrono::duration<double>(end - start).count();
-            SOLVER_RUNTIME += seconds_taken;
             // printf("Total MTSP time: %.6f seconds. Solver time: %.6f seconds\n", TOTAL_RUNTIME, SOLVER_RUNTIME);
 
             return cplex.getObjValue();

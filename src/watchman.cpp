@@ -518,10 +518,13 @@ namespace watchman {
         // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
         printf("Total generations skipped: %d\n", NUM_SKIPPED);
         printf("Total nodes generated: %d\n", num_generated);
-        printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
         if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
-            printf("Total MTSP time: %.3f seconds\n", TOTAL_MTSP_TIME);
-            printf("Total MTSP calls: %d\n", TOTAL_MTSP_CALLS);
+        if(start_agent_states.size() == 1){
+            printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
+        } else{
+            printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
+            printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
+            printf("Total MTSP calls: %d\n", TOTAL_CALLS);
         }
         debug_file.close();
 

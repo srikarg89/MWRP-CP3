@@ -30,7 +30,6 @@ namespace watchman {
         return f_value;
     }
 
-    // NOTE: Assumes that there is only one agent.
     int get_mst_heuristic(const DisjointGraph& disjoint_graph){
         std::vector<std::vector<int>> adjacency_matrix = disjoint_graph.pivot_pivot_costs;
         for(int i = 0; i < disjoint_graph.pivots.size(); i++){
@@ -75,6 +74,53 @@ namespace watchman {
         // printf("MST Heuristic: %d\n", mst_heuristic);
         return mst_heuristic;
     }
+
+    // int get_multi_mst_heuristic_mksp(const DisjointGraph& disjoint_graph){
+    //     std::vector<std::vector<int>> paths;
+
+    //     std::vector<std::vector<int>> adjacency_matrix = disjoint_graph.pivot_pivot_costs;
+    //     for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+    //         adjacency_matrix[i].push_back(disjoint_graph.agent_pivot_costs[0][i]);
+    //     }
+    //     adjacency_matrix.push_back(disjoint_graph.agent_pivot_costs[0]);
+    //     adjacency_matrix.back().push_back(0);
+
+    //     // Calculate minimum spanning tree.
+    //     std::priority_queue<std::tuple<int, int, int>> edge_set; // 
+    //     int mst_heuristic = 0;
+    //     std::vector<int> distances(adjacency_matrix.size(), INT_MAX);
+    //     std::vector<bool> added(adjacency_matrix.size(), false);
+
+    //     // printf("\nMST Calculation:\n");
+
+    //     for(int i = 0; i < adjacency_matrix.size(); i++){
+    //         // Find the min cost node.
+    //         int next_node_to_add = 0;
+    //         int min_cost = INT_MAX;
+    //         for(int j = 0; j < distances.size(); j++){
+    //             if(added[j]){
+    //                 continue;
+    //             }
+    //             if(distances[j] < min_cost){
+    //                 next_node_to_add = j;
+    //                 min_cost = distances[j];
+    //             }
+    //         }
+
+    //         if(i > 0){
+    //             mst_heuristic += min_cost;
+    //         }
+
+    //         for(int j = 0; j < distances.size(); j++){
+    //             distances[j] = std::min(distances[j], adjacency_matrix[next_node_to_add][j]);
+    //         }
+
+    //         added[next_node_to_add] = true;
+    //     }
+
+    //     // printf("MST Heuristic: %d\n", mst_heuristic);
+    //     return mst_heuristic;
+    // }
 
     // NOTE: Assumes that there is only one agent.
     std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoint_graph){

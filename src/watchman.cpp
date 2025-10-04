@@ -3,6 +3,7 @@
 #include "watchman_utils.hpp"
 #include "pathfinding.hpp"
 #include "heuristics.hpp"
+#include "collisions.hpp"
 #include <queue>
 #include <unordered_map>
 #include <iostream>
@@ -63,6 +64,7 @@ namespace watchman {
                     tsp_f_value = node_cost + tsp_heuristic;
                 } else {
                     int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                    printf("MTSP Heuristic: %d\n", mtsp_f_value);
                     tsp_f_value = std::max(node_cost, mtsp_f_value);
                 }
                 if(heuristic_type == TSP){
@@ -435,6 +437,10 @@ namespace watchman {
             }
         }
 
+        if(solver_config.collision_resolution == POSTPROCESS){
+            paths = postprocess_collisions(paths);
+        }
+
         printf("Total nodes expanded: %d\n", num_expanded);
         printf("Total nodes fully expanded: %d\n", num_fully_expanded);
         printf("Total expansions skipped: %d\n", num_skipped);
@@ -450,6 +456,10 @@ namespace watchman {
                 printf("Total MTSP calls: %d\n", TOTAL_CALLS);
             }
         }
+        for(int i = 0; i < paths.size(); i++){
+            printf("Path %d length: %ld\n", i, paths[i].size());
+        }
+
         debug_file.close();
 
         std::ofstream solution_file;

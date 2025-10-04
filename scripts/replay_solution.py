@@ -6,8 +6,8 @@ from matplotlib.animation import FuncAnimation
 
 # MAP_NAME = "11_by_11_maze.json"
 MAP_NAME = sys.argv[1]
-if not "configs/" in MAP_NAME:
-    MAP_NAME = "../configs/" + MAP_NAME
+if not "maps/" in MAP_NAME:
+    MAP_NAME = "../maps/" + MAP_NAME
 
 # Read in watchman_solution.csv
 data = []
@@ -25,10 +25,10 @@ with open('../build/watchman_solution.csv', 'r') as file:
 print("Data length:", len(data))
 
 with open(MAP_NAME) as f:
-    config = json.load(f)
-
-agents = config["agents"]
-map = config["map"]
+    lines = f.readlines()
+    map_lines = lines[4:] # Skip the first four header lines
+    map_lines = [line.strip() for line in map_lines if line.strip()]  # Remove any empty lines
+    map = [[0 if c == '.' else 1 for c in line.strip()] for line in map_lines]
 
 fig, ax = plt.subplots()
 

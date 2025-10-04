@@ -6,7 +6,7 @@
 
 **Extensions**
 - [ ] Extend algorithm to work on weighted graph
-
+- [ ] Rolling horizon variation: Only consider squares within X distance to you?
 
 **Verified Working**
 - [x] Implement neighbor function for multi-agent.

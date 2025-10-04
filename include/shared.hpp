@@ -46,11 +46,6 @@ enum HeuristicType {
     LAZY
 };
 
-enum CostType {
-    SUM_OF_COSTS,
-    MAKESPAN
-};
-
 enum MovementType {
     FOUR_WAY_MOVEMENT,
     EIGHT_WAY_MOVEMENT
@@ -60,6 +55,12 @@ enum LOSType {
     FOUR_WAY_LOS,
     EIGHT_WAY_LOS,
     BRES_LOS        
+};
+
+enum CollisionResolution {
+    NONE,
+    POSTPROCESS,
+    NODE_EXPANSION
 };
 
 
@@ -164,8 +165,8 @@ struct DisjointGraph {
 
 
 struct SolverConfig {
-    CostType cost_type;
     HeuristicType heuristic_type;
+    CollisionResolution collision_resolution;
     bool expanding_borders;    
 };
 

@@ -13,19 +13,11 @@ int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
 
 namespace watchman {
-    int call_singleton_f_value(CostType cost_type, std::vector<int> non_terminated_agent_map_idxs, std::vector<int> non_terminated_agent_costs, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
-        if(cost_type == SUM_OF_COSTS){
-            std::vector<int> empty_agent_costs(non_terminated_agent_costs.size(), 0);
-            return node_cost + get_singleton_f_value(non_terminated_agent_map_idxs, empty_agent_costs, seen, lookup.min_dist_to_see);
-        } else if(cost_type == MAKESPAN){
-            return std::max(node_cost, get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, seen, lookup.min_dist_to_see));
-        } else {
-            printf("UNKNOWN COST TYPE ???\n");
-            exit(1);
-        }
+    int call_singleton_f_value(std::vector<int> non_terminated_agent_map_idxs, std::vector<int> non_terminated_agent_costs, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+        return std::max(node_cost, get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, seen, lookup.min_dist_to_see));
     }
 
-    int get_f_value(HeuristicType heuristic_type, CostType cost_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+    int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
         std::vector<int> non_terminated_agent_map_idxs;
         std::vector<int> non_terminated_agent_costs;
         int max_terminated_agent_cost = 0;
@@ -44,7 +36,7 @@ namespace watchman {
         if(heuristic_type == BFS){
             return node_cost;
         } else if(heuristic_type == SINGLETON) {
-            return call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
+            return call_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
         } else if(heuristic_type == MST || heuristic_type == TSP || heuristic_type == MAX) {
             if(agent_states.size() != 1 && heuristic_type == MST){
                 printf("MST heuristic only supports single-agent watchman.\n");
@@ -55,7 +47,7 @@ namespace watchman {
             DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, seen);
             // If there's no pivots, just return the singleton heuristic.
             if(disjoint_graph.pivots.size() == 0){
-                return call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
+                return call_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
             }
 
             prune_graph(disjoint_graph, lookup);
@@ -70,17 +62,13 @@ namespace watchman {
                     auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
                     tsp_f_value = node_cost + tsp_heuristic;
                 } else {
-                    int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs, cost_type);
-                    if(cost_type == SUM_OF_COSTS){
-                        tsp_f_value = mtsp_f_value + total_terminated_agent_cost;
-                    } else {
-                        tsp_f_value = std::max(node_cost, mtsp_f_value);
-                    }
+                    int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                    tsp_f_value = std::max(node_cost, mtsp_f_value);
                 }
                 if(heuristic_type == TSP){
                     return tsp_f_value;
                 } else if(heuristic_type == MAX){
-                    int singleton_f_value = call_singleton_f_value(cost_type, non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
+                    int singleton_f_value = call_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, lookup);
                     return std::max(tsp_f_value, singleton_f_value);
                 }
             }
@@ -164,11 +152,7 @@ namespace watchman {
             int nbr_cost = 0;
             for(const AgentState& agent : nbr){
                 new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
-                if(solver_config.cost_type == MAKESPAN){
-                    nbr_cost = std::max(nbr_cost, agent.cost);
-                } else {
-                    nbr_cost += agent.cost;
-                }
+                nbr_cost = std::max(nbr_cost, agent.cost);
             }
 
             int nbr_num_seen = node.num_seen + new_squares_seen;
@@ -188,7 +172,7 @@ namespace watchman {
             if(heuristic_type == LAZY){
                 heuristic_type = SINGLETON;
             }
-            int nbr_f_value = get_f_value(heuristic_type, solver_config.cost_type, map, nbr, nbr_cost, nbr_seen, lookup);
+            int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, lookup);
             last_id_assigned += 1;
             neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_cost, nbr_f_value, nbr_num_seen));
         }
@@ -335,7 +319,7 @@ namespace watchman {
         if(start_heuristic_type == LAZY){
             start_heuristic_type = SINGLETON;
         }
-        int start_f_value = get_f_value(start_heuristic_type, solver_config.cost_type, scenario_config.map, start_agent_states, 0, start_seen, lookup);
+        int start_f_value = get_f_value(start_heuristic_type, scenario_config.map, start_agent_states, 0, start_seen, lookup);
         printf("Start f value: %d\n", start_f_value);
         queue.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ 0, start_f_value, num_start_seen));
 
@@ -369,7 +353,7 @@ namespace watchman {
 
             if(solver_config.heuristic_type == LAZY && curr.is_lazy){
                 // Recompute f value.
-                int new_f_value = get_f_value(HeuristicType::TSP, solver_config.cost_type, scenario_config.map, curr.agents, curr.cost, curr.seen, lookup);
+                int new_f_value = get_f_value(HeuristicType::TSP, scenario_config.map, curr.agents, curr.cost, curr.seen, lookup);
                 new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
                 curr.update_f_value(new_f_value);
                 queue.push(curr);

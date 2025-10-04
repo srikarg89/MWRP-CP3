@@ -59,7 +59,7 @@ std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<
     return initial_paths;
 }
 
-int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, CostType cost_type) {
+int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
     // printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
     // printf("Cost Matrix:\n");
     // for(int i = 0; i < cost_matrix.size(); i++){
@@ -168,44 +168,23 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         }
 
         // Objective function.
-        if(cost_type == CostType::SUM_OF_COSTS){
-            // For sum of costs we want to minimize the total cost.
-            IloExpr total_cost(env);
-            for(int agent = 0; agent < m; agent++) {
-                for(int from = 0; from < n + 1; from++) {
-                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
-                        if(from != to) {
-                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
-                            total_cost += cost_matrix[c_from][to] * x[agent][from][to];
-                        }
+        // For makespan we want to minimize the maximum cost of any agent.
+        IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
+        for(int agent = 0; agent < m; agent++) {
+            IloExpr agent_cost(env);
+            for(int from = 0; from < n + 1; from++) {
+                for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
+                    if(from != to) {
+                        int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                        agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
                     }
                 }
-                total_cost += current_costs[agent];
             }
-            model.add(IloMinimize(env, total_cost));
-            total_cost.end();
-
-        } else if(cost_type == CostType::MAKESPAN){
-            // For makespan we want to minimize the maximum cost of any agent.
-            IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
-            for(int agent = 0; agent < m; agent++) {
-                IloExpr agent_cost(env);
-                for(int from = 0; from < n + 1; from++) {
-                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
-                        if(from != to) {
-                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
-                            agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
-                        }
-                    }
-                }
-                model.add(agent_cost + current_costs[agent] <= L);
-                agent_cost.end();
-            }
-
-            model.add(IloMinimize(env, L));
-        } else {
-            throw std::runtime_error("Invalid cost type for MTSP");
+            model.add(agent_cost + current_costs[agent] <= L);
+            agent_cost.end();
         }
+
+        model.add(IloMinimize(env, L));
 
         // Attach the MIP start to the model
         IloNumVarArray vars(env);

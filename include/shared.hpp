@@ -68,6 +68,12 @@ struct Map {
     int y_size;
     int num_squares;
     std::vector<bool> occupancy; // 1 = occupied, 0 = not occupied.
+    std::vector<std::vector<int>> neighbors;
+
+    Map(int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement) : x_size(x_size), y_size(y_size), occupancy(occupancy) {
+        num_squares = x_size * y_size;
+        precompute_neighbors(movement);
+    }
 
     int get_map_idx(Position pos) const {
         return pos.y * x_size + pos.x;
@@ -92,7 +98,6 @@ struct Map {
         return pos.x < 0 || pos.x >= x_size || pos.y < 0 || pos.y >= y_size || occupancy[get_map_idx(pos)];
     }
 
-    // TODO: Can probably also be precomputed for bonus speedup.
     std::vector<Position> get_neighbors(Position pos, MovementType movement) const {
         int dX[] = {-1, 1, 0, 0, -1, -1, 1, 1};
         int dY[] = {0, 0, -1, 1, -1, 1, -1, 1};
@@ -107,6 +112,25 @@ struct Map {
         }
         return neighbors;
     }
+
+    void precompute_neighbors(MovementType movement) {
+        // Precompute neighbors.
+        neighbors = std::vector<std::vector<int>>(num_squares, std::vector<int>());
+        for(int map_idx = 0; map_idx < num_squares; map_idx++){
+            Position pos = get_pos_from_map_idx(map_idx);
+            if(check_obstacle(pos)){
+                continue;
+            }
+            if(!check_obstacle(pos)) {
+                std::vector<Position> pos_neighbors = get_neighbors(pos, movement);
+                for(Position nbr : pos_neighbors){
+                    neighbors[map_idx].push_back(get_map_idx(nbr));
+                }
+            }
+        }
+    }
+
+
 };
 
 struct Lookup {
@@ -196,25 +220,24 @@ struct ScenarioConfig {
         }
 
         // Create occupancy map.
-        Map map;
-        map.occupancy = std::vector<bool>();
+        std::vector<bool> occupancy = std::vector<bool>();
 
         // Fill in occupancy map.
         std::string line;
         std::getline(inputFile, line); // Ignore first line.
-        std::getline(inputFile, line); strip(line); map.y_size = std::stoi(splitBySpace(line)[1]);
-        std::getline(inputFile, line); strip(line); map.x_size = std::stoi(splitBySpace(line)[1]);
+        std::getline(inputFile, line); strip(line); int y_size = std::stoi(splitBySpace(line)[1]);
+        std::getline(inputFile, line); strip(line); int x_size = std::stoi(splitBySpace(line)[1]);
         std::getline(inputFile, line); // Ignore fourth line.
-        map.num_squares = map.x_size * map.y_size;
 
-        for (int i = 0; i < map.y_size; i++) {
+        for (int i = 0; i < y_size; i++) {
             std::getline(inputFile, line); strip(line);
             for(char c : line) {
-                map.occupancy.push_back(c == '@' || c == 'T');
+                occupancy.push_back(c == '@' || c == 'T');
             }
         }
-        inputFile.close();
 
+        inputFile.close();
+        
         std::string movement_str = parsed_data["movement"].get<std::string>();
         MovementType movement_type;
         if(movement_str == "FOUR_WAY_MOVEMENT") {
@@ -224,6 +247,8 @@ struct ScenarioConfig {
         } else {
             throw std::runtime_error("Invalid movement type: " + movement_str);
         }
+
+        Map map(x_size, y_size, occupancy, movement_type);
 
         std::string los_str = parsed_data["los"].get<std::string>();
         LOSType los_type;

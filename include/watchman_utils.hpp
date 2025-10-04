@@ -188,8 +188,10 @@ namespace watchman {
 
     void precompute_lookup(Lookup& lookup, const ScenarioConfig& scenario_config, HeuristicType heuristic_type, std::vector<Position> agent_starts){
         const Map& map = scenario_config.map;
+
         // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
         printf("Running watchman method!\n");
+        auto start_time = std::chrono::high_resolution_clock::now();
         for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
             lookup.watchers.push_back({});
         }
@@ -237,6 +239,10 @@ namespace watchman {
         std::sort(sorted_pivot_order.begin(), sorted_pivot_order.end(), [lookup](int a, int b){
             return lookup.watchers[a].size() < lookup.watchers[b].size();
         });
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end_time - start_time;
+        printf("LOS and APSP precomputation time: %.6f seconds\n", duration.count());
 
         // New sorted LOS method based on centrality. Might be better for multi-agent.
         // // TODO: Is this "start_seen" part necessary??
@@ -291,6 +297,10 @@ namespace watchman {
                 }
             }
         }
+
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = end_time - start_time;
+        printf("Singleton precomputation time: %.6f seconds\n", duration.count());
 
         // Precompute the distance between pivots in G_DLC
         if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){

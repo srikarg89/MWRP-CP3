@@ -50,6 +50,8 @@ int main(int argc, char** argv) {
         .expanding_borders = expanding_borders
     };
 
+    auto start_time = std::chrono::high_resolution_clock::now();
+
     auto solution = watchman::run_watchman(scenario_config.agent_starts, scenario_config, solver_config);
     printf("Solution size: %ld\n", solution.size());
     // for(const std::vector<Position>& agent_positions : solution){
@@ -59,6 +61,10 @@ int main(int argc, char** argv) {
     //     }
     //     printf("\n");
     // }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end_time - start_time;
+    printf("Total time taken: %.3f seconds\n", duration.count());
 
     return 0;
 }

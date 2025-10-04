@@ -60,7 +60,7 @@ namespace watchman {
 
             prune_graph(disjoint_graph, lookup);
 
-            printf("Num pivots: %lu\n", disjoint_graph.pivots.size());
+            // printf("Num pivots: %lu\n", disjoint_graph.pivots.size());
 
             if(heuristic_type == MST){
                 return node_cost + get_mst_heuristic(disjoint_graph);
@@ -292,8 +292,14 @@ namespace watchman {
     // Inputs: Agent starting positions, LOS type, map.
     // Output: Optimal path.
     std::vector<std::vector<Position>> run_watchman(std::vector<Position> starts, const ScenarioConfig& scenario_config, const SolverConfig& solver_config){
+        auto lookup_start_time = std::chrono::high_resolution_clock::now();
+
         Lookup lookup;
         precompute_lookup(lookup, scenario_config, solver_config.heuristic_type, starts);
+
+        auto lookup_end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> lookup_duration = lookup_end_time - lookup_start_time;
+        printf("Lookup precomputation time: %.6f seconds\n", lookup_duration.count());
 
         // Create initial seen bitset.
         boost::dynamic_bitset<> start_seen(scenario_config.map.x_size * scenario_config.map.y_size);
@@ -382,9 +388,9 @@ namespace watchman {
             // debug_file.close(); exit(0);
 
             max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-            if(num_expanded % 100 == 0){
+            if(num_fully_expanded % 100 == 0){
             // if(num_expanded % 1 == 0){
-                printf("Expanded %d nodes. Fully expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num new seen: %d / %d, max new squares seen: %d\n", num_expanded, num_fully_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+                printf("Expanded %d nodes. Fully expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
                 printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             }
             // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);

@@ -37,6 +37,77 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     return str;
 }
 
+struct AgentState{
+    Position pos;
+    bool terminated;
+    int cost;
+
+    AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
+};
+
+inline std::vector<Position> agent_states_to_positions(const std::vector<AgentState>& agents){
+    std::vector<Position> positions;
+    for(const AgentState& agent : agents){
+        positions.push_back(agent.pos);
+    }
+    return positions;
+}
+
+// Used for hashing visited nodes.
+inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+    std::string str = "[";
+    for(const AgentState& agent : agents){
+        str += agent.pos.toString() + " / " + (agent.terminated ? " / T" : "") + ", ";
+    }
+    str += "]";
+    return str;
+}
+
+// Used for printing debug information.
+inline std::string agent_states_to_print_string(const std::vector<AgentState>& agents){
+    std::string str = "[";
+    for(const AgentState& agent : agents){
+        str += agent.pos.toString() + " / " + std::to_string(agent.cost) + (agent.terminated ? " / T" : "") + ", ";
+    }
+    str += "]";
+    return str;
+}
+
+struct Node {
+    int node_id;
+    std::vector<AgentState> agents;
+    boost::dynamic_bitset<> seen;
+    int cost;
+    int heuristic;
+    int num_seen;
+    int f_value;
+    bool is_lazy;
+
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
+        node_id = id;
+        agents = a;
+        seen = s;
+        cost = c;
+        heuristic = f - c;
+        num_seen = n;
+        f_value = f;
+        is_lazy = true;
+    }
+
+    void update_f_value(int new_f_value){
+        f_value = new_f_value;
+        heuristic = f_value - cost;
+        is_lazy = false;
+    }
+
+    bool operator>(const Node& rhs) const {
+        // int weighted_f = (int)(cost + heuristic * 1.5);
+        // int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * 1.5);
+        // return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
+        return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
+    }
+};
+
 enum HeuristicType {
     BFS,
     SINGLETON,

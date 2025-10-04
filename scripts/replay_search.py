@@ -6,9 +6,9 @@ from matplotlib.animation import FuncAnimation
 
 MAP_NAME = sys.argv[1]
 
-# Read in watchman_debug.csv
+# Read in search_debug.csv
 data = []
-with open('../build/watchman_debug.csv', 'r') as file:
+with open('../build/search_debug.csv', 'r') as file:
     next(file)  # Skip header line
     for line in file:
         parts = line.strip().split(',')

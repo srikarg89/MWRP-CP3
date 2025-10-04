@@ -1,7 +1,7 @@
 import csv
 
-new_data = open('../build/watchman_debug_new.csv').readlines()[1:]
-old_data = open('../build/watchman_debug_old.csv').readlines()[1:]
+new_data = open('../build/search_debug_new.csv').readlines()[1:]
+old_data = open('../build/search_debug_old.csv').readlines()[1:]
 
 new_data = [line.split(',') for line in new_data]
 old_data = [line.split(',') for line in old_data]

@@ -9,9 +9,9 @@ MAP_NAME = sys.argv[1]
 if not "maps/" in MAP_NAME:
     MAP_NAME = "../maps/" + MAP_NAME
 
-# Read in watchman_solution.csv
+# Read in search_solution.csv
 data = []
-with open('../build/watchman_solution.csv', 'r') as file:
+with open('../build/search_solution.csv', 'r') as file:
     next(file)  # Skip header line
     for line in file:
         parts = line.strip().split(',')

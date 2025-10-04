@@ -20,7 +20,7 @@ include_directories(${CONCORDE_DIR})
 include_directories(/home/srikar/libraries/qsopt)
 include_directories(${CPLEX_INCLUDE_DIRS})
 
-add_library(stapf_lib src/watchman.cpp)
+add_library(stapf_lib src/search.cpp)
 
 # Add an executable target
 add_executable(run src/main.cpp)

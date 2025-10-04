@@ -1,6 +1,6 @@
 #include <iostream>
 #include <chrono>
-#include "watchman.hpp"
+#include "search.hpp"
 
 int main(int argc, char** argv) {
     // Setup scenario config.
@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    auto solution = watchman::run_watchman(scenario_config.agent_starts, scenario_config, solver_config);
+    auto solution = run_search(scenario_config.agent_starts, scenario_config, solver_config);
     printf("Solution size: %ld\n", solution.size());
     // for(const std::vector<Position>& agent_positions : solution){
     //     printf("\t");

@@ -9,11 +9,11 @@
 
 using namespace std;
 
-double TOTAL_RUNTIME = 0.0;
-double SOLVER_RUNTIME = 0.0;
-int TOTAL_CALLS = 0;
+inline double TOTAL_RUNTIME = 0.0;
+inline double SOLVER_RUNTIME = 0.0;
+inline int TOTAL_CALLS = 0;
 
-std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
+inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
     std::vector<std::vector<int>> initial_paths(m, std::vector<int>());
     for(int i = 0; i < m; i++){
@@ -59,7 +59,7 @@ std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<
     return initial_paths;
 }
 
-int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
+inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
     // printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
     // printf("Cost Matrix:\n");
     // for(int i = 0; i < cost_matrix.size(); i++){

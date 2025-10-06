@@ -12,6 +12,10 @@ struct Position {
     int x;
     int y;
 
+    bool operator==(const Position& other) const {
+        return (x == other.x && y == other.y);
+    }
+
     inline Position add(int dx, int dy) {
         return Position {
             .x=x + dx,
@@ -271,6 +275,7 @@ struct ScenarioConfig {
     std::vector<Position> agent_starts;
     std::vector<Position> task_locations;
     Map map;
+    std::string map_name;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
         std::ifstream i(config_filename);
@@ -284,8 +289,18 @@ struct ScenarioConfig {
             agent_starts.push_back(Position{agent[0], agent[1]});
         }
 
+        auto tasks_json = parsed_data["tasks"].get<std::vector<std::vector<int>>>();
+        std::vector<Position> task_locations;
+        for(const auto& task : tasks_json) {
+            if(task.size() != 2) {
+                throw std::runtime_error("Each task position must have exactly two coordinates.");
+            }
+            task_locations.push_back(Position{task[0], task[1]});
+        }
+
         // Load in map file.
-        std::string map_filename = "../maps/" + parsed_data["map"].get<std::string>();
+        std::string map_name = parsed_data["map"].get<std::string>();
+        std::string map_filename = "../maps/" + map_name;
         std::ifstream inputFile(map_filename);
         if (!inputFile.is_open()) {
             printf("Could not open map file: %s\n", map_filename.c_str());
@@ -335,7 +350,18 @@ struct ScenarioConfig {
 
         Map map(x_size, y_size, occupancy, movement_type, los_type);
 
-        // TODO: Load in tasks.
-        return {std::move(agent_starts), std::vector<Position>(), std::move(map)};
+        // Validate agent and task positions.
+        for(const auto& agent : agent_starts) {
+            if(map.get_map_idx(agent) < 0 || map.get_map_idx(agent) >= map.num_squares || map.check_obstacle(agent)) {
+                throw std::runtime_error("Agent position " + agent.toString() + " is out of bounds or on an obstacle.");
+            }
+        }
+        for(const auto& task : task_locations) {
+            if(map.get_map_idx(task) < 0 || map.get_map_idx(task) >= map.num_squares || map.check_obstacle(task)) {
+                throw std::runtime_error("Task position " + task.toString() + " is out of bounds or on an obstacle.");
+            }
+        }
+
+        return {std::move(agent_starts), std::move(task_locations), std::move(map), map_name};
     }
 };

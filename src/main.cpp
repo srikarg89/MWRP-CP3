@@ -57,11 +57,29 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
     std::vector<Position> known_tasks = env.get_known_incomplete_tasks();
     printf("Num tasks: %lu\n", known_tasks.size());
-    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, scenario_config.map, solver_config);
+    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config);
+
+    std::ofstream final_run_file;
+    final_run_file.open("final_solution.csv");
+
+    // Write Header
+    final_run_file << "Timestep, Num Agents, Agent positions, Seen Bitset\n";
+    final_run_file << scenario_config.map_name << "\n";
+
 
     int timestep = 0;
     int s_t = 1;
     while(s_t < solution[0].size()){
+        std::vector<std::vector<Position>> paths_to_go;
+        for(int i = 0; i < solution.size(); i++) {
+            std::vector<Position> path_to_go;
+            for(int t = s_t; t < solution[i].size(); t++) {
+                path_to_go.push_back(solution[i][t]);
+            }
+            paths_to_go.push_back(path_to_go);
+        }
+        write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+
         printf("Running timestep %d\n", timestep);
         std::vector<Position> actions;
         for(int i = 0; i < solution.size(); i++) {
@@ -90,13 +108,17 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
         if(new_task_found) {
             // TODO: Add in known tasks to the search input.
-            solution = run_search(env.get_agent_positions(), known_tasks, scenario_config.map, solver_config);
+            printf("New task found! Replanning...\n");
+            solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config);
             s_t = 1;
         }
     }
 
     printf("Final timestep: %d\n", timestep);
-    
+    write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+
+    final_run_file.close();
+
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Total time taken: %.3f seconds\n", duration.count());

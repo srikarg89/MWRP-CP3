@@ -5,7 +5,6 @@
 #include "heuristics.hpp"
 #include "collisions.hpp"
 #include "los.hpp"
-#include "file_utils.hpp"
 #include <queue>
 #include <unordered_map>
 #include <iostream>
@@ -171,7 +170,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
 // Inputs: Agent starting positions, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, const Map& map, const SolverConfig& solver_config){
+std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config){
     auto lookup_start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
@@ -182,10 +181,9 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     printf("Lookup precomputation time: %.6f seconds\n", lookup_duration.count());
 
     // Create initial seen bitset.
-    boost::dynamic_bitset<> start_seen(map.num_squares);
-    int num_start_seen = 0;
+    int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+        if(!start_seen[map_idx] && map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
             start_seen[map_idx] = 1;
             num_start_seen += 1;
         }
@@ -220,6 +218,11 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     if(start_heuristic_type == LAZY){
         start_heuristic_type = SINGLETON;
     }
+    printf("Incomplete tasks (%ld): ", incomplete_tasks.size());
+    for(int task : incomplete_tasks){
+        printf("%s ", map.get_pos_from_map_idx(task).toString().c_str());
+    }
+    printf("\n");
     int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, 0, start_seen, incomplete_tasks, lookup);
     printf("Start f value: %d\n", start_f_value);
     queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ 0, start_f_value, num_start_seen));
@@ -280,7 +283,8 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         }
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
-        if(curr.num_seen == map.num_squares){
+        // Goal condition.
+        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
             printf("Goal condition met!\n");
             printf("Num seen: %d / %d\n", curr.num_seen, map.num_squares);
             for(int i = 0; i < curr.seen.size(); i++){
@@ -361,7 +365,6 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     }
 
     debug_file.close();
-
 
     std::ofstream solution_file;
     solution_file.open("search_solution.csv");

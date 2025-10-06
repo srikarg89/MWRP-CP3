@@ -6,9 +6,9 @@
 #include "pathfinding.hpp"
 #include "los.hpp"
 
-static const int MAX_PIVOTS = INT_MAX;
+inline static const int MAX_PIVOTS = INT_MAX;
 
-std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
@@ -49,7 +49,7 @@ std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, co
     return extended_neighbors;
 }
 
-void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
+inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -194,7 +194,7 @@ void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_t
     }
 }
 
-DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left){
+inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
 
@@ -219,6 +219,7 @@ DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agen
         // Check if one of the tasks is already a watcher for this pivot.
         for(int task : tasks_left){
             if(lookup.pivot_cell_dists[potential_pivot][task] == 0){
+                printf("Skipping cuz task is a watcher\n");
                 valid = false;
                 break;
             }
@@ -247,17 +248,14 @@ DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agen
         for(int j = 0; j < pivots.size(); j++){
             int p2 = pivots[j];
             int cost = 0;
-            if(p1 < num_exploration_pivots && p2 < num_exploration_pivots){ // P1 is exploration, P2 is exploration.
+            if(i < num_exploration_pivots && j < num_exploration_pivots){ // P1 is exploration, P2 is exploration.
                 cost = lookup.pivot_pivot_dists[p1][p2];
-            } else if(p1 < num_exploration_pivots && p2 >= num_exploration_pivots) { // P1 is exploration, P2 is task.
+            } else if(i < num_exploration_pivots && j >= num_exploration_pivots) { // P1 is exploration, P2 is task.
                 cost = lookup.pivot_cell_dists[p1][p2];
-            } else if(p1 >= num_exploration_pivots && p2 < num_exploration_pivots) { // P1 is task, P2 is exploration.
+            } else if(i >= num_exploration_pivots && j < num_exploration_pivots) { // P1 is task, P2 is exploration.
                 cost = lookup.pivot_cell_dists[p2][p1];
-            } else if(p1 >= num_exploration_pivots && p2 >= num_exploration_pivots) { // P1 is task, P2 is task.
+            } else { // P1 is task, P2 is task.
                 cost = lookup.apsp[p1][p2];
-            } else {
-                printf("ERROR IN PIVOT COST COMPUTATION ???\n");
-                exit(1);
             }
 
             pivot_outgoing_costs.push_back(cost);
@@ -265,14 +263,14 @@ DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agen
         }
         pivot_pivot_costs.push_back(pivot_outgoing_costs);
 
-        for(int i = 0; i < agent_map_idxs.size(); i++){
+        for(int j = 0; j < agent_map_idxs.size(); j++){
             int cost = 0;
-            if(p1 < num_exploration_pivots) {
-                cost = lookup.pivot_cell_dists[p1][agent_map_idxs[i]];
+            if(i < num_exploration_pivots) {
+                cost = lookup.pivot_cell_dists[p1][agent_map_idxs[j]];
             } else {
-                cost = lookup.apsp[p1][agent_map_idxs[i]];
+                cost = lookup.apsp[p1][agent_map_idxs[j]];
             }
-            agent_pivot_costs[i].push_back(cost);
+            agent_pivot_costs[j].push_back(cost);
             max_edge_cost = std::max(max_edge_cost, cost);
         }
     }
@@ -285,7 +283,7 @@ DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agen
     };
 }
 
-void prune_graph(DisjointGraph& graph, const Lookup& lookup){
+inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
     while(true){
         int shortcut_pivot = -1;
         int biggest_shortcut = 0;

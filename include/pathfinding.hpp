@@ -23,16 +23,16 @@ extern "C" {
 #undef new
 #undef class
 
-double TOTAL_MTSP_TIME = 0.0;
-double TOTAL_TSP_BRUTE_FORCE_TIME = 0.0;
-double TOTAL_TSP_CONCORDE_TIME = 0.0;
-int TOTAL_MTSP_CALLS = 0;
-int TOTAL_TSP_BRUTE_FORCE_CALLS = 0;
-int TOTAL_TSP_CONCORDE_CALLS = 0;
+inline double TOTAL_MTSP_TIME = 0.0;
+inline double TOTAL_TSP_BRUTE_FORCE_TIME = 0.0;
+inline double TOTAL_TSP_CONCORDE_TIME = 0.0;
+inline int TOTAL_MTSP_CALLS = 0;
+inline int TOTAL_TSP_BRUTE_FORCE_CALLS = 0;
+inline int TOTAL_TSP_CONCORDE_CALLS = 0;
 
 
 namespace pathfinding {
-    std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, const Map& map){
+    inline std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, const Map& map){
         std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
         std::vector<int> preds(map.x_size * map.y_size, INT_MAX);
         std::queue<int> queue;
@@ -61,7 +61,7 @@ namespace pathfinding {
     }
 
     // Brute-Force TSP Solver for small number of nodes.
-    std::tuple<int, std::vector<int>> solve_tsp_brute_force(const std::vector<std::vector<int>>& dist) {
+    inline std::tuple<int, std::vector<int>> solve_tsp_brute_force(const std::vector<std::vector<int>>& dist) {
         std::vector<int> perm;
         for(int i = 0; i < dist.size(); i++) {
             perm.push_back(i);
@@ -90,7 +90,7 @@ namespace pathfinding {
     }
 
     // TSP Solver using Concorde solver functions
-    std::tuple<int, std::vector<int>> solve_tsp_concorde(const std::vector<std::vector<int>>& dist) {
+    inline std::tuple<int, std::vector<int>> solve_tsp_concorde(const std::vector<std::vector<int>>& dist) {
         double optval;
         int success, foundtour, hit_timebound = 0;
 
@@ -154,7 +154,7 @@ namespace pathfinding {
     }
 
     // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
-    std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
+    inline std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
         auto start = std::chrono::high_resolution_clock::now();
 
         if(dist.size() <= 4){

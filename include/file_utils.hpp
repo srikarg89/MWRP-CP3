@@ -4,7 +4,7 @@
 #include "shared.hpp"
 #include "utils.hpp"
 
-void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
+inline void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
     std::unordered_set<int> original_pivots;
     std::unordered_set<int> pivots;
     std::unordered_set<int> watchers;
@@ -50,7 +50,7 @@ void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, c
     file << map_list << "\n";
 }
 
-void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, const Map& map, const Lookup& lookup){
+inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, const Map& map, const Lookup& lookup){
     boost::dynamic_bitset<> seen(map.x_size * map.y_size);
     int num_seen = 0;
     for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
@@ -87,11 +87,47 @@ void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Positio
                 map_list += "0"; // Not seen
             }
         }
-        // file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset"; // Header
         file << t << "," << curr_positions.size() << "," << num_seen << ",";
         for(Position pos : curr_positions){
             file << pos.x << "," << pos.y << ",";
         }
         file << map_list << "\n";
     }
+}
+
+inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen, std::vector<Position> known_incomplete_tasks, std::vector<Position> completed_tasks, std::vector<Position> unknown_tasks) {
+    std::vector<int> agent_map_idxs = map.get_map_idxs(agent_positions);
+    std::vector<int> known_incomplete_task_map_idxs = map.get_map_idxs(known_incomplete_tasks);
+    std::vector<int> completed_task_map_idxs = map.get_map_idxs(completed_tasks);
+    std::vector<int> unknown_task_map_idxs = map.get_map_idxs(unknown_tasks);
+
+    // Create seen / agent state map list.
+    std::string map_list = "";
+    for(int i = 0; i < seen.size(); i++){
+        if(std::find(agent_map_idxs.begin(), agent_map_idxs.end(), i) != agent_map_idxs.end()){
+            map_list += "1"; // Agent
+        } else if(seen[i]){
+            map_list += "2"; // Seen
+        } else {
+            map_list += "0"; // Not seen
+        }
+    }
+
+    std::string task_list = "";
+    for(int i = 0; i < seen.size(); i++){
+        if(std::find(known_incomplete_task_map_idxs.begin(), known_incomplete_task_map_idxs.end(), i) != known_incomplete_task_map_idxs.end()){
+            task_list += "1"; // Known Incomplete Task
+        } else if(std::find(completed_task_map_idxs.begin(), completed_task_map_idxs.end(), i) != completed_task_map_idxs.end()){
+            task_list += "2"; // Completed Task
+        } else if(std::find(unknown_task_map_idxs.begin(), unknown_task_map_idxs.end(), i) != unknown_task_map_idxs.end()){
+            task_list += "3"; // Unknown Task
+        } else {
+            task_list += "0"; // Not a task
+        }
+    }
+
+    // TODO: Add in paths to go.
+
+    // file << "Timestep, Num Agents, Agent positions, Seen Bitset"; // Header
+    file << timestep << "," << map_list << "," << task_list << "\n";
 }

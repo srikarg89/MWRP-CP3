@@ -10,8 +10,8 @@ public:
     Map map;
     std::vector<Position> agent_positions;
     boost::dynamic_bitset<> seen;
-    // TODO: Tasks of variable length.
     std::vector<Position> incomplete_tasks;
+    std::vector<Position> completed_tasks;
     std::vector<std::vector<Position>> los;
 
     Environment(const ScenarioConfig& scenario_config) : map(scenario_config.map), agent_positions(scenario_config.agent_starts), incomplete_tasks(scenario_config.task_locations) {
@@ -21,6 +21,7 @@ public:
             Position pos = map.get_pos_from_map_idx(map_idx);
             if(map.check_obstacle(pos)){
                 this->los.push_back({});
+                this->seen[map_idx] = 1;
             } else {
                 switch(map.los_type){
                     case FOUR_WAY_LOS:
@@ -44,6 +45,13 @@ public:
     void run_action(std::vector<Position> new_positions) {
         for(int i = 0; i < agent_positions.size(); i++){
             agent_positions[i] = new_positions[i];
+            auto it = std::find(incomplete_tasks.begin(), incomplete_tasks.end(), new_positions[i]);
+            if(it != incomplete_tasks.end()){
+                // Task completed.
+                completed_tasks.push_back(*it);
+                incomplete_tasks.erase(it);
+                printf("Agent at %s completed a task!\n", new_positions[i].toString().c_str());
+            }
             add_los_to_seen(this->seen, this->los[map.get_map_idx(new_positions[i])], map);
         }
     }
@@ -53,12 +61,34 @@ public:
         for(Position task : incomplete_tasks){
             if(seen[map.get_map_idx(task)]){
                 known_incomplete_tasks.push_back(task);
+                printf("Task at %s is known.\n", task.toString().c_str());
+            } else {
+                printf("Task at %s is not known yet.\n", task.toString().c_str());
             }
         }
         return known_incomplete_tasks;
     }
 
+    std::vector<Position> get_unknown_tasks() {
+        std::vector<Position> unknown_tasks;
+        for(Position task : incomplete_tasks){
+            if(!seen[map.get_map_idx(task)]){
+                unknown_tasks.push_back(task);
+                printf("Task at %s is unknown_tasks.\n", task.toString().c_str());
+            }
+        }
+        return unknown_tasks;
+    }
+
+    std::vector<Position> get_completed_tasks() {
+        return completed_tasks;
+    }
+
     std::vector<Position> get_agent_positions() {
         return agent_positions;
+    }
+
+    boost::dynamic_bitset<> get_seen() {
+        return seen;
     }
 };

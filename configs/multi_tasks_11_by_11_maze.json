@@ -1,6 +1,6 @@
 {
-    "agents": [[0, 0], [0, 0]],
-    "tasks": [],
+    "agents": [[0, 0], [10, 10]],
+    "tasks": [[0, 10]],
     "map": "custom-11-11.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"

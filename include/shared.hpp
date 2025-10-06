@@ -76,6 +76,7 @@ inline std::string agent_states_to_print_string(const std::vector<AgentState>& a
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
+    std::vector<int> tasks_left;
     boost::dynamic_bitset<> seen;
     int cost;
     int heuristic;
@@ -83,10 +84,11 @@ struct Node {
     int f_value;
     bool is_lazy;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<int> t, int c, int f, int n){
         node_id = id;
         agents = a;
         seen = s;
+        tasks_left = t;
         cost = c;
         heuristic = f - c;
         num_seen = n;
@@ -141,10 +143,12 @@ struct Map {
     int num_squares;
     std::vector<bool> occupancy; // 1 = occupied, 0 = not occupied.
     std::vector<std::vector<int>> neighbors;
+    MovementType movement_type;
+    LOSType los_type;
 
-    Map(int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement) : x_size(x_size), y_size(y_size), occupancy(occupancy) {
+    Map(int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement, LOSType los) : x_size(x_size), y_size(y_size), occupancy(occupancy), movement_type(movement), los_type(los) {
         num_squares = x_size * y_size;
-        precompute_neighbors(movement);
+        precompute_neighbors();
     }
 
     int get_map_idx(Position pos) const {
@@ -170,10 +174,10 @@ struct Map {
         return pos.x < 0 || pos.x >= x_size || pos.y < 0 || pos.y >= y_size || occupancy[get_map_idx(pos)];
     }
 
-    std::vector<Position> get_neighbors(Position pos, MovementType movement) const {
+    std::vector<Position> get_neighbors(Position pos) const {
         int dX[] = {-1, 1, 0, 0, -1, -1, 1, 1};
         int dY[] = {0, 0, -1, 1, -1, 1, -1, 1};
-        int cutoff = (movement == FOUR_WAY_MOVEMENT) ? 4 : 8;
+        int cutoff = (movement_type == FOUR_WAY_MOVEMENT) ? 4 : 8;
 
         std::vector<Position> neighbors;
         for(int i = 0; i < cutoff; i++){
@@ -185,7 +189,7 @@ struct Map {
         return neighbors;
     }
 
-    void precompute_neighbors(MovementType movement) {
+    void precompute_neighbors() {
         // Precompute neighbors.
         neighbors = std::vector<std::vector<int>>(num_squares, std::vector<int>());
         for(int map_idx = 0; map_idx < num_squares; map_idx++){
@@ -194,15 +198,13 @@ struct Map {
                 continue;
             }
             if(!check_obstacle(pos)) {
-                std::vector<Position> pos_neighbors = get_neighbors(pos, movement);
+                std::vector<Position> pos_neighbors = get_neighbors(pos);
                 for(Position nbr : pos_neighbors){
                     neighbors[map_idx].push_back(get_map_idx(nbr));
                 }
             }
         }
     }
-
-
 };
 
 struct Lookup {
@@ -267,9 +269,8 @@ inline std::vector<std::string> splitBySpace(const std::string& str) {
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
+    std::vector<Position> task_locations;
     Map map;
-    MovementType movement_type;
-    LOSType los_type;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
         std::ifstream i(config_filename);
@@ -320,8 +321,6 @@ struct ScenarioConfig {
             throw std::runtime_error("Invalid movement type: " + movement_str);
         }
 
-        Map map(x_size, y_size, occupancy, movement_type);
-
         std::string los_str = parsed_data["los"].get<std::string>();
         LOSType los_type;
         if(los_str == "FOUR_WAY_LOS") {
@@ -334,6 +333,9 @@ struct ScenarioConfig {
             throw std::runtime_error("Invalid LOS type: " + los_str);
         }
 
-        return {std::move(agent_starts), std::move(map), movement_type, los_type};
+        Map map(x_size, y_size, occupancy, movement_type, los_type);
+
+        // TODO: Load in tasks.
+        return {std::move(agent_starts), std::vector<Position>(), std::move(map)};
     }
 };

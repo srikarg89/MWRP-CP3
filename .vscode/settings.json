@@ -66,6 +66,17 @@
         "variant": "cpp",
         "charconv": "cpp",
         "chrono": "cpp",
-        "format": "cpp"
+        "format": "cpp",
+        "strstream": "cpp",
+        "cfenv": "cpp",
+        "condition_variable": "cpp",
+        "list": "cpp",
+        "set": "cpp",
+        "mutex": "cpp",
+        "semaphore": "cpp",
+        "shared_mutex": "cpp",
+        "stdfloat": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp"
     }
 }

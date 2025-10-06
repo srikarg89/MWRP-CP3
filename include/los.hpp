@@ -99,7 +99,7 @@ inline std::vector<Position> bresLOS(Position pos, const Map& map){
 }
 
 // Returns the number of new squares marked as seen.
-int add_los_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Position>& los, const Map& map){
+inline int add_los_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Position>& los, const Map& map){
     int count = 0;
     for(Position pos : los){
         int map_idx = map.get_map_idx(pos);

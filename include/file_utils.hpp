@@ -14,7 +14,7 @@ void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, c
     }
 
     if(heuristic_type == TSP || heuristic_type == MST || heuristic_type == MAX) {
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen);
+        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen, node.tasks_left);
         for(int pivot : disjoint_graph.pivots){
             original_pivots.insert(pivot);
         }

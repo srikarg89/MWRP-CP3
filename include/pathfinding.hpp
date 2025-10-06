@@ -32,7 +32,7 @@ int TOTAL_TSP_CONCORDE_CALLS = 0;
 
 
 namespace pathfinding {
-    std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, MovementType movement, const Map& map){
+    std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, const Map& map){
         std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
         std::vector<int> preds(map.x_size * map.y_size, INT_MAX);
         std::queue<int> queue;

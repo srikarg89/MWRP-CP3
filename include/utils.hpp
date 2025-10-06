@@ -206,7 +206,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
     for(int potential_pivot : lookup.sorted_pivot_order){
     // for(auto [_, potential_pivot] : sorted_order){
         if(seen[potential_pivot]){
-            // printf("\tSkipping cuz already seen\n");
             continue;
         }
 
@@ -216,7 +215,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         for(int existing_pivot : pivots){
             if(lookup.pivot_pivot_dists[existing_pivot][potential_pivot] == 0){
                 valid = false;
-                // printf("\tSkipping cuz intersects with existing pivot: %d\n", existing_pivot);
                 break;
             }
         }
@@ -224,7 +222,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         // Check if one of the tasks is already a watcher for this pivot.
         for(int task : tasks_left){
             if(lookup.pivot_cell_dists[potential_pivot][task] == 0){
-                // printf("Skipping cuz task is a watcher\n");
                 valid = false;
                 break;
             }
@@ -234,7 +231,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
             continue;
         }
 
-        // printf("\tUsing pivot: %d\n", potential_pivot);
         pivots.push_back(potential_pivot);
     }
 
@@ -355,6 +351,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         for(auto& row : graph.agent_pivot_costs){
             row.erase(row.begin() + shortcut_pivot);
         }
+        if(shortcut_pivot < graph.num_exploration_pivots){
+            graph.num_exploration_pivots -= 1;
+        }
     }
 
     // Prune pivots to be under the max allowed using farness centrality.
@@ -388,6 +387,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
         for(auto& row : graph.agent_pivot_costs){
             row.erase(row.begin() + worst_pivot);
+        }
+        if(worst_pivot < graph.num_exploration_pivots){
+            graph.num_exploration_pivots -= 1;
         }
     }
 }

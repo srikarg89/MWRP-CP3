@@ -2,6 +2,6 @@
     "agents": [[1, 1], [28, 28]],
     "tasks": [],
     "map": "maze-32-32-4.map",
-    "movement": "EIGHT_WAY_MOVEMENT",
+    "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

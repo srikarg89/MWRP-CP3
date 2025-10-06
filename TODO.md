@@ -28,3 +28,8 @@
 - [ ] For disjoint graph pruning, just do O(N^3) loop to check for shortcuts instead of doing fancy BFS logic.
   - [ ] Also don't need to do that loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 - [ ] What if the expansion only expands one node at a time (they take turns). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
+- [ ] Optimizations on iterative search by reusing previous search / expanded nodes.
+- [ ] Ignore dominated squares. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
+  - [ ] Can also ignore squares dominated by tasks (i.e. any square within LOS of a known task).
+- [ ] Expanding neighbors is too wide rn.
+- [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.

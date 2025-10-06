@@ -152,6 +152,8 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         generated_costs[nbr_key] = nbr_cost;
 
+        printf("\tNeighbor: %s\n", agent_states_to_print_string(nbr).c_str());
+
         // Calculate heuristic.
         HeuristicType heuristic_type = solver_config.heuristic_type;
         if(heuristic_type == LAZY){
@@ -202,6 +204,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");
     debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
+    debug_file << map.map_name << "\n";
 
     std::vector<int> incomplete_tasks;
     for(Position task_pos : incomplete_tasks_pos){
@@ -274,9 +277,9 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         // debug_file.close(); exit(0);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 100 == 0){
+        if(num_fully_expanded % 1 == 0){
         // if(num_expanded % 1 == 0){
-            printf("Expanded %d nodes. Fully expanded %d nodes. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+            printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
         }
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -367,6 +370,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::ofstream solution_file;
     solution_file.open("search_solution.csv");
     solution_file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset\n"; // Header
+    solution_file << map.map_name << "\n";
     write_solution_to_file(solution_file, paths, start_seen, map, lookup);
     solution_file.close();
 

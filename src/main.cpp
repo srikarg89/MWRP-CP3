@@ -64,7 +64,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
     // Write Header
     final_run_file << "Timestep, Num Agents, Agent positions, Seen Bitset\n";
-    final_run_file << scenario_config.map_name << "\n";
+    final_run_file << scenario_config.map.map_name << "\n";
 
 
     int timestep = 0;

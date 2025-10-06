@@ -4,15 +4,11 @@ from matplotlib import pyplot as plt
 import matplotlib.colors
 from matplotlib.animation import FuncAnimation
 
-# MAP_NAME = "11_by_11_maze.json"
-MAP_NAME = sys.argv[1]
-if not "maps/" in MAP_NAME:
-    MAP_NAME = "../maps/" + MAP_NAME
-
 # Read in search_solution.csv
 data = []
 with open('../build/search_solution.csv', 'r') as file:
     next(file)  # Skip header line
+    MAP_NAME = "../maps/" + next(file).strip()  # Read map name line
     for line in file:
         parts = line.strip().split(',')
         timestep = int(parts[0])
@@ -70,8 +66,8 @@ def animate_func(frame_num):
 
     return [im, text] # Return a list of artists that were modified
 
-name = sys.argv[2]
-fps = int(sys.argv[3])
+name = sys.argv[1]
+fps = int(sys.argv[2])
 
 print("Creating animation...")
 print("Solution length: ", len(data))

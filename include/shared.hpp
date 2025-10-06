@@ -151,6 +151,7 @@ enum CollisionResolution {
 
 
 struct Map {
+    std::string map_name;
     int x_size;
     int y_size;
     int num_squares;
@@ -159,7 +160,7 @@ struct Map {
     MovementType movement_type;
     LOSType los_type;
 
-    Map(int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement, LOSType los) : x_size(x_size), y_size(y_size), occupancy(occupancy), movement_type(movement), los_type(los) {
+    Map(std::string name, int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement, LOSType los) : map_name(name), x_size(x_size), y_size(y_size), occupancy(occupancy), movement_type(movement), los_type(los) {
         num_squares = x_size * y_size;
         precompute_neighbors();
     }
@@ -285,7 +286,6 @@ struct ScenarioConfig {
     std::vector<Position> agent_starts;
     std::vector<Position> task_locations;
     Map map;
-    std::string map_name;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
         std::ifstream i(config_filename);
@@ -358,7 +358,7 @@ struct ScenarioConfig {
             throw std::runtime_error("Invalid LOS type: " + los_str);
         }
 
-        Map map(x_size, y_size, occupancy, movement_type, los_type);
+        Map map(map_name, x_size, y_size, occupancy, movement_type, los_type);
 
         // Validate agent and task positions.
         for(const auto& agent : agent_starts) {
@@ -372,6 +372,6 @@ struct ScenarioConfig {
             }
         }
 
-        return {std::move(agent_starts), std::move(task_locations), std::move(map), map_name};
+        return {std::move(agent_starts), std::move(task_locations), std::move(map)};
     }
 };

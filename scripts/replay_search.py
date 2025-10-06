@@ -4,12 +4,11 @@ from matplotlib import pyplot as plt
 import matplotlib.colors
 from matplotlib.animation import FuncAnimation
 
-MAP_NAME = sys.argv[1]
-
 # Read in search_debug.csv
 data = []
 with open('../build/search_debug.csv', 'r') as file:
     next(file)  # Skip header line
+    MAP_NAME = "../maps/" + next(file).strip()  # Read map name line
     for line in file:
         parts = line.strip().split(',')
         node_id = int(parts[0])
@@ -62,17 +61,19 @@ def animate_func(frame_num):
         if arr[row][col] == 0:  # Only mark non obstacle cells
             arr[row][col] = int(seen_bitset[i]) / (len(colors) - 1)
 
+    pos_str = ""
     for (x, y) in poses:
         arr[y][x] = 1 / (len(colors) - 1)
+        pos_str += f"({x},{y}), "
+    pos_str = pos_str[:-2]  # Remove trailing comma and space
 
     im.set_array(arr)
-
-    text.set_text(f"Expansion #: {frame_num}, Node ID: {node_id}, Parent ID: {parent_id}, Pos: ({x},{y}), \nCost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
+    text.set_text(f"Expansion #: {frame_num}, Node ID: {node_id}, Parent ID: {parent_id}, Pos: {pos_str}, \nCost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
 
     return [im, text] # Return a list of artists that were modified
 
-name = sys.argv[2]
-fps = int(sys.argv[3])
+name = sys.argv[1]
+fps = int(sys.argv[2])
 
 print("Creating animation...")
 print("Number of frames: ", len(data))

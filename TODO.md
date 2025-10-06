@@ -1,6 +1,7 @@
 - [ ] Test old vs new pivot sorting order (new could work better with multi-agent).
 - [ ] Duplicate / Dominance Detection.
 - [ ] Provide vision radius **R** to the LOS functions.
+- [ ] Add arrows to solution visualization to see intended paths (and how they change upon a task being discovered).
 
 **Extensions**
 - [ ] Tasks with absolute time limits.

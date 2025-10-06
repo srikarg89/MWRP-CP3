@@ -212,7 +212,12 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     }
 
     // Setup the starting variable. Mark all obstacles as seen.
-    int num_obstacles = num_start_seen;
+    int num_obstacles = 0;
+    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+            num_obstacles += 1;
+        }
+    }
     int num_free = map.num_squares - num_obstacles;
 
     HeuristicType start_heuristic_type = solver_config.heuristic_type;

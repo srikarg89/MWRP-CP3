@@ -152,8 +152,6 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         generated_costs[nbr_key] = nbr_cost;
 
-        printf("\tNeighbor: %s\n", agent_states_to_print_string(nbr).c_str());
-
         // Calculate heuristic.
         HeuristicType heuristic_type = solver_config.heuristic_type;
         if(heuristic_type == LAZY){

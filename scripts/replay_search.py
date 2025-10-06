@@ -33,7 +33,6 @@ with open("../maps/" + MAP_NAME) as f:
 fig, ax = plt.subplots()
 
 colors = ["white","green","gray","red","yellow","orange","black"]
-# colors = ["white","green","gray","red","yellow","orange","pink","black"]
 cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", colors)
 im = ax.imshow(map, cmap=cmap)
 
@@ -78,7 +77,6 @@ fps = int(sys.argv[2])
 print("Creating animation...")
 print("Number of frames: ", len(data))
 num_frames = len(data)
-# num_frames = 100
 interval_ms = 1000 // fps # 50 milliseconds between frames
 anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
 anim.save(f'animations/{name}.mp4', writer='ffmpeg', fps=fps)

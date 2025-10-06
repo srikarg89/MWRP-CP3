@@ -41,6 +41,15 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     return str;
 }
 
+inline std::string int_array_to_string(const std::vector<int>& arr){
+    std::string str = "[";
+    for(int i : arr){
+        str += std::to_string(i) + ", ";
+    }
+    str += "]";
+    return str;
+}
+
 struct AgentState{
     Position pos;
     bool terminated;
@@ -238,6 +247,7 @@ struct DisjointGraph {
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
     int max_edge_cost;
+    int num_exploration_pivots;
 };
 
 

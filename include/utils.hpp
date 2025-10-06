@@ -8,7 +8,7 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
-inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
@@ -24,6 +24,11 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             continue;
         }
         visited.insert(curr_map_idx);
+
+        if(std::find(tasks_left.begin(), tasks_left.end(), curr_map_idx) != tasks_left.end()){
+            extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
+            continue; // Don't expand further from a task.
+        }
 
         std::vector<Position> neighbors = map.get_neighbors(curr_pos);
         for(Position neighbor : neighbors){
@@ -219,7 +224,7 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         // Check if one of the tasks is already a watcher for this pivot.
         for(int task : tasks_left){
             if(lookup.pivot_cell_dists[potential_pivot][task] == 0){
-                printf("Skipping cuz task is a watcher\n");
+                // printf("Skipping cuz task is a watcher\n");
                 valid = false;
                 break;
             }
@@ -279,7 +284,8 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         .pivots=pivots,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
-        .max_edge_cost=max_edge_cost
+        .max_edge_cost=max_edge_cost,
+        .num_exploration_pivots=num_exploration_pivots
     };
 }
 

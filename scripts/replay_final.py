@@ -83,13 +83,13 @@ def animate_func(frame_num):
         col = i % len(map[0])
         if task_bitset[i] == '1': # Known Incomplete Task
             task_patches[i].set_alpha(1.0)
-            task_patches[i].set_color('red')
+            task_patches[i].set_color('purple')
         elif task_bitset[i] == '2': # Completed Task
             task_patches[i].set_alpha(1.0)
             task_patches[i].set_color('blue')
         elif task_bitset[i] == '3': # Unknown Task
             task_patches[i].set_alpha(1.0)
-            task_patches[i].set_color('gray')
+            task_patches[i].set_color('red')
     
     pat = [p for p in task_patches if p is not None]
     return [im, text, *pat] # Return a list of artists that were modified

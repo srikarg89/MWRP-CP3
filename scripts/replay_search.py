@@ -21,7 +21,7 @@ with open('../build/search_debug.csv', 'r') as file:
         num_seen = int(parts[6])
         poses = [(int(parts[7 + i*2]), int(parts[8 + i*2])) for i in range(num_agents)]
         seen_bitset = parts[7 + num_agents*2]
-        data.append((node_id, num_agents, poses, cost, heuristic, f_value, num_seen, seen_bitset))
+        data.append((node_id, parent_id, poses, cost, heuristic, f_value, num_seen, seen_bitset))
 
 print("Data length:", len(data))
 
@@ -54,7 +54,7 @@ def animate_func(frame_num):
     # Generate or load data for the current frame
     # im.set_array(new_data)
     df = data[frame_num]
-    node_id, num_agents, poses, cost, heuristic, f_value, num_seen, seen_bitset = df
+    node_id, parent_id, poses, cost, heuristic, f_value, num_seen, seen_bitset = df
     arr = [r.copy() for r in map_copy]
     for i in range(len(seen_bitset)):
         row = i // len(map[0])
@@ -67,7 +67,7 @@ def animate_func(frame_num):
 
     im.set_array(arr)
 
-    text.set_text(f"Expansion #: {frame_num}, Node ID: {node_id}, Pos: ({x},{y}), Cost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
+    text.set_text(f"Expansion #: {frame_num}, Node ID: {node_id}, Parent ID: {parent_id}, Pos: ({x},{y}), \nCost: {cost}, Heuristic: {heuristic}, F: {f_value}, Seen: {num_seen}")
 
     return [im, text] # Return a list of artists that were modified
 

@@ -5,8 +5,8 @@
 #include "utils.hpp"
 
 inline void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
-    std::unordered_set<int> original_pivots;
-    std::unordered_set<int> pivots;
+    std::unordered_set<int> exploration_pivots;
+    std::unordered_set<int> task_pivots;
     std::unordered_set<int> watchers;
     std::vector<int> agent_map_idxs;
     for(const AgentState& agent : node.agents){
@@ -15,24 +15,26 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lo
 
     if(heuristic_type == TSP || heuristic_type == MST || heuristic_type == MAX) {
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen, node.tasks_left);
-        for(int pivot : disjoint_graph.pivots){
-            original_pivots.insert(pivot);
-        }
         prune_graph(disjoint_graph, lookup);
-        for(int pivot : disjoint_graph.pivots){
-            pivots.insert(pivot);
-            for(Position watcher : lookup.los[pivot]){
-                watchers.insert(map.get_map_idx(watcher));
+        for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+            int pivot = disjoint_graph.pivots[i];
+            if(i < disjoint_graph.num_exploration_pivots){
+                exploration_pivots.insert(pivot);
+                for(Position watcher : lookup.watchers[pivot]){
+                    watchers.insert(map.get_map_idx(watcher));
+                }
+            } else {
+                task_pivots.insert(pivot);
             }
         }
     }
 
     std::string map_list = "";
     for(int i = 0; i < node.seen.size(); i++){
-        if(pivots.find(i) != pivots.end()){
-            map_list += "3"; // Pivot
-        } else if(original_pivots.find(i) != original_pivots.end()){
-            map_list += "5"; // Original Graph Pivot
+        if(exploration_pivots.find(i) != exploration_pivots.end()){
+            map_list += "3"; // Exploration Pivot
+        } else if(task_pivots.find(i) != task_pivots.end()){
+            map_list += "5"; // Task Pivot
         } else if(watchers.find(i) != watchers.end()){
             map_list += "4"; // Watcher
         }
@@ -50,8 +52,8 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lo
     file << map_list << "\n";
 }
 
-inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, const Map& map, const Lookup& lookup){
-    boost::dynamic_bitset<> seen(map.x_size * map.y_size);
+inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, boost::dynamic_bitset<> start_seen, const Map& map, const Lookup& lookup){
+    boost::dynamic_bitset<> seen = start_seen;
     int num_seen = 0;
     for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
         if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){

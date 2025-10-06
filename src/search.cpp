@@ -14,6 +14,8 @@
 int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
 
+using generated_costs_key = std::tuple<std::string, std::string, size_t>;
+
 int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
     std::vector<int> non_terminated_agent_map_idxs;
     std::vector<int> non_terminated_agent_costs;
@@ -82,11 +84,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
 
         // Expanding borders implementation.
         if(expanding_borders){
-            std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, lookup);
-            for(int task : tasks_left){
-                Position task_pos = map.get_pos_from_map_idx(task);
-                nbrs_with_added_cost.push_back(std::make_tuple(task_pos, lookup.apsp[map.get_map_idx(agent.pos)][task])); // Direct path to task.
-            }
+            std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
             for(auto [nbr, added_cost] : nbrs_with_added_cost){
                 agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
             }
@@ -121,7 +119,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>>& generated_costs){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<generated_costs_key, int, boost::hash<generated_costs_key>>& generated_costs){
     std::vector<Node> neighbor_nodes;
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
     for(const auto& nbr : neighbors){
@@ -144,7 +142,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
-        std::tuple<std::string, size_t> nbr_key = std::make_tuple(agent_states_to_string(nbr), boost::hash_value(nbr_seen));
+        generated_costs_key nbr_key = std::make_tuple(agent_states_to_string(nbr), int_array_to_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         if(generated_costs.find(nbr_key) != generated_costs.end()){
             if(nbr_cost >= generated_costs[nbr_key]){
                 // We've already generated a cheaper version of this node.
@@ -199,7 +197,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::unordered_map<int, int> pred_lookup;
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<std::tuple<std::string, size_t>, boost::hash<std::tuple<std::string, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
-    std::unordered_map<std::tuple<std::string, size_t>, int, boost::hash<std::tuple<std::string, size_t>>> generated_costs; // (map_idx, seen bitset hash)
+    std::unordered_map<generated_costs_key, int, boost::hash<generated_costs_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
 
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");
@@ -369,7 +367,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::ofstream solution_file;
     solution_file.open("search_solution.csv");
     solution_file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset\n"; // Header
-    write_solution_to_file(solution_file, paths, map, lookup);
+    write_solution_to_file(solution_file, paths, start_seen, map, lookup);
     solution_file.close();
 
     return paths;

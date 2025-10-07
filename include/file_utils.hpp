@@ -4,7 +4,7 @@
 #include "shared.hpp"
 #include "utils.hpp"
 
-inline void write_node_to_file(std::ofstream& file, const Node& node, Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
+inline void write_node_to_file(std::ofstream& file, const Node& node, const Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
     std::unordered_set<int> exploration_pivots;
     std::unordered_set<int> task_pivots;
     std::unordered_set<int> watchers;

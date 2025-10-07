@@ -82,7 +82,7 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
     return extended_neighbors;
 }
 
-inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
+inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -225,6 +225,10 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
             }
         }
     }
+
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+    printf("Lookup precomputation time: %.6f seconds\n", duration.count());
 }
 
 inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left){

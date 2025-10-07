@@ -8,15 +8,15 @@
 - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
 - [ ] Search-based collision handling.
 - [ ] Priority-based collision handling.
-- [ ] Extend algorithm to work on weighted graph
+- [ ] Extend algorithm to work on weighted graph (different traversabilities).
 - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
   - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
 
 **Optimizations**
 - [ ] For disjoint graph pruning, just do O(N^3) loop to check for shortcuts instead of doing fancy BFS logic.
   - [ ] Also don't need to do that loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
-- [ ] What if the expansion only expands one node at a time (they take turns). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
-- [ ] Optimizations on iterative search by reusing previous search / expanded nodes.
+- [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
+- [ ] Optimizations on future searches by reusing previous search / expanded nodes.
 - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 - [ ] Ignore dominated squares. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
   - [ ] Can also ignore squares dominated by tasks (i.e. any square within LOS of a known task).
@@ -34,3 +34,14 @@
 - [x] Decrease neighbor expansion if one neighbor can be used to get to another neighbor without worsening cost.
 - [x] Add arrows to solution visualization to see intended paths (and how they change upon a task being discovered).
 - [x] Fix bug with CPLEX memory management.
+- [x] Use Release instead of Debug
+
+**Time Breakdown (32x32 map):** Total 17.7 seconds.
+- Lookup precompute: 1.2 seconds
+- Getting neighbors: 0.5 seconds
+- Building disjoint graph: 1.2 seconds
+- Running MTSP heuristic: 14.6 seconds
+- Other operations: 1.5 seconds
+- Nodes expanded: 2275
+- Nodes generated: 6026
+- Generations skipped: 4015

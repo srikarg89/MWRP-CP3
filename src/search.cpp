@@ -13,6 +13,8 @@
 
 int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
+double NEIGHBOR_EXPANSION_TIME = 0.0;
+double GET_F_VALUE_TIME = 0.0;
 
 using generated_costs_key = std::tuple<std::string, std::string, size_t>;
 
@@ -121,7 +123,11 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
 
 std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<generated_costs_key, int, boost::hash<generated_costs_key>>& generated_costs){
     std::vector<Node> neighbor_nodes;
+    auto start = std::chrono::high_resolution_clock::now();
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    NEIGHBOR_EXPANSION_TIME += duration.count();
     for(const auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
@@ -157,7 +163,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         if(heuristic_type == LAZY){
             heuristic_type = SINGLETON;
         }
+        auto start = std::chrono::high_resolution_clock::now();
         int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        GET_F_VALUE_TIME += duration.count();
         last_id_assigned += 1;
         neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_tasks_left, nbr_cost, nbr_f_value, nbr_num_seen));
     }
@@ -166,16 +176,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
 // Inputs: Agent starting positions, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config){
-    auto lookup_start_time = std::chrono::high_resolution_clock::now();
-
-    Lookup lookup;
-    precompute_lookup(lookup, map, solver_config.heuristic_type, starts);
-
-    auto lookup_end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> lookup_duration = lookup_end_time - lookup_start_time;
-    printf("Lookup precomputation time: %.6f seconds\n", lookup_duration.count());
-
+std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -363,6 +364,8 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
             printf("Total MTSP calls: %d\n", TOTAL_CALLS);
         }
     }
+    printf("Total neighbor expansion time: %.3f seconds\n", NEIGHBOR_EXPANSION_TIME);
+    printf("Total get_f_value time: %.3f seconds\n", GET_F_VALUE_TIME);
     for(int i = 0; i < paths.size(); i++){
         printf("Path %d length: %ld\n", i, paths[i].size());
     }

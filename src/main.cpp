@@ -55,9 +55,12 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    Lookup lookup;
+    precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type);
+
     std::vector<Position> known_tasks = env.get_known_incomplete_tasks();
-    printf("Num tasks: %lu\n", known_tasks.size());
-    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config);
+    printf("Total number of tasks in problem: %lu\n", known_tasks.size());
+    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -109,7 +112,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         if(new_task_found) {
             // TODO: Add in known tasks to the search input.
             printf("New task found! Replanning...\n");
-            solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config);
+            solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
             s_t = 1;
         }
     }

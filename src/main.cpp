@@ -60,6 +60,11 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
     std::vector<Position> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
+    int num_strictly_easier = 0;
+    for(bool b : lookup.strictly_easier){
+        num_strictly_easier += b;
+    }
+    printf("Number of strictly easier points: %d\n", num_strictly_easier);
     std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
 
     std::ofstream final_run_file;
@@ -125,6 +130,8 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Total time taken: %.3f seconds\n", duration.count());
+    printf("Total tasks completed: %lu / %lu\n", env.get_completed_tasks().size(), scenario_config.task_locations.size());
+    printf("Total squares seen: %d / %d\n", (int)env.get_seen().count(), scenario_config.map.num_squares);
 }
 
 int main(int argc, char** argv) {

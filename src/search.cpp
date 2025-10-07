@@ -165,6 +165,44 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         auto start = std::chrono::high_resolution_clock::now();
         int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+        if(nbr_f_value < node.f_value){
+            printf("ERROR F-VALUE NOT CONSISTENT! F value: %d, %d\n", nbr_f_value, node.f_value);
+            printf("Curr node:\n");
+            for(const AgentState& a : node.agents){
+                printf("\tAgent: %s, terminated: %d, cost: %d\n", a.pos.toString().c_str(), a.terminated, a.cost);
+            }
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, {map.get_map_idx(node.agents[0].pos), map.get_map_idx(node.agents[1].pos)}, node.seen, {});
+            prune_graph(disjoint_graph, lookup);
+            for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+                int pivot = disjoint_graph.pivots[i];
+                if(i < disjoint_graph.num_exploration_pivots){
+                    printf("\tExploration pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
+                } else {
+                    printf("\tTask pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
+                }
+            }
+            int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, {node.agents[0].cost, node.agents[1].cost});
+            printf("\tMTSP F Value: %d\n", mtsp_f_value);
+
+            printf("Nbr node:\n");
+            for(const AgentState& a : nbr){
+                printf("\tAgent: %s, terminated: %d, cost: %d\n", a.pos.toString().c_str(), a.terminated, a.cost);
+            }
+            disjoint_graph = compute_disjoint_graph(lookup, {map.get_map_idx(nbr[0].pos), map.get_map_idx(nbr[1].pos)}, nbr_seen, {});
+            prune_graph(disjoint_graph, lookup);
+            for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+                int pivot = disjoint_graph.pivots[i];
+                if(i < disjoint_graph.num_exploration_pivots){
+                    printf("\tExploration pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
+                } else {
+                    printf("\tTask pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
+                }
+            }
+            mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, {nbr[0].cost, nbr[1].cost});
+            printf("\tMTSP F Value: %d\n", mtsp_f_value);
+
+            exit(0);
+        }
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> duration = end - start;
         GET_F_VALUE_TIME += duration.count();
@@ -180,7 +218,10 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-        if(!start_seen[map_idx] && map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+        if(start_seen[map_idx]){
+            continue;
+        }
+        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
             start_seen[map_idx] = 1;
             num_start_seen += 1;
         }
@@ -340,6 +381,10 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         for(Node& nbr : neighbors){
             // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
+            if(nbr.f_value < curr.f_value){
+                printf("ERROR?? F value decreased from %d to %d\n", curr.f_value, nbr.f_value);
+                exit(0);
+            }
             queue.push(nbr);
         }
     }

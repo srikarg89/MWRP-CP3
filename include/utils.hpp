@@ -88,6 +88,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     auto start_time = std::chrono::high_resolution_clock::now();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
         lookup.watchers.push_back({});
+        lookup.watchers_set.push_back({});
     }
 
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -113,6 +114,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
             for(Position los_pos : lookup.los.back()){
                 int los_map_idx = map.get_map_idx(los_pos);
                 lookup.watchers[los_map_idx].push_back(pos);
+                lookup.watchers_set[los_map_idx].insert(map_idx);
             }
 
             auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, map);
@@ -121,22 +123,67 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
         }
     }
 
-    // OG sorted LOS method. Sort by which pivots have the least number of watchers.
-    // Watchers are squares that can see the pivot.
-    std::vector<int> sorted_pivot_order;
-    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
-            continue;
-        }
-        sorted_pivot_order.push_back(map_idx);
-    }
-    std::sort(sorted_pivot_order.begin(), sorted_pivot_order.end(), [lookup](int a, int b){
-        return lookup.watchers[a].size() < lookup.watchers[b].size();
-    });
-
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("LOS and APSP precomputation time: %.6f seconds\n", duration.count());
+
+    // Find squares whose watchers are dominated by another square.
+    std::vector<bool> strictly_easier(map.num_squares, false);
+    for(int i = 0; i < map.num_squares; i++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+            continue;
+        }
+        for(int j = 0; j < map.num_squares; j++){
+            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j)) || lookup.watchers[i].size() <= lookup.watchers[j].size()){
+                continue;
+            }
+            // If every watcher of j is also a watcher of i, then j is strictly harder to see than i (thus i can be ignored during the search).
+            bool dominated = true;
+            for(Position watcher_j : lookup.watchers[j]){
+                int watcher_map_idx = map.get_map_idx(watcher_j);
+                if(lookup.watchers_set[i].find(watcher_map_idx) == lookup.watchers_set[i].end()){
+                    dominated = false;
+                    break;
+                }
+            }
+
+            if(dominated){
+                strictly_easier[i] = true;
+                // printf("Square %s is strictly harder to see than %s\n", map.get_pos_from_map_idx(j).toString().c_str(), map.get_pos_from_map_idx(i).toString().c_str());
+                break;
+            }
+        }
+    }
+
+    lookup.strictly_easier = strictly_easier;
+
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+    printf("Strictly easier precomputation time: %.6f seconds\n", duration.count());
+
+    // OG sorted LOS method. Sort by which pivots have the least number of watchers.
+    // Watchers are squares that can see the pivot.
+    std::vector<int> sorted_pivot_order;
+    std::vector<int> sizes;
+    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+            sizes.push_back(INT_MAX);
+            continue;
+        }
+        sorted_pivot_order.push_back(map_idx);
+        sizes.push_back(lookup.watchers[map_idx].size());
+    }
+
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+
+    std::sort(sorted_pivot_order.begin(), sorted_pivot_order.end(), [sizes](int a, int b){
+        return sizes[a] < sizes[b];
+    });
+
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+    printf("Sorting precomputation time: %.6f seconds\n", duration.count());
 
     // New sorted LOS method based on centrality. Might be better for multi-agent.
     // // TODO: Is this "start_seen" part necessary??
@@ -322,49 +369,20 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         int shortcut_pivot = -1;
         int biggest_shortcut = 0;
 
-        for(int i = 0; i < graph.pivots.size(); i++){
-            // BFS out to find distance to every other pivot.
-            std::vector<int> distances(graph.pivots.size(), INT_MAX);
-            std::vector<int> pred(graph.pivots.size(), -1);
-            distances[i] = 0;
-            std::priority_queue<std::tuple<int, int>, std::vector<std::tuple<int, int>>, std::greater<>> queue; // cost, node idx
-            queue.push(std::make_tuple(0, i));
-            while(!queue.empty()){
-                auto [curr_cost, curr_idx] = queue.top();
-                queue.pop();
-
-                if(distances[curr_idx] < curr_cost){
-                    continue;
-                }
-
-                distances[curr_idx] = curr_cost;
-
-                for(int neighbor_idx = 0; neighbor_idx < graph.pivots.size(); neighbor_idx++){
-                    if(neighbor_idx == curr_idx){
-                        continue;
-                    }
-                    int edge_cost = graph.pivot_pivot_costs[curr_idx][neighbor_idx];
-                    if(edge_cost == INT_MAX){
-                        continue;
-                    }
-                    int new_cost = curr_cost + edge_cost;
-                    if(new_cost < distances[neighbor_idx]){
-                        distances[neighbor_idx] = new_cost;
-                        pred[neighbor_idx] = curr_idx;
-                        queue.push(std::make_tuple(new_cost, neighbor_idx));
-                    }
-                }
-            }
-
+        for(int i = 0; i < graph.agent_pivot_costs.size(); i++){
             for(int j = 0; j < graph.pivots.size(); j++){
-                if(i == j || pred[j] == -1){
-                    continue;
-                }
-                if(pred[j] != i && pred[pred[j]] == i){
-                    int shortcut = graph.pivot_pivot_costs[i][j] - distances[j];
-                    if(shortcut > biggest_shortcut) {
-                        biggest_shortcut = shortcut;
-                        shortcut_pivot = pred[j];
+                int direct_cost = graph.agent_pivot_costs[i][j];
+                for(int k = 0; k < graph.pivots.size(); k++){
+                    if(j == k){
+                        continue;
+                    }
+                    int through_k_cost = graph.agent_pivot_costs[i][k] + graph.pivot_pivot_costs[k][j];
+                    if(through_k_cost < direct_cost){
+                        int shortcut = direct_cost - through_k_cost;
+                        if(shortcut > biggest_shortcut) {
+                            biggest_shortcut = shortcut;
+                            shortcut_pivot = k;
+                        }
                     }
                 }
             }

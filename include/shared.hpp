@@ -2,11 +2,12 @@
 
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-inline double WEIGHTED_ASTAR_WEIGHT = 1.5;
+inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
 
 // General, shared types.
 
@@ -190,6 +191,16 @@ struct Map {
         return pos.x < 0 || pos.x >= x_size || pos.y < 0 || pos.y >= y_size || occupancy[get_map_idx(pos)];
     }
 
+    int get_num_free_squares() const {
+        int count = 0;
+        for(bool occ : occupancy){
+            if(!occ){
+                count += 1;
+            }
+        }
+        return count;
+    }
+
     std::vector<Position> get_neighbors(Position pos) const {
         int dX[] = {-1, 1, 0, 0, -1, -1, 1, 1};
         int dY[] = {0, 0, -1, 1, -1, 1, -1, 1};
@@ -229,6 +240,7 @@ struct Lookup {
 
     // Inverse LOS lookup table. Indexed by map index, gives list of positions that can see that map index.
     std::vector<std::vector<Position>> watchers;
+    std::vector<std::unordered_set<int>> watchers_set;
 
     // All Pairs Shortest Path distances and paths. Indexed by map index.
     std::vector<std::vector<int>> apsp;
@@ -243,6 +255,9 @@ struct Lookup {
 
     // Sorted order of pivots to consider.
     std::vector<int> sorted_pivot_order;
+
+    // Squares that are strictly easier to see than another square. Can be ignored during the exploration aspect of the search.
+    std::vector<bool> strictly_easier;
 };
 
 struct DisjointGraph {

@@ -258,25 +258,19 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
         SOLVER_RUNTIME += seconds_taken;
 
         if(solve) {
-            // printf("Objective value: %.6f\n", cplex.getObjValue());
-            // if(cplex.getObjValue() == current_costs[0] && cplex.getObjValue() == current_costs[1]) {
-            //     cout << "Min makespan: " << cplex.getObjValue() << endl;
-
-            //     // Print out x variable:
-            //     for(int agent = 0; agent < m; agent++) {
-            //         cout << "Route for agent " << agent << ": ";
-            //         for(int from = 0; from < n + 1; from++) {
-            //             for(int to = 0; to < n + 1; to++) {
-            //                 if(from == to) continue;
-            //                 if(cplex.getValue(x[agent][from][to]) > 0.5) {
-            //                     cout << from << "->" << to << " ";
-            //                 }
+            // Print out x variable:
+            // for(int agent = 0; agent < m; agent++) {
+            //     cout << "Route for agent " << agent << ": ";
+            //     for(int from = 0; from < n + 1; from++) {
+            //         for(int to = 0; to < n + 1; to++) {
+            //             if(from == to) continue;
+            //             if(cplex.getValue(x[agent][from][to]) > 0.5) {
+            //                 cout << from << "->" << to << "(c=" << cost_matrix[(from == n) ? (n + agent) : from][to] << ") ";
             //             }
             //         }
-            //         cout << endl;
             //     }
+            //     cout << endl;
             // }
-            // printf("Total MTSP time: %.6f seconds. Solver time: %.6f seconds\n", TOTAL_RUNTIME, SOLVER_RUNTIME);
 
             double result = cplex.getObjValue();
             env.end();

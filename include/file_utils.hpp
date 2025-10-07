@@ -128,8 +128,13 @@ inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vect
         }
     }
 
-    // TODO: Add in paths to go.
-
     // file << "Timestep, Num Agents, Agent positions, Seen Bitset"; // Header
-    file << timestep << "," << map_list << "," << task_list << "\n";
+    file << timestep << "," << map_list << "," << task_list << ",";
+    for(auto& path : paths_to_go){
+        for(Position pos : path){
+            file << map.get_map_idx(pos) << "_";
+        }
+        file << ",";
+    }
+    file << "\n";
 }

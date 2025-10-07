@@ -3,21 +3,19 @@
 #include "shared.hpp"
 
 // Copy taken since we alter the paths.
-std::vector<std::vector<Position>> add_waits_to_end(std::vector<std::vector<Position>> paths) {
+void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
     int max_time = 0;
-    std::vector<int> makespans;
     for(const auto& path : paths){
-        makespans.push_back((int)path.size());
         max_time = std::max(max_time, (int)path.size());
     }
+
+    printf("Max time: %d\n", max_time);
     
     for(int i = 0; i < paths.size(); i++){
         while(paths[i].size() < max_time){
             paths[i].push_back(paths[i].back());
         }
     }
-
-    return paths;
 }
 
 

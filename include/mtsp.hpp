@@ -78,6 +78,8 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
         int m = num_agents;
         int n = num_pivots;
 
+        // model, x, u, c
+
         std::vector<std::vector<std::vector<IloBoolVar>>> x(m, std::vector<std::vector<IloBoolVar>>(n + 1, std::vector<IloBoolVar>(n + 1)));
         for(int agent = 0; agent < m; agent++) {
             for(int from = 0; from < n + 1; from++) {
@@ -276,7 +278,9 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
             // }
             // printf("Total MTSP time: %.6f seconds. Solver time: %.6f seconds\n", TOTAL_RUNTIME, SOLVER_RUNTIME);
 
-            return cplex.getObjValue();
+            double result = cplex.getObjValue();
+            env.end();
+            return result;
 
         } else {
             cout << "No solution found." << endl;

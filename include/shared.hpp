@@ -6,6 +6,8 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
+inline double WEIGHTED_ASTAR_WEIGHT = 1.5;
+
 // General, shared types.
 
 struct Position {
@@ -116,10 +118,10 @@ struct Node {
     }
 
     bool operator>(const Node& rhs) const {
-        // int weighted_f = (int)(cost + heuristic * 1.5);
-        // int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * 1.5);
-        // return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
-        return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
+        int weighted_f = (int)(cost + heuristic * WEIGHTED_ASTAR_WEIGHT);
+        int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * WEIGHTED_ASTAR_WEIGHT);
+        return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
+        // return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
     }
 };
 

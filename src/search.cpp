@@ -16,7 +16,7 @@ int MAX_EXISTING_NODES_SIZE = 0;
 double NEIGHBOR_EXPANSION_TIME = 0.0;
 double GET_F_VALUE_TIME = 0.0;
 
-using generated_costs_key = std::tuple<std::string, std::string, size_t>;
+using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
 int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
     std::vector<int> non_terminated_agent_map_idxs;
@@ -121,7 +121,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<generated_costs_key, int, boost::hash<generated_costs_key>>& generated_costs){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, int, boost::hash<node_hash_key>>& generated_costs){
     std::vector<Node> neighbor_nodes;
     auto start = std::chrono::high_resolution_clock::now();
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
@@ -148,7 +148,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
-        generated_costs_key nbr_key = std::make_tuple(agent_states_to_string(nbr), int_array_to_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), int_array_to_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         if(generated_costs.find(nbr_key) != generated_costs.end()){
             if(nbr_cost >= generated_costs[nbr_key]){
                 // We've already generated a cheaper version of this node.
@@ -236,8 +236,8 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
     std::unordered_map<int, int> pred_lookup;
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
-    std::unordered_set<std::tuple<std::string, size_t>, boost::hash<std::tuple<std::string, size_t>>> visited_nodes; // (map_idx, seen bitset hash)
-    std::unordered_map<generated_costs_key, int, boost::hash<generated_costs_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
+    std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)
+    std::unordered_map<node_hash_key, int, boost::hash<node_hash_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
 
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");
@@ -290,7 +290,8 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         queue.pop();
 
         size_t seen_hash = boost::hash_value(curr.seen);
-        std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
+        // std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
+        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), int_array_to_string(curr.tasks_left), seen_hash);
         if(visited_nodes.find(visited_key) != visited_nodes.end()){
             // Already visited this node.
             num_skipped += 1;

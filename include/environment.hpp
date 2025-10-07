@@ -61,9 +61,6 @@ public:
         for(Position task : incomplete_tasks){
             if(seen[map.get_map_idx(task)]){
                 known_incomplete_tasks.push_back(task);
-                printf("Task at %s is known.\n", task.toString().c_str());
-            } else {
-                printf("Task at %s is not known yet.\n", task.toString().c_str());
             }
         }
         return known_incomplete_tasks;
@@ -74,7 +71,6 @@ public:
         for(Position task : incomplete_tasks){
             if(!seen[map.get_map_idx(task)]){
                 unknown_tasks.push_back(task);
-                printf("Task at %s is unknown_tasks.\n", task.toString().c_str());
             }
         }
         return unknown_tasks;

@@ -23,6 +23,7 @@
 - [x] Implement max of singleton and TSP function for multi-agent.
 - [x] Implement lazy A* for multi agent.
 - [x] Handle collisions naively.
+- [x] Decrease neighbor expansion if one neighbor can be used to get to another neighbor without worsening cost.
 
 
 **Optimizations**
@@ -32,5 +33,4 @@
 - [ ] Optimizations on iterative search by reusing previous search / expanded nodes.
 - [ ] Ignore dominated squares. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
   - [ ] Can also ignore squares dominated by tasks (i.e. any square within LOS of a known task).
-- [ ] Expanding neighbors is too wide rn.
 - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.

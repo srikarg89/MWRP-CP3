@@ -51,6 +51,34 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             }
         }
     }
+
+    // Filter out unnecessary neighbors. TODO: Figure out if this is actually a good optimization or not.
+    // Should result in less node generation, but may require more node expansion.
+    for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
+        int curr_map_idx = map.get_map_idx(std::get<0>(*it));
+        int curr_cost = std::get<1>(*it);
+        bool remove = false;
+        for(auto nbr : extended_neighbors){
+            int nbr_map_idx = map.get_map_idx(std::get<0>(nbr));
+            int nbr_cost = std::get<1>(nbr);
+
+            if(curr_map_idx == nbr_map_idx){
+                continue;
+            }
+
+            // You can get here cheaper or same via another neighbor. No need to add this point to the extended neighbors list.
+            if(nbr_cost + lookup.apsp[nbr_map_idx][curr_map_idx] <= curr_cost){
+                remove = true;
+                break;
+            }
+        }
+        if(remove){
+            it = extended_neighbors.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     return extended_neighbors;
 }
 

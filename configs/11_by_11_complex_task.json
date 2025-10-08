@@ -3,15 +3,14 @@
     "tasks": [
         {
             "id": 0,
-            "location": [0, 10]
+            "location": [0, 10],
+            "min_time": 35
         },
         {
             "id": 1,
-            "location": [3, 7]
-        },
-        {
-            "id": 2,
-            "location": [9, 5]
+            "location": [3, 7],
+            "min_time": 27,
+            "max_time": 35
         }
     ],
     "map": "custom-11-11.map",

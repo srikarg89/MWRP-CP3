@@ -12,7 +12,7 @@
 double TOTAL_HEURISTIC_TIME = 0.0;
 double TOTAL_TSP_SOLVER_TIME = 0.0;
 
-int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
+int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
     for(int i = 0; i < seen.size(); i++){
         if(!seen[i]) {
@@ -25,11 +25,12 @@ int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vec
             f_value = std::max(f_value, closest_agent_f_value_to_see);
         }
     }
-    for(const int task : tasks_left){
+    for(const Task& task : tasks_left){
         int best_task_f_value = INT_MAX;
         // Find the closest agent and how long it would take to reach the task.
         for(int agent_map_idx : agent_map_idxs){
-            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task]);
+            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task.map_idx]);
+            best_task_f_value = std::max(best_task_f_value, task.min_time); // Ensure that we wait for the task release time.
         }
         f_value = std::max(f_value, best_task_f_value);
     }

@@ -9,6 +9,7 @@
 - [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289).
   - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
 - [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+- [ ] Tasks that take a certain amount of time to complete.
 - [ ] Search-based collision handling.
 - [ ] Priority-based collision handling.
 - [ ] Extend algorithm to work on weighted graph (different traversabilities).
@@ -22,6 +23,7 @@
 - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 - [ ] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 - [ ] Look into heuristics for the TSP problem instead of actually solving it.
+- [ ] Unseen set instead of the full dynamic bitset.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -60,3 +62,10 @@
 - Nodes expanded: 111
 - Nodes generated: 1018
 - Generations skipped: 1009
+
+**When altering task complexity:**
+- Change expansion behavior.
+- Change task completion check (in Environment).
+- Change task completion check (in search neighbor creation).
+- Change heuristic.
+- Check if task is still possible (exit early).

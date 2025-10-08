@@ -8,7 +8,7 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
-inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
+inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
@@ -25,9 +25,19 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
         visited.insert(curr_map_idx);
 
-        if(std::find(tasks_left.begin(), tasks_left.end(), curr_map_idx) != tasks_left.end()){
-            extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
-            continue; // Don't expand further from a task.
+        // Don't wanna do this if agent started at a task, since maybe we don't wanna wait for it.
+        if(curr_cost  > 0){
+            bool at_task = false;
+            for(const Task& task : tasks_left){
+                if(curr_map_idx == task.map_idx){
+                    at_task = true;
+                    break;
+                }
+            }
+            if(at_task){
+                extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
+                continue; // Don't expand further from a task.
+            }
         }
 
         std::vector<Position> neighbors = map.get_neighbors(curr_pos);
@@ -278,7 +288,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Lookup precomputation time: %.6f seconds\n", duration.count());
 }
 
-inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left){
+inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
 
@@ -298,8 +308,9 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         }
 
         // Check if one of the tasks is already a watcher for this pivot.
-        for(int task : tasks_left){
-            if(lookup.pivot_cell_dists[potential_pivot][task] == 0){
+        // for(int task : tasks_left){
+        for(const Task& task : tasks_left){
+            if(lookup.pivot_cell_dists[potential_pivot][task.map_idx] == 0){
                 valid = false;
                 break;
             }
@@ -313,8 +324,8 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
     }
 
     int num_exploration_pivots = pivots.size();
-    for(int task : tasks_left){
-        pivots.push_back(task);
+    for(const Task& task : tasks_left){
+        pivots.push_back(task.map_idx);
     }
 
     int max_edge_cost = 0;

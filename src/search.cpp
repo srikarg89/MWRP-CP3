@@ -18,7 +18,7 @@ double GET_F_VALUE_TIME = 0.0;
 
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
-int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
+int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     std::vector<int> non_terminated_agent_map_idxs;
     std::vector<int> non_terminated_agent_costs;
 
@@ -74,7 +74,7 @@ int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentS
     return -1;
 }
 
-std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup, bool expanding_borders){
+std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
         if(agent.terminated){
@@ -89,6 +89,18 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
             std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
             for(auto [nbr, added_cost] : nbrs_with_added_cost){
                 agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
+            }
+            // If we're at a task, add a wait action to wait until the task's release time.
+            int agent_map_idx = map.get_map_idx(agent.pos);
+            for(const Task& t : tasks_left){
+                if(agent_map_idx == t.map_idx){
+                    if(agent.cost >= t.min_time){
+                        printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
+                        exit(0);
+                    }
+                    agent_options.push_back(AgentState(agent.pos, false, t.min_time));
+                    break;
+                }
             }
         }
         // Generic one-step implementation
@@ -133,22 +145,33 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         // For each neighbor, loop through path to neighbor.
         int new_squares_seen = 0;
         int nbr_cost = 0;
-        std::vector<int> nbr_tasks_left = node.tasks_left;
         for(const AgentState& agent : nbr){
             new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
             nbr_cost = std::max(nbr_cost, agent.cost);
 
             // If the agent has reached the task, remove it from the tasks left.
             int agent_map_idx = map.get_map_idx(agent.pos);
-            auto it = std::find(nbr_tasks_left.begin(), nbr_tasks_left.end(), agent_map_idx);
-            if(it != nbr_tasks_left.end()){
-                nbr_tasks_left.erase(it);
+        }
+
+        std::vector<Task> nbr_tasks_left;
+        for(Task t : node.tasks_left){
+            int task_map_idx = map.get_map_idx(t.pos);
+            bool reached = false;
+            for(const AgentState& agent : nbr){
+                int agent_map_idx = map.get_map_idx(agent.pos);
+                if(agent_map_idx == task_map_idx && agent.cost >= t.min_time && agent.cost <= t.max_time){
+                    reached = true;
+                    break;
+                }
+            }
+            if(!reached){
+                nbr_tasks_left.push_back(t);
             }
         }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
-        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), int_array_to_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         if(generated_costs.find(nbr_key) != generated_costs.end()){
             if(nbr_cost >= generated_costs[nbr_key]){
                 // We've already generated a cheaper version of this node.
@@ -165,6 +188,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         auto start = std::chrono::high_resolution_clock::now();
         int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+
         // Apply pathmax to ensure consistency.
         nbr_f_value = std::max(nbr_f_value, node.f_value);
         auto end = std::chrono::high_resolution_clock::now();
@@ -176,9 +200,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     return neighbor_nodes;
 }
 
-// Inputs: Agent starting positions, LOS type, map.
+// Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
+std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -193,7 +217,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        start_agent_states.push_back(AgentState(start, false, 0));
+        start_agent_states.push_back(AgentState(start, false, start_timestep));
     }
 
     // Initialize search data structures.
@@ -207,11 +231,6 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     debug_file.open("search_debug.csv");
     debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
     debug_file << map.map_name << "\n";
-
-    std::vector<int> incomplete_tasks;
-    for(Position task_pos : incomplete_tasks_pos){
-        incomplete_tasks.push_back(map.get_map_idx(task_pos));
-    }
 
     // Setup the starting variable. Mark all obstacles as seen.
     int num_obstacles = 0;
@@ -227,13 +246,13 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         start_heuristic_type = SINGLETON;
     }
     printf("Incomplete tasks (%ld): ", incomplete_tasks.size());
-    for(int task : incomplete_tasks){
-        printf("%s ", map.get_pos_from_map_idx(task).toString().c_str());
+    for(const Task& task : incomplete_tasks){
+        printf("%s ", task.toString().c_str());
     }
     printf("\n");
-    int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, 0, start_seen, incomplete_tasks, lookup);
+    int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
     printf("Start f value: %d\n", start_f_value);
-    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ 0, start_f_value, num_start_seen));
+    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
 
     std::vector<Node> expanded_nodes;
 
@@ -255,7 +274,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
 
         size_t seen_hash = boost::hash_value(curr.seen);
         // std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
-        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), int_array_to_string(curr.tasks_left), seen_hash);
+        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), task_array_hash_string(curr.tasks_left), seen_hash);
         if(visited_nodes.find(visited_key) != visited_nodes.end()){
             // Already visited this node.
             num_skipped += 1;
@@ -308,32 +327,41 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
             printf("Solution cost: %d\n", curr.cost);
 
             int curr_id = curr.node_id;
-            std::vector<Position> curr_positions = agent_states_to_positions(id_lookup[curr_id]);
+            std::vector<AgentState> curr_agent_states = id_lookup[curr_id];
+            std::vector<Position> curr_positions = agent_states_to_positions(curr_agent_states);
             while(curr_id != 0){
                 curr_id = pred_lookup[curr_id];
-                std::vector<Position> prev_positions = agent_states_to_positions(id_lookup[curr_id]);
+                std::vector<AgentState> prev_agent_states = id_lookup[curr_id];
+                std::vector<Position> prev_positions = agent_states_to_positions(prev_agent_states);
                 for(int i = 0; i < paths.size(); i++){
                     int idx = map.get_map_idx(curr_positions[i]);
                     int from_idx = map.get_map_idx(prev_positions[i]);
+                    printf("Agent %d moving from %s to %s\n", i, prev_positions[i].toString().c_str(), curr_positions[i].toString().c_str());
+                    printf("\tTime changing from %d to %d\n", prev_agent_states[i].cost, curr_agent_states[i].cost);
+                    // Add waits into path if it was a wait action.
+                    if(idx == from_idx) {
+                        printf("YOO WHATT (%d)\n", i);
+                        printf("Position: %d, %s\n", idx, map.get_pos_from_map_idx(idx).toString().c_str());
+                        printf("Prev cost: %d, Curr cost: %d\n", prev_agent_states[i].cost, curr_agent_states[i].cost);
+                        for(int t = prev_agent_states[i].cost; t < curr_agent_states[i].cost; t++){
+                            printf("Adding wait at pos %s at time %d\n", prev_positions[i].toString().c_str(), t);
+                            paths[i].push_back(prev_positions[i]);
+                        }
+                        continue;
+                    }
                     while(idx != from_idx){
                         paths[i].push_back(map.get_pos_from_map_idx(idx));
                         idx = lookup.apsp_paths[from_idx][idx];
                     }
                 }
                 curr_positions = prev_positions;
+                curr_agent_states = prev_agent_states;
             }
 
             for(int i = 0; i < paths.size(); i++){
                 paths[i].push_back(starts[i]);
-            }
-
-            for(int i = 0; i < paths.size(); i++){
                 std::reverse(paths[i].begin(), paths[i].end());
-                printf("Path for agent (length %ld) %d: ", paths[i].size(), i);
-                for(Position pos : paths[i]){
-                    printf("%s ", pos.toString().c_str());
-                }
-                printf("\n");
+                printf("Path for agent %d (length %ld): %s\n", i, paths[i].size(), pos_array_to_string(paths[i]).c_str());
             }
             break;
         }

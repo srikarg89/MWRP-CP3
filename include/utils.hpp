@@ -309,8 +309,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
             continue;
         }
 
-        printf("Adding pivot: %d\n", potential_pivot);
-
         pivots.push_back(potential_pivot);
     }
 
@@ -393,8 +391,6 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         if(biggest_shortcut <= 0){
             break;
         }
-
-        printf("Erasing pivot %s which provides a shortcut of %d\n", lookup.watchers[graph.pivots[shortcut_pivot]][0].toString().c_str(), biggest_shortcut);
 
         graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
         graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);

@@ -3,7 +3,6 @@
 - [ ] Duplicate / Dominance Detection.
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
 - [ ] Provide vision radius **R** to the LOS functions.
-- [ ] Make heuristic consistent.
 - [ ] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Extensions**
@@ -40,11 +39,13 @@
 - [x] Use Release instead of Debug
 - [x] Ignore exploration squares that are strictly easier to visit. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
 - [x] For disjoint graph pruning, just do O(N^3) loop to check for shortcuts instead of doing fancy BFS logic.
+- [x] Make heuristic consistent.
 
-**Significant Improvements to Remember**
+**Improvements / Changes to Remember**
 - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
 - Pivot pruning with shortcut logic.
 - Ignore exploration squares that are strictly easier to visit.
+- Used Pathmax to ensure heuristic consistency.
 
 **New Features Added**
 - Much larger maps

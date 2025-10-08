@@ -5,9 +5,9 @@
 - [ ] Provide vision radius **R** to the LOS functions.
 
 **Extensions**
-- [ ] Tasks with absolute time limits.
-- [ ] Tasks with precedence constraints (need to implement waiting at tasks??).
-- [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
+- [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289).
+  - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
+- [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
 - [ ] Search-based collision handling.
 - [ ] Priority-based collision handling.
 - [ ] Extend algorithm to work on weighted graph (different traversabilities).
@@ -19,9 +19,10 @@
 - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
 - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
 - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
-- [ ] Ignore squares dominated by tasks (i.e. any square within LOS of a known task).
+- [ ] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
+- [ ] Look into heuristics for the TSP problem instead of actually solving it.
 
-**Verified Working**
+ **Verified Working**
 - [x] Implement neighbor function for multi-agent.
 - [x] Implement expanding borders function.
 - [x] Fix LOS in places where I assume its reversible, since Bresham LOS is not reversible.
@@ -42,6 +43,10 @@
 - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
 - Pivot pruning with shortcut logic.
 - Ignore exploration squares that are strictly easier to visit.
+
+**New Features Added**
+- Much larger maps
+- Tasks
 
 **Time Breakdown (32x32 map, no tasks):** Total 2.7 seconds.
 - Lookup precompute: 0.1 seconds

@@ -9,11 +9,11 @@
 
 using namespace std;
 
-double TOTAL_RUNTIME = 0.0;
-double SOLVER_RUNTIME = 0.0;
-int TOTAL_CALLS = 0;
+inline double TOTAL_RUNTIME = 0.0;
+inline double SOLVER_RUNTIME = 0.0;
+inline int TOTAL_CALLS = 0;
 
-std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
+inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
     std::vector<std::vector<int>> initial_paths(m, std::vector<int>());
     for(int i = 0; i < m; i++){
@@ -59,7 +59,7 @@ std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<
     return initial_paths;
 }
 
-int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
+inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
     // printf("Num agents: %d, Num pivots: %d\n", num_agents, num_pivots);
     // printf("Cost Matrix:\n");
     // for(int i = 0; i < cost_matrix.size(); i++){
@@ -77,6 +77,8 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
 
         int m = num_agents;
         int n = num_pivots;
+
+        // model, x, u, c
 
         std::vector<std::vector<std::vector<IloBoolVar>>> x(m, std::vector<std::vector<IloBoolVar>>(n + 1, std::vector<IloBoolVar>(n + 1)));
         for(int agent = 0; agent < m; agent++) {
@@ -256,27 +258,23 @@ int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>
         SOLVER_RUNTIME += seconds_taken;
 
         if(solve) {
-            // printf("Objective value: %.6f\n", cplex.getObjValue());
-            // if(cplex.getObjValue() == current_costs[0] && cplex.getObjValue() == current_costs[1]) {
-            //     cout << "Min makespan: " << cplex.getObjValue() << endl;
-
-            //     // Print out x variable:
-            //     for(int agent = 0; agent < m; agent++) {
-            //         cout << "Route for agent " << agent << ": ";
-            //         for(int from = 0; from < n + 1; from++) {
-            //             for(int to = 0; to < n + 1; to++) {
-            //                 if(from == to) continue;
-            //                 if(cplex.getValue(x[agent][from][to]) > 0.5) {
-            //                     cout << from << "->" << to << " ";
-            //                 }
+            // Print out x variable:
+            // for(int agent = 0; agent < m; agent++) {
+            //     cout << "Route for agent " << agent << ": ";
+            //     for(int from = 0; from < n + 1; from++) {
+            //         for(int to = 0; to < n + 1; to++) {
+            //             if(from == to) continue;
+            //             if(cplex.getValue(x[agent][from][to]) > 0.5) {
+            //                 cout << from << "->" << to << "(c=" << cost_matrix[(from == n) ? (n + agent) : from][to] << ") ";
             //             }
             //         }
-            //         cout << endl;
             //     }
+            //     cout << endl;
             // }
-            // printf("Total MTSP time: %.6f seconds. Solver time: %.6f seconds\n", TOTAL_RUNTIME, SOLVER_RUNTIME);
 
-            return cplex.getObjValue();
+            double result = cplex.getObjValue();
+            env.end();
+            return result;
 
         } else {
             cout << "No solution found." << endl;

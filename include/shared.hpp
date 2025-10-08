@@ -2,15 +2,22 @@
 
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 #include <fstream>
+
+inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
 
 // General, shared types.
 
 struct Position {
     int x;
     int y;
+
+    bool operator==(const Position& other) const {
+        return (x == other.x && y == other.y);
+    }
 
     inline Position add(int dx, int dy) {
         return Position {
@@ -32,6 +39,15 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     std::string str = "[";
     for(Position pos : poses){
         str += pos.toString() + ", ";
+    }
+    str += "]";
+    return str;
+}
+
+inline std::string int_array_to_string(const std::vector<int>& arr){
+    std::string str = "[";
+    for(int i : arr){
+        str += std::to_string(i) + ", ";
     }
     str += "]";
     return str;
@@ -76,6 +92,7 @@ inline std::string agent_states_to_print_string(const std::vector<AgentState>& a
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
+    std::vector<int> tasks_left;
     boost::dynamic_bitset<> seen;
     int cost;
     int heuristic;
@@ -83,10 +100,11 @@ struct Node {
     int f_value;
     bool is_lazy;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int n){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<int> t, int c, int f, int n){
         node_id = id;
         agents = a;
         seen = s;
+        tasks_left = t;
         cost = c;
         heuristic = f - c;
         num_seen = n;
@@ -101,10 +119,10 @@ struct Node {
     }
 
     bool operator>(const Node& rhs) const {
-        // int weighted_f = (int)(cost + heuristic * 1.5);
-        // int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * 1.5);
-        // return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
-        return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
+        int weighted_f = (int)(cost + heuristic * WEIGHTED_ASTAR_WEIGHT);
+        int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * WEIGHTED_ASTAR_WEIGHT);
+        return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
+        // return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
     }
 };
 
@@ -136,15 +154,18 @@ enum CollisionResolution {
 
 
 struct Map {
+    std::string map_name;
     int x_size;
     int y_size;
     int num_squares;
     std::vector<bool> occupancy; // 1 = occupied, 0 = not occupied.
     std::vector<std::vector<int>> neighbors;
+    MovementType movement_type;
+    LOSType los_type;
 
-    Map(int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement) : x_size(x_size), y_size(y_size), occupancy(occupancy) {
+    Map(std::string name, int x_size, int y_size, const std::vector<bool>& occupancy, MovementType movement, LOSType los) : map_name(name), x_size(x_size), y_size(y_size), occupancy(occupancy), movement_type(movement), los_type(los) {
         num_squares = x_size * y_size;
-        precompute_neighbors(movement);
+        precompute_neighbors();
     }
 
     int get_map_idx(Position pos) const {
@@ -170,10 +191,20 @@ struct Map {
         return pos.x < 0 || pos.x >= x_size || pos.y < 0 || pos.y >= y_size || occupancy[get_map_idx(pos)];
     }
 
-    std::vector<Position> get_neighbors(Position pos, MovementType movement) const {
+    int get_num_free_squares() const {
+        int count = 0;
+        for(bool occ : occupancy){
+            if(!occ){
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    std::vector<Position> get_neighbors(Position pos) const {
         int dX[] = {-1, 1, 0, 0, -1, -1, 1, 1};
         int dY[] = {0, 0, -1, 1, -1, 1, -1, 1};
-        int cutoff = (movement == FOUR_WAY_MOVEMENT) ? 4 : 8;
+        int cutoff = (movement_type == FOUR_WAY_MOVEMENT) ? 4 : 8;
 
         std::vector<Position> neighbors;
         for(int i = 0; i < cutoff; i++){
@@ -185,7 +216,7 @@ struct Map {
         return neighbors;
     }
 
-    void precompute_neighbors(MovementType movement) {
+    void precompute_neighbors() {
         // Precompute neighbors.
         neighbors = std::vector<std::vector<int>>(num_squares, std::vector<int>());
         for(int map_idx = 0; map_idx < num_squares; map_idx++){
@@ -194,16 +225,15 @@ struct Map {
                 continue;
             }
             if(!check_obstacle(pos)) {
-                std::vector<Position> pos_neighbors = get_neighbors(pos, movement);
+                std::vector<Position> pos_neighbors = get_neighbors(pos);
                 for(Position nbr : pos_neighbors){
                     neighbors[map_idx].push_back(get_map_idx(nbr));
                 }
             }
         }
     }
-
-
 };
+
 
 struct Lookup {
     // LOS lookup table. Indexed by map index, gives list of positions visible from that map index.
@@ -211,6 +241,7 @@ struct Lookup {
 
     // Inverse LOS lookup table. Indexed by map index, gives list of positions that can see that map index.
     std::vector<std::vector<Position>> watchers;
+    std::vector<std::unordered_set<int>> watchers_set;
 
     // All Pairs Shortest Path distances and paths. Indexed by map index.
     std::vector<std::vector<int>> apsp;
@@ -225,6 +256,9 @@ struct Lookup {
 
     // Sorted order of pivots to consider.
     std::vector<int> sorted_pivot_order;
+
+    // Squares that are strictly easier to see than another square. Can be ignored during the exploration aspect of the search.
+    std::vector<bool> strictly_easier;
 };
 
 struct DisjointGraph {
@@ -232,6 +266,7 @@ struct DisjointGraph {
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
     int max_edge_cost;
+    int num_exploration_pivots;
 };
 
 
@@ -267,9 +302,8 @@ inline std::vector<std::string> splitBySpace(const std::string& str) {
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
+    std::vector<Position> task_locations;
     Map map;
-    MovementType movement_type;
-    LOSType los_type;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
         std::ifstream i(config_filename);
@@ -283,8 +317,18 @@ struct ScenarioConfig {
             agent_starts.push_back(Position{agent[0], agent[1]});
         }
 
+        auto tasks_json = parsed_data["tasks"].get<std::vector<std::vector<int>>>();
+        std::vector<Position> task_locations;
+        for(const auto& task : tasks_json) {
+            if(task.size() != 2) {
+                throw std::runtime_error("Each task position must have exactly two coordinates.");
+            }
+            task_locations.push_back(Position{task[0], task[1]});
+        }
+
         // Load in map file.
-        std::string map_filename = "../maps/" + parsed_data["map"].get<std::string>();
+        std::string map_name = parsed_data["map"].get<std::string>();
+        std::string map_filename = "../maps/" + map_name;
         std::ifstream inputFile(map_filename);
         if (!inputFile.is_open()) {
             printf("Could not open map file: %s\n", map_filename.c_str());
@@ -320,8 +364,6 @@ struct ScenarioConfig {
             throw std::runtime_error("Invalid movement type: " + movement_str);
         }
 
-        Map map(x_size, y_size, occupancy, movement_type);
-
         std::string los_str = parsed_data["los"].get<std::string>();
         LOSType los_type;
         if(los_str == "FOUR_WAY_LOS") {
@@ -334,6 +376,20 @@ struct ScenarioConfig {
             throw std::runtime_error("Invalid LOS type: " + los_str);
         }
 
-        return {std::move(agent_starts), std::move(map), movement_type, los_type};
+        Map map(map_name, x_size, y_size, occupancy, movement_type, los_type);
+
+        // Validate agent and task positions.
+        for(const auto& agent : agent_starts) {
+            if(map.get_map_idx(agent) < 0 || map.get_map_idx(agent) >= map.num_squares || map.check_obstacle(agent)) {
+                throw std::runtime_error("Agent position " + agent.toString() + " is out of bounds or on an obstacle.");
+            }
+        }
+        for(const auto& task : task_locations) {
+            if(map.get_map_idx(task) < 0 || map.get_map_idx(task) >= map.num_squares || map.check_obstacle(task)) {
+                throw std::runtime_error("Task position " + task.toString() + " is out of bounds or on an obstacle.");
+            }
+        }
+
+        return {std::move(agent_starts), std::move(task_locations), std::move(map)};
     }
 };

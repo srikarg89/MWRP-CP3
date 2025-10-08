@@ -1,20 +1,14 @@
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 #include "search.hpp"
+#include "environment.hpp"
 
-int main(int argc, char** argv) {
+
+std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) {
     // Setup scenario config.
-    // bool expanding_borders = false;
-    // if(argc == 5 && std::string(argv[4]) == "EB"){
-    //     expanding_borders = true;
-    // }
     bool expanding_borders = true; // Use expanding borders optimization by default.
-    if(argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <collision_resolution>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
-        return 1;
-    }
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
-    MovementType movement_type = MovementType::FOUR_WAY_MOVEMENT;
 
     // Setup solver config.
     std::string heuristic_str = argv[2];
@@ -47,28 +41,106 @@ int main(int argc, char** argv) {
         throw std::runtime_error("Invalid collision resolution: " + collision_resolution_str);
     }
 
-
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
         .collision_resolution = collision_resolution,
         .expanding_borders = expanding_borders
     };
 
+    return {scenario_config, solver_config};
+}
+
+void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_config) {
+    Environment env(scenario_config);
+
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    auto solution = run_search(scenario_config.agent_starts, scenario_config, solver_config);
-    printf("Solution size: %ld\n", solution.size());
-    // for(const std::vector<Position>& agent_positions : solution){
-    //     printf("\t");
-    //     for(const Position& pos : agent_positions){
-    //         printf("%s ", pos.toString().c_str());
-    //     }
-    //     printf("\n");
-    // }
+    Lookup lookup;
+    precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type);
+
+    std::vector<Position> known_tasks = env.get_known_incomplete_tasks();
+    printf("Total number of tasks in problem: %lu\n", known_tasks.size());
+    int num_strictly_easier = 0;
+    for(bool b : lookup.strictly_easier){
+        num_strictly_easier += b;
+    }
+    printf("Number of strictly easier points: %d\n", num_strictly_easier);
+    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+
+    std::ofstream final_run_file;
+    final_run_file.open("final_solution.csv");
+
+    // Write Header
+    final_run_file << "Timestep, Num Agents, Agent positions, Seen Bitset\n";
+    final_run_file << scenario_config.map.map_name << "\n";
+
+
+    int timestep = 0;
+    int s_t = 1;
+    while(s_t < solution[0].size()){
+        std::vector<std::vector<Position>> paths_to_go;
+        for(int i = 0; i < solution.size(); i++) {
+            std::vector<Position> path_to_go;
+            for(int t = s_t; t < solution[i].size(); t++) {
+                path_to_go.push_back(solution[i][t]);
+            }
+            paths_to_go.push_back(path_to_go);
+        }
+        write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+
+        printf("Running timestep %d\n", timestep);
+        std::vector<Position> actions;
+        for(int i = 0; i < solution.size(); i++) {
+            actions.push_back(solution[i][s_t]);
+        }
+        env.run_action(actions);
+        timestep += 1;
+        s_t += 1;
+
+        bool new_task_found = false;
+        std::vector<Position> old_known_tasks = known_tasks;
+        known_tasks = env.get_known_incomplete_tasks();        
+        for(Position pos : known_tasks){
+            bool found = false;
+            for(Position old_pos : old_known_tasks){
+                if(pos.equals(old_pos)){
+                    found = true;
+                    break;
+                }
+            }
+            if(!found){
+                new_task_found = true;
+                break;
+            }
+        }
+
+        if(new_task_found) {
+            // TODO: Add in known tasks to the search input.
+            printf("New task found! Replanning...\n");
+            solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+            s_t = 1;
+        }
+    }
+
+    printf("Final timestep: %d\n", timestep);
+    write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+
+    final_run_file.close();
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Total time taken: %.3f seconds\n", duration.count());
+    printf("Total tasks completed: %lu / %lu\n", env.get_completed_tasks().size(), scenario_config.task_locations.size());
+    printf("Total squares seen: %d / %d\n", (int)env.get_seen().count(), scenario_config.map.num_squares);
+}
 
+int main(int argc, char** argv) {
+    if(argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <collision_resolution>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
+        return 1;
+    }
+
+    auto [scenario_config, solver_config] = parse_arguments(argc, argv);
+    run(scenario_config, solver_config);
     return 0;
 }

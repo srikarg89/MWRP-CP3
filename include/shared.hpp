@@ -234,6 +234,7 @@ struct Map {
     }
 };
 
+
 struct Lookup {
     // LOS lookup table. Indexed by map index, gives list of positions visible from that map index.
     std::vector<std::vector<Position>> los;

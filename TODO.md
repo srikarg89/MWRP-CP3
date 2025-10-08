@@ -3,6 +3,8 @@
 - [ ] Duplicate / Dominance Detection.
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
 - [ ] Provide vision radius **R** to the LOS functions.
+- [ ] Make heuristic consistent.
+- [ ] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Extensions**
 - [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289).

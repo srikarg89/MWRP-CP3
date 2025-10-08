@@ -171,7 +171,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             for(const AgentState& a : node.agents){
                 printf("\tAgent: %s, terminated: %d, cost: %d\n", a.pos.toString().c_str(), a.terminated, a.cost);
             }
-            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, {map.get_map_idx(node.agents[0].pos), map.get_map_idx(node.agents[1].pos)}, node.seen, {});
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, map.get_map_idxs(agent_states_to_positions(node.agents)), node.seen, {});
             prune_graph(disjoint_graph, lookup);
             for(int i = 0; i < disjoint_graph.pivots.size(); i++){
                 int pivot = disjoint_graph.pivots[i];
@@ -181,14 +181,18 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                     printf("\tTask pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
                 }
             }
-            int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, {node.agents[0].cost, node.agents[1].cost});
+            std::vector<int> costs;
+            for(const AgentState& a : node.agents){
+                costs.push_back(a.cost);
+            }
+            int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, costs);
             printf("\tMTSP F Value: %d\n", mtsp_f_value);
 
             printf("Nbr node:\n");
             for(const AgentState& a : nbr){
                 printf("\tAgent: %s, terminated: %d, cost: %d\n", a.pos.toString().c_str(), a.terminated, a.cost);
             }
-            disjoint_graph = compute_disjoint_graph(lookup, {map.get_map_idx(nbr[0].pos), map.get_map_idx(nbr[1].pos)}, nbr_seen, {});
+            disjoint_graph = compute_disjoint_graph(lookup, map.get_map_idxs(agent_states_to_positions(nbr)), nbr_seen, {});
             prune_graph(disjoint_graph, lookup);
             for(int i = 0; i < disjoint_graph.pivots.size(); i++){
                 int pivot = disjoint_graph.pivots[i];
@@ -198,7 +202,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                     printf("\tTask pivot: %s\n", map.get_pos_from_map_idx(pivot).toString().c_str());
                 }
             }
-            mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, {nbr[0].cost, nbr[1].cost});
+            costs.clear();
+            for(const AgentState& a : nbr){
+                costs.push_back(a.cost);
+            }
+            mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, costs);
             printf("\tMTSP F Value: %d\n", mtsp_f_value);
 
             exit(0);
@@ -382,10 +390,6 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         for(Node& nbr : neighbors){
             // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
-            if(nbr.f_value < curr.f_value){
-                printf("ERROR?? F value decreased from %d to %d\n", curr.f_value, nbr.f_value);
-                exit(0);
-            }
             queue.push(nbr);
         }
     }

@@ -336,15 +336,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 for(int i = 0; i < paths.size(); i++){
                     int idx = map.get_map_idx(curr_positions[i]);
                     int from_idx = map.get_map_idx(prev_positions[i]);
-                    printf("Agent %d moving from %s to %s\n", i, prev_positions[i].toString().c_str(), curr_positions[i].toString().c_str());
-                    printf("\tTime changing from %d to %d\n", prev_agent_states[i].cost, curr_agent_states[i].cost);
                     // Add waits into path if it was a wait action.
                     if(idx == from_idx) {
-                        printf("YOO WHATT (%d)\n", i);
-                        printf("Position: %d, %s\n", idx, map.get_pos_from_map_idx(idx).toString().c_str());
-                        printf("Prev cost: %d, Curr cost: %d\n", prev_agent_states[i].cost, curr_agent_states[i].cost);
                         for(int t = prev_agent_states[i].cost; t < curr_agent_states[i].cost; t++){
-                            printf("Adding wait at pos %s at time %d\n", prev_positions[i].toString().c_str(), t);
                             paths[i].push_back(prev_positions[i]);
                         }
                         continue;

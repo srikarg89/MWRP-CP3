@@ -62,7 +62,6 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
     }
 
-    // Filter out unnecessary neighbors. TODO: Figure out if this is actually a good optimization or not.
     // Should result in less node generation, but may require more node expansion.
     for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
         int curr_map_idx = map.get_map_idx(std::get<0>(*it));
@@ -196,7 +195,6 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Sorting precomputation time: %.6f seconds\n", duration.count());
 
     // New sorted LOS method based on centrality. Might be better for multi-agent.
-    // // TODO: Is this "start_seen" part necessary??
     // boost::dynamic_bitset<> start_seen(map.num_squares, 0);
     // for(Position agent_start : agent_starts){
         // Mark all squares visible from the agent start as seen.
@@ -324,8 +322,10 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
     }
 
     int num_exploration_pivots = pivots.size();
+    std::vector<int> min_task_times;
     for(const Task& task : tasks_left){
         pivots.push_back(task.map_idx);
+        min_task_times.push_back(task.min_time);
     }
 
     int max_edge_cost = 0;
@@ -369,6 +369,7 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         .pivots=pivots,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
+        .min_task_times=min_task_times,
         .max_edge_cost=max_edge_cost,
         .num_exploration_pivots=num_exploration_pivots
     };
@@ -413,6 +414,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
         if(shortcut_pivot < graph.num_exploration_pivots){
             graph.num_exploration_pivots -= 1;
+        } else {
+            printf("Warning: Removed a task pivot during pruning. This shouldn't happen.\n");
+            exit(0);
         }
     }
 
@@ -450,6 +454,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
         if(worst_pivot < graph.num_exploration_pivots){
             graph.num_exploration_pivots -= 1;
+        } else {
+            printf("Warning 2: Removed a task pivot during pruning. This shouldn't happen.\n");
+            exit(0);
         }
     }
 }

@@ -53,9 +53,11 @@ int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentS
         } else {
             int tsp_f_value = 0;
             if(agent_states.size() == 1){
+                // TODO: TSP Heuristic. Is this still needed??
                 auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
                 tsp_f_value = node_cost + tsp_heuristic;
             } else {
+                // TODO: Time-limit tasks Heuristic.
                 int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
                 // printf("MTSP Heuristic: %d\n", mtsp_f_value);
                 tsp_f_value = std::max(node_cost, mtsp_f_value);
@@ -304,7 +306,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         // debug_file.close(); exit(0);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 100 == 0){
+        if(num_fully_expanded % 1 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);
@@ -389,6 +391,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         } else{
             printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
             printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
+            printf("MTSP Solver time 2: %.3f seconds\n", SOLVER_RUNTIME2);
             printf("Total MTSP calls: %d\n", TOTAL_CALLS);
         }
     }

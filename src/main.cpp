@@ -89,7 +89,6 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         }
         write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
 
-        printf("Running timestep %d\n", timestep);
         std::vector<Position> actions;
         for(int i = 0; i < solution.size(); i++) {
             actions.push_back(solution[i][s_t]);
@@ -116,7 +115,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         }
 
         if(new_task_found) {
-            // TODO: Add in known tasks to the search input.
+            printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
             solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
             s_t = 1;

@@ -180,23 +180,6 @@ namespace pathfinding {
             TOTAL_TSP_CONCORDE_TIME += seconds_taken;
             // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
 
-            // TOTAL_MTSP_CALLS += 1;
-            // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
-            // start = std::chrono::high_resolution_clock::now();
-            // int mtsp_solution = run_mtsp(1, dist.size() - 1, dist); // Empty initial path to use greedy.
-            // end = std::chrono::high_resolution_clock::now();
-            // seconds_taken = std::chrono::duration<double>(end - start).count();
-            // TOTAL_MTSP_TIME += seconds_taken;
-
-            // if(std::get<0>(ret) != mtsp_solution){
-            //     printf("Concorde TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
-            //     printf("Concorde path: ");
-            //     for(int i : std::get<1>(ret)){
-            //         printf("%d ", i);
-            //     }
-            //     printf("\n");
-            //     exit(1);
-            // }
             return ret;
         }
     }

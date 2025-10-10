@@ -296,6 +296,7 @@ struct DisjointGraph {
     std::vector<int> pivots;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
+    std::vector<int> min_task_times;
     int max_edge_cost;
     int num_exploration_pivots;
 };

@@ -271,10 +271,7 @@ inline int run_mtsp(int num_agents, int num_pivots, int num_tasks, const std::ve
         cplex.setOut(env.getNullStream());
         cplex.setParam(IloCplex::Param::Preprocessing::Presolve, 1); // enable presolve.
         cplex.setParam(IloCplex::Param::Emphasis::MIP, 1); // emphasize finding feasible solutions faster.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::MIRCut, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::FlowCovers, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::Cliques, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::Implied, 2); // adjust cut aggressiveness.
+        cplex.setParam(IloCplex::CutsFactor, 1.0); // adjust cut aggressiveness.
         cplex.setParam(IloCplex::Param::Threads, 1); // Setting it to use 1 thread reduces overhead.
 
         cplex.addMIPStart(vars, vals, IloCplex::MIPStartAuto);
@@ -456,10 +453,7 @@ inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::v
         cplex.setOut(env.getNullStream());
         cplex.setParam(IloCplex::Param::Preprocessing::Presolve, 1); // enable presolve.
         cplex.setParam(IloCplex::Param::Emphasis::MIP, 1); // emphasize finding feasible solutions faster.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::MIRCut, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::FlowCovers, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::Cliques, 2); // adjust cut aggressiveness.
-        cplex.setParam(IloCplex::Param::MIP::Cuts::Implied, 2); // adjust cut aggressiveness.
+        cplex.setParam(IloCplex::CutsFactor, 1.0); // adjust cut aggressiveness.
         cplex.setParam(IloCplex::Param::Threads, 1); // Setting it to use 1 thread reduces overhead.
 
         cplex.addMIPStart(vars, vals, IloCplex::MIPStartAuto);

@@ -59,10 +59,13 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
             } else {
                 tsp_idxs.push_back(i);
                 futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
+                    return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+
+                    // Concorde doesn't support running in parallel.
                     // if(non_terminated_agent_costs.size() == 1){
                     //     return non_terminated_agent_costs[0] + std::get<0>(get_tsp_heuristic(disjoint_graph));
                     // } else {
-                        return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                        // return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
                     // }
                 }));
             }
@@ -199,7 +202,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         heuristic_type = SINGLETON;
     }
 
+    start = std::chrono::high_resolution_clock::now();
     std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    GET_F_VALUE_TIME += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.

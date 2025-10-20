@@ -18,7 +18,8 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
     } else if(heuristic_str == "SINGLETON") {
         heuristic_type = HeuristicType::SINGLETON;
     } else if(heuristic_str == "MST") {
-        heuristic_type = HeuristicType::MST;
+        printf("MST heuristic is no longer supported.\n");
+        exit(1);
     } else if(heuristic_str == "TSP") {
         heuristic_type = HeuristicType::TSP;
     } else if(heuristic_str == "MAX") {

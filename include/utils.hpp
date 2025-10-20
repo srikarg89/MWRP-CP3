@@ -251,8 +251,8 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     duration = end_time - start_time;
     printf("Singleton precomputation time: %.6f seconds\n", duration.count());
 
-    // Precompute the distance between pivots in G_DLC
-    if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
+    // Precompute the distance between pivots in disjoint graph 
+    if(heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
         for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
             std::vector<int> min_dists(map.num_squares, INT_MAX);
             lookup.pivot_pivot_dists.push_back(min_dists);

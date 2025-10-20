@@ -20,62 +20,65 @@ double GET_F_VALUE_TIME = 0.0;
 
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
-int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
-    std::vector<int> non_terminated_agent_map_idxs;
-    std::vector<int> non_terminated_agent_costs;
-
-    for(const auto& agent : agent_states){
-        if(!agent.terminated){
-            non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
-            non_terminated_agent_costs.push_back(agent.cost);
-        }
+std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
+    std::vector<int> f_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
+    for (const auto& input : neighbor_heuristic_inputs) {
+        f_values.push_back(input.cost);
     }
 
     if(heuristic_type == BFS){
-        return node_cost;
-    } else if(heuristic_type == SINGLETON) {
-        return get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-    } else if(heuristic_type == MST || heuristic_type == TSP || heuristic_type == MAX) {
-        if(agent_states.size() != 1 && heuristic_type == MST){
-            printf("MST heuristic only supports single-agent watchman.\n");
-            assert(false);
-            exit(1);
+        return f_values;
+    }
+
+    // Used for parallel TSP heuristic computation.
+    BS::thread_pool pool;
+    std::vector<std::future<int>> futures;
+    std::vector<int> tsp_idxs;
+
+    for(int i = 0; i < neighbor_heuristic_inputs.size(); i++) {
+        const auto& input = neighbor_heuristic_inputs[i];
+        std::vector<int> non_terminated_agent_map_idxs;
+        std::vector<int> non_terminated_agent_costs;
+
+        for(const auto& agent : input.agents){
+            if(!agent.terminated){
+                non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+                non_terminated_agent_costs.push_back(agent.cost);
+            }
         }
 
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, seen, tasks_left);
-        // If there's no pivots, just return the singleton heuristic.
-        if(disjoint_graph.pivots.size() == 0){
-            return get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-        }
+        bool use_singleton = (heuristic_type == SINGLETON || heuristic_type == LAZY || heuristic_type == MAX);
 
-        prune_graph(disjoint_graph, lookup);
+        if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            prune_graph(disjoint_graph, lookup);
 
-        if(heuristic_type == MST){
-            return node_cost + get_mst_heuristic(disjoint_graph);
-        } else {
-            int tsp_f_value = 0;
-            if(agent_states.size() == 1){
-                // TODO: TSP Heuristic. Is this still needed??
-                auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
-                tsp_f_value = node_cost + tsp_heuristic;
+            // If there's no pivots, just return the singleton heuristic.
+            if(disjoint_graph.pivots.size() == 0){
+                use_singleton = true;
             } else {
-                // TODO: Time-limit tasks Heuristic.
-                int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
-                // printf("MTSP Heuristic: %d\n", mtsp_f_value);
-                tsp_f_value = std::max(node_cost, mtsp_f_value);
+                tsp_idxs.push_back(i);
+                futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
+                    // if(non_terminated_agent_costs.size() == 1){
+                    //     return non_terminated_agent_costs[0] + std::get<0>(get_tsp_heuristic(disjoint_graph));
+                    // } else {
+                        return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                    // }
+                }));
             }
-            if(heuristic_type == TSP){
-                return tsp_f_value;
-            } else if(heuristic_type == MAX){
-                int singleton_f_value = get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-                return std::max(tsp_f_value, singleton_f_value);
-            }
+        }
+
+        if(use_singleton) {
+            f_values[i] = std::max(f_values[i], get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, input.cost, input.seen, input.tasks_left, lookup));
         }
     }
 
-    printf("UNKNOWN HEURISTIC TYPE ???\n");
-    exit(1);
-    return -1;
+    // Collect TSP/MAX heuristic results.
+    for(int i = 0; i < tsp_idxs.size(); i++) {
+        f_values[tsp_idxs[i]] = futures[i].get();
+    }
+
+    return f_values;
 }
 
 std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
@@ -145,7 +148,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     std::chrono::duration<double> duration = end - start;
     NEIGHBOR_EXPANSION_TIME += duration.count();
 
-    std::vector<Node> neighbor_nodes_no_f;
+    std::vector<HeuristicInput> neighbor_heuristic_inputs;
 
     for(const auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
@@ -188,73 +191,22 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         generated_costs[nbr_key] = nbr_cost;
 
-        neighbor_nodes_no_f.push_back(Node(/*last_assigned_id = */ 0, nbr, nbr_seen, nbr_tasks_left, nbr_cost, /*f_value = */ 0, nbr_num_seen));
+        neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
     }
-
 
     HeuristicType heuristic_type = solver_config.heuristic_type;
     if(heuristic_type == LAZY){
         heuristic_type = SINGLETON;
     }
 
-    std::vector<int> f_values(neighbor_nodes_no_f.size());
+    std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
 
-    // Synchronous version.
-    if(heuristic_type != TSP){
-        for(int i = 0; i < neighbor_nodes_no_f.size(); i++){
-            f_values[i] = get_f_value(heuristic_type, map, neighbor_nodes_no_f[i].agents, neighbor_nodes_no_f[i].cost, neighbor_nodes_no_f[i].seen, neighbor_nodes_no_f[i].tasks_left, lookup);
-        }
-    }
-    else {
-        // Asynchronous version (multi-core usage).
-        BS::thread_pool pool;
-        std::vector<std::future<int>> futures;
-
-        std::vector<int> idxs;
-        for (int i = 0; i < neighbor_nodes_no_f.size(); ++i) {
-            Node temp = neighbor_nodes_no_f[i];
-            std::vector<int> non_terminated_agent_map_idxs;
-            std::vector<int> non_terminated_agent_costs;
-
-            for(const auto& agent : temp.agents){
-                if(!agent.terminated){
-                    non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
-                    non_terminated_agent_costs.push_back(agent.cost);
-                }
-            }
-
-            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, temp.seen, temp.tasks_left);
-            prune_graph(disjoint_graph, lookup);
-
-            if(disjoint_graph.pivots.size() == 0){
-                f_values[i] = get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, temp.cost, temp.seen, temp.tasks_left, lookup);
-                continue;
-            }
-            idxs.push_back(i);
-            int node_cost = temp.cost;
-
-            futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, node_cost]() {
-                return std::max(node_cost, get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs));
-            }));
-        }
-
-        start = std::chrono::high_resolution_clock::now();
-
-        for(int i = 0; i < idxs.size(); i++) {
-            f_values[idxs[i]] = futures[i].get();
-        }
-
-        end = std::chrono::high_resolution_clock::now();
-        duration = end - start;
-        GET_F_VALUE_TIME += duration.count();
-    }
-
-    for(int i = 0; i < neighbor_nodes_no_f.size(); i++){
+    for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.
         int nbr_f_value = std::max(f_values[i], node.f_value);
         last_id_assigned += 1;
-        const Node& neighbor_node_no_f = neighbor_nodes_no_f[i];
-        neighbor_nodes.push_back(Node(last_id_assigned, neighbor_node_no_f.agents, neighbor_node_no_f.seen, neighbor_node_no_f.tasks_left, neighbor_node_no_f.cost, nbr_f_value, neighbor_node_no_f.num_seen));
+        const HeuristicInput& input = neighbor_heuristic_inputs[i];
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen));
     }
     return neighbor_nodes;
 }
@@ -309,7 +261,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("%s ", task.toString().c_str());
     }
     printf("\n");
-    int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
+    // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
+    int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
     printf("Start f value: %d\n", start_f_value);
     queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
 
@@ -344,7 +297,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         if(solver_config.heuristic_type == LAZY && curr.is_lazy){
             // Recompute f value.
-            int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
+            int new_f_value = get_f_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, lookup)[0];
+            // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
             new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
             curr.update_f_value(new_f_value);
             queue.push(curr);

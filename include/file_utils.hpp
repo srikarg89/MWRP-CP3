@@ -13,7 +13,7 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, const Look
         agent_map_idxs.push_back(map.get_map_idx(agent.pos));
     }
 
-    if(heuristic_type == TSP || heuristic_type == MST || heuristic_type == MAX) {
+    if(heuristic_type == TSP || heuristic_type == MAX) {
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen, node.tasks_left);
         prune_graph(disjoint_graph, lookup);
         for(int i = 0; i < disjoint_graph.pivots.size(); i++){

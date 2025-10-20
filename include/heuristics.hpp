@@ -12,6 +12,14 @@
 double TOTAL_HEURISTIC_TIME = 0.0;
 double TOTAL_TSP_SOLVER_TIME = 0.0;
 
+struct HeuristicInput {
+    std::vector<AgentState> agents;
+    int cost;
+    boost::dynamic_bitset<> seen;
+    std::vector<Task> tasks_left;
+    int num_seen;
+};
+
 int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
     for(int i = 0; i < seen.size(); i++){
@@ -52,8 +60,6 @@ int get_mst_heuristic(const DisjointGraph& disjoint_graph){
     std::vector<int> distances(adjacency_matrix.size(), INT_MAX);
     std::vector<bool> added(adjacency_matrix.size(), false);
 
-    // printf("\nMST Calculation:\n");
-
     for(int i = 0; i < adjacency_matrix.size(); i++){
         // Find the min cost node.
         int next_node_to_add = 0;
@@ -79,7 +85,6 @@ int get_mst_heuristic(const DisjointGraph& disjoint_graph){
         added[next_node_to_add] = true;
     }
 
-    // printf("MST Heuristic: %d\n", mst_heuristic);
     return mst_heuristic;
 }
 

@@ -160,7 +160,6 @@ struct Node {
 enum HeuristicType {
     BFS,
     SINGLETON,
-    MST,
     TSP,
     MAX,
     LAZY
@@ -281,7 +280,7 @@ struct Lookup {
     // Singleton heuristic helper lookup table. Indexed by [source_map_idx][goal_map_idx], gives minimum distance from source to any position that can see goal.
     std::vector<std::vector<int>> min_dist_to_see;
 
-    // Pivot distance lookup tables for MST and TSP heuristics.
+    // Pivot distance lookup tables for TSP heuristic.
     std::vector<std::vector<int>> pivot_cell_dists;
     std::vector<std::vector<int>> pivot_pivot_dists;
 

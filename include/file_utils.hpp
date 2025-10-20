@@ -13,7 +13,7 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, const Look
         agent_map_idxs.push_back(map.get_map_idx(agent.pos));
     }
 
-    if(heuristic_type == TSP || heuristic_type == MST || heuristic_type == MAX) {
+    if(heuristic_type == TSP || heuristic_type == MAX) {
         DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen, node.tasks_left);
         prune_graph(disjoint_graph, lookup);
         for(int i = 0; i < disjoint_graph.pivots.size(); i++){
@@ -97,11 +97,11 @@ inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<
     }
 }
 
-inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen, std::vector<Position> known_incomplete_tasks, std::vector<Position> completed_tasks, std::vector<Position> unknown_tasks) {
+inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen, std::vector<Task> known_incomplete_tasks, std::vector<Task> completed_tasks, std::vector<Task> unknown_tasks) {
     std::vector<int> agent_map_idxs = map.get_map_idxs(agent_positions);
-    std::vector<int> known_incomplete_task_map_idxs = map.get_map_idxs(known_incomplete_tasks);
-    std::vector<int> completed_task_map_idxs = map.get_map_idxs(completed_tasks);
-    std::vector<int> unknown_task_map_idxs = map.get_map_idxs(unknown_tasks);
+    std::vector<int> known_incomplete_task_map_idxs = map.get_map_idxs(task_to_pos_array(known_incomplete_tasks));
+    std::vector<int> completed_task_map_idxs = map.get_map_idxs(task_to_pos_array(completed_tasks));
+    std::vector<int> unknown_task_map_idxs = map.get_map_idxs(task_to_pos_array(unknown_tasks));
 
     // Create seen / agent state map list.
     std::string map_list = "";

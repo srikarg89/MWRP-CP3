@@ -18,7 +18,8 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
     } else if(heuristic_str == "SINGLETON") {
         heuristic_type = HeuristicType::SINGLETON;
     } else if(heuristic_str == "MST") {
-        heuristic_type = HeuristicType::MST;
+        printf("MST heuristic is no longer supported.\n");
+        exit(1);
     } else if(heuristic_str == "TSP") {
         heuristic_type = HeuristicType::TSP;
     } else if(heuristic_str == "MAX") {
@@ -58,14 +59,16 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type);
 
-    std::vector<Position> known_tasks = env.get_known_incomplete_tasks();
+    std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
     int num_strictly_easier = 0;
     for(bool b : lookup.strictly_easier){
         num_strictly_easier += b;
     }
     printf("Number of strictly easier points: %d\n", num_strictly_easier);
-    std::vector<std::vector<Position>> solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+
+    int timestep = 0;
+    std::vector<std::vector<Position>> solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -75,7 +78,6 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     final_run_file << scenario_config.map.map_name << "\n";
 
 
-    int timestep = 0;
     int s_t = 1;
     while(s_t < solution[0].size()){
         std::vector<std::vector<Position>> paths_to_go;
@@ -88,22 +90,21 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         }
         write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
 
-        printf("Running timestep %d\n", timestep);
         std::vector<Position> actions;
         for(int i = 0; i < solution.size(); i++) {
             actions.push_back(solution[i][s_t]);
         }
-        env.run_action(actions);
         timestep += 1;
+        env.run_action(timestep, actions);
         s_t += 1;
 
         bool new_task_found = false;
-        std::vector<Position> old_known_tasks = known_tasks;
+        std::vector<Task> old_known_tasks = known_tasks;
         known_tasks = env.get_known_incomplete_tasks();        
-        for(Position pos : known_tasks){
+        for(Task task : known_tasks){
             bool found = false;
-            for(Position old_pos : old_known_tasks){
-                if(pos.equals(old_pos)){
+            for(Task old_task : old_known_tasks){
+                if(task.id == old_task.id){
                     found = true;
                     break;
                 }
@@ -115,9 +116,9 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         }
 
         if(new_task_found) {
-            // TODO: Add in known tasks to the search input.
+            printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
-            solution = run_search(env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+            solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
             s_t = 1;
         }
     }
@@ -130,7 +131,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Total time taken: %.3f seconds\n", duration.count());
-    printf("Total tasks completed: %lu / %lu\n", env.get_completed_tasks().size(), scenario_config.task_locations.size());
+    printf("Total tasks completed: %lu / %lu\n", env.get_completed_tasks().size(), scenario_config.tasks.size());
     printf("Total squares seen: %d / %d\n", (int)env.get_seen().count(), scenario_config.map.num_squares);
 }
 

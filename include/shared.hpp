@@ -53,7 +53,7 @@ inline std::string int_array_to_string(const std::vector<int>& arr){
     return str;
 }
 
-struct AgentState{
+struct AgentState {
     Position pos;
     bool terminated;
     int cost;
@@ -89,10 +89,41 @@ inline std::string agent_states_to_print_string(const std::vector<AgentState>& a
     return str;
 }
 
+struct Task {
+    int id;
+    Position pos;
+    int map_idx;
+    int min_time;
+    int max_time;
+
+    Task(int id, Position p, int map_idx, int min, int max) : id(id), pos(p), map_idx(map_idx), min_time(min), max_time(max) {}
+
+    std::string toString() const {
+        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Min Time: " + std::to_string(min_time) + ", Max Time: " + std::to_string(max_time);
+    }
+};
+
+inline std::string task_array_hash_string(const std::vector<Task>& tasks){
+    std::string str = "[";
+    for(const Task& task : tasks){
+        str += std::to_string(task.id) + ",";
+    }
+    str += "]";
+    return str;
+}
+
+inline std::vector<Position> task_to_pos_array(const std::vector<Task>& tasks){
+    std::vector<Position> poses;
+    for(const Task& task : tasks){
+        poses.push_back(task.pos);
+    }
+    return poses;
+}
+
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
-    std::vector<int> tasks_left;
+    std::vector<Task> tasks_left;
     boost::dynamic_bitset<> seen;
     int cost;
     int heuristic;
@@ -100,7 +131,7 @@ struct Node {
     int f_value;
     bool is_lazy;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<int> t, int c, int f, int n){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n){
         node_id = id;
         agents = a;
         seen = s;
@@ -129,7 +160,6 @@ struct Node {
 enum HeuristicType {
     BFS,
     SINGLETON,
-    MST,
     TSP,
     MAX,
     LAZY
@@ -250,7 +280,7 @@ struct Lookup {
     // Singleton heuristic helper lookup table. Indexed by [source_map_idx][goal_map_idx], gives minimum distance from source to any position that can see goal.
     std::vector<std::vector<int>> min_dist_to_see;
 
-    // Pivot distance lookup tables for MST and TSP heuristics.
+    // Pivot distance lookup tables for TSP heuristic.
     std::vector<std::vector<int>> pivot_cell_dists;
     std::vector<std::vector<int>> pivot_pivot_dists;
 
@@ -265,10 +295,25 @@ struct DisjointGraph {
     std::vector<int> pivots;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
+    std::vector<int> min_task_times;
     int max_edge_cost;
     int num_exploration_pivots;
 };
 
+inline void print_disjoint_graph(const DisjointGraph& graph) {
+    printf("Disjoint Graph:\n");
+    printf("Pivots: %s\n", int_array_to_string(graph.pivots).c_str());
+    printf("Pivot-Pivot Costs:\n");
+    for(const auto& row : graph.pivot_pivot_costs){
+        printf("%s\n", int_array_to_string(row).c_str());
+    }
+    printf("Agent-Pivot Costs:\n");
+    for(const auto& row : graph.agent_pivot_costs){
+        printf("%s\n", int_array_to_string(row).c_str());
+    }
+    printf("Max Edge Cost: %d\n", graph.max_edge_cost);
+    printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
+}
 
 struct SolverConfig {
     HeuristicType heuristic_type;
@@ -302,7 +347,7 @@ inline std::vector<std::string> splitBySpace(const std::string& str) {
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
-    std::vector<Position> task_locations;
+    std::vector<Task> tasks;
     Map map;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
@@ -315,15 +360,6 @@ struct ScenarioConfig {
                 throw std::runtime_error("Each agent position must have exactly two coordinates.");
             }
             agent_starts.push_back(Position{agent[0], agent[1]});
-        }
-
-        auto tasks_json = parsed_data["tasks"].get<std::vector<std::vector<int>>>();
-        std::vector<Position> task_locations;
-        for(const auto& task : tasks_json) {
-            if(task.size() != 2) {
-                throw std::runtime_error("Each task position must have exactly two coordinates.");
-            }
-            task_locations.push_back(Position{task[0], task[1]});
         }
 
         // Load in map file.
@@ -378,18 +414,38 @@ struct ScenarioConfig {
 
         Map map(map_name, x_size, y_size, occupancy, movement_type, los_type);
 
+        auto tasks_json = parsed_data["tasks"];
+        std::vector<Task> tasks;
+        for(const auto& task : tasks_json) {
+            int task_id = task["id"].get<int>();
+            auto task_position = task["location"].get<std::vector<int>>();
+            if(task_position.size() != 2) {
+                throw std::runtime_error("Each task position must have exactly two coordinates.");
+            }
+            int min_time = 0;
+            int max_time = INT_MAX;
+            if(task.contains("min_time")) {
+                min_time = task["min_time"].get<int>();
+            }
+            if(task.contains("max_time")) {
+                max_time = task["max_time"].get<int>();
+            }
+            Position task_pos = Position{task_position[0], task_position[1]};
+            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), min_time, max_time));
+        }
+
         // Validate agent and task positions.
         for(const auto& agent : agent_starts) {
             if(map.get_map_idx(agent) < 0 || map.get_map_idx(agent) >= map.num_squares || map.check_obstacle(agent)) {
                 throw std::runtime_error("Agent position " + agent.toString() + " is out of bounds or on an obstacle.");
             }
         }
-        for(const auto& task : task_locations) {
-            if(map.get_map_idx(task) < 0 || map.get_map_idx(task) >= map.num_squares || map.check_obstacle(task)) {
-                throw std::runtime_error("Task position " + task.toString() + " is out of bounds or on an obstacle.");
+        for(const auto& task : tasks) {
+            if(task.map_idx < 0 || task.map_idx >= map.num_squares || map.check_obstacle(task.pos)) {
+                throw std::runtime_error("Task (" + task.toString() + ") is out of bounds or on an obstacle.");
             }
         }
 
-        return {std::move(agent_starts), std::move(task_locations), std::move(map)};
+        return {std::move(agent_starts), std::move(tasks), std::move(map)};
     }
 };

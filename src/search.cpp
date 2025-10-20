@@ -10,6 +10,8 @@
 #include <iostream>
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
+#include "BS_thread_pool.hpp"
+
 
 int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
@@ -18,63 +20,71 @@ double GET_F_VALUE_TIME = 0.0;
 
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
-int get_f_value(HeuristicType heuristic_type, const Map& map, std::vector<AgentState> agent_states, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
-    std::vector<int> non_terminated_agent_map_idxs;
-    std::vector<int> non_terminated_agent_costs;
-
-    for(const auto& agent : agent_states){
-        if(!agent.terminated){
-            non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
-            non_terminated_agent_costs.push_back(agent.cost);
-        }
+std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
+    std::vector<int> f_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
+    for (const auto& input : neighbor_heuristic_inputs) {
+        f_values.push_back(input.cost);
     }
 
     if(heuristic_type == BFS){
-        return node_cost;
-    } else if(heuristic_type == SINGLETON) {
-        return get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-    } else if(heuristic_type == MST || heuristic_type == TSP || heuristic_type == MAX) {
-        if(agent_states.size() != 1 && heuristic_type == MST){
-            printf("MST heuristic only supports single-agent watchman.\n");
-            assert(false);
-            exit(1);
+        return f_values;
+    }
+
+    // Used for parallel TSP heuristic computation.
+    BS::thread_pool pool;
+    std::vector<std::future<int>> futures;
+    std::vector<int> tsp_idxs;
+
+    for(int i = 0; i < neighbor_heuristic_inputs.size(); i++) {
+        const auto& input = neighbor_heuristic_inputs[i];
+        std::vector<int> non_terminated_agent_map_idxs;
+        std::vector<int> non_terminated_agent_costs;
+
+        for(const auto& agent : input.agents){
+            if(!agent.terminated){
+                non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+                non_terminated_agent_costs.push_back(agent.cost);
+            }
         }
 
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, seen, tasks_left);
-        // If there's no pivots, just return the singleton heuristic.
-        if(disjoint_graph.pivots.size() == 0){
-            return get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-        }
+        bool use_singleton = (heuristic_type == SINGLETON || heuristic_type == LAZY || heuristic_type == MAX);
 
-        prune_graph(disjoint_graph, lookup);
+        if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            prune_graph(disjoint_graph, lookup);
 
-        if(heuristic_type == MST){
-            return node_cost + get_mst_heuristic(disjoint_graph);
-        } else {
-            int tsp_f_value = 0;
-            if(agent_states.size() == 1){
-                auto [ tsp_heuristic, tsp_path ] = get_tsp_heuristic(disjoint_graph);
-                tsp_f_value = node_cost + tsp_heuristic;
+            // If there's no pivots, just return the singleton heuristic.
+            if(disjoint_graph.pivots.size() == 0){
+                use_singleton = true;
             } else {
-                int mtsp_f_value = get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
-                // printf("MTSP Heuristic: %d\n", mtsp_f_value);
-                tsp_f_value = std::max(node_cost, mtsp_f_value);
+                tsp_idxs.push_back(i);
+                futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
+                    return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+
+                    // Concorde doesn't support running in parallel.
+                    // if(non_terminated_agent_costs.size() == 1){
+                    //     return non_terminated_agent_costs[0] + std::get<0>(get_tsp_heuristic(disjoint_graph));
+                    // } else {
+                        // return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                    // }
+                }));
             }
-            if(heuristic_type == TSP){
-                return tsp_f_value;
-            } else if(heuristic_type == MAX){
-                int singleton_f_value = get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, node_cost, seen, tasks_left, lookup);
-                return std::max(tsp_f_value, singleton_f_value);
-            }
+        }
+
+        if(use_singleton) {
+            f_values[i] = std::max(f_values[i], get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, input.cost, input.seen, input.tasks_left, lookup));
         }
     }
 
-    printf("UNKNOWN HEURISTIC TYPE ???\n");
-    exit(1);
-    return -1;
+    // Collect TSP/MAX heuristic results.
+    for(int i = 0; i < tsp_idxs.size(); i++) {
+        f_values[tsp_idxs[i]] = futures[i].get();
+    }
+
+    return f_values;
 }
 
-std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup, bool expanding_borders){
+std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
         if(agent.terminated){
@@ -89,6 +99,18 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
             std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
             for(auto [nbr, added_cost] : nbrs_with_added_cost){
                 agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
+            }
+            // If we're at a task, add a wait action to wait until the task's release time.
+            int agent_map_idx = map.get_map_idx(agent.pos);
+            for(const Task& t : tasks_left){
+                if(agent_map_idx == t.map_idx){
+                    if(agent.cost >= t.min_time){
+                        printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
+                        exit(0);
+                    }
+                    agent_options.push_back(AgentState(agent.pos, false, t.min_time));
+                    break;
+                }
             }
         }
         // Generic one-step implementation
@@ -128,27 +150,41 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     NEIGHBOR_EXPANSION_TIME += duration.count();
+
+    std::vector<HeuristicInput> neighbor_heuristic_inputs;
+
     for(const auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
         int new_squares_seen = 0;
         int nbr_cost = 0;
-        std::vector<int> nbr_tasks_left = node.tasks_left;
         for(const AgentState& agent : nbr){
             new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
             nbr_cost = std::max(nbr_cost, agent.cost);
 
             // If the agent has reached the task, remove it from the tasks left.
             int agent_map_idx = map.get_map_idx(agent.pos);
-            auto it = std::find(nbr_tasks_left.begin(), nbr_tasks_left.end(), agent_map_idx);
-            if(it != nbr_tasks_left.end()){
-                nbr_tasks_left.erase(it);
+        }
+
+        std::vector<Task> nbr_tasks_left;
+        for(Task t : node.tasks_left){
+            int task_map_idx = map.get_map_idx(t.pos);
+            bool reached = false;
+            for(const AgentState& agent : nbr){
+                int agent_map_idx = map.get_map_idx(agent.pos);
+                if(agent_map_idx == task_map_idx && agent.cost >= t.min_time && agent.cost <= t.max_time){
+                    reached = true;
+                    break;
+                }
+            }
+            if(!reached){
+                nbr_tasks_left.push_back(t);
             }
         }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
-        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), int_array_to_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         if(generated_costs.find(nbr_key) != generated_costs.end()){
             if(nbr_cost >= generated_costs[nbr_key]){
                 // We've already generated a cheaper version of this node.
@@ -158,27 +194,33 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         generated_costs[nbr_key] = nbr_cost;
 
-        // Calculate heuristic.
-        HeuristicType heuristic_type = solver_config.heuristic_type;
-        if(heuristic_type == LAZY){
-            heuristic_type = SINGLETON;
-        }
-        auto start = std::chrono::high_resolution_clock::now();
-        int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+        neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
+    }
+
+    HeuristicType heuristic_type = solver_config.heuristic_type;
+    if(heuristic_type == LAZY){
+        heuristic_type = SINGLETON;
+    }
+
+    start = std::chrono::high_resolution_clock::now();
+    std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    GET_F_VALUE_TIME += duration.count();
+
+    for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.
-        nbr_f_value = std::max(nbr_f_value, node.f_value);
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end - start;
-        GET_F_VALUE_TIME += duration.count();
+        int nbr_f_value = std::max(f_values[i], node.f_value);
         last_id_assigned += 1;
-        neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_tasks_left, nbr_cost, nbr_f_value, nbr_num_seen));
+        const HeuristicInput& input = neighbor_heuristic_inputs[i];
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen));
     }
     return neighbor_nodes;
 }
 
-// Inputs: Agent starting positions, LOS type, map.
+// Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std::vector<Position> incomplete_tasks_pos, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
+std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -193,7 +235,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        start_agent_states.push_back(AgentState(start, false, 0));
+        start_agent_states.push_back(AgentState(start, false, start_timestep));
     }
 
     // Initialize search data structures.
@@ -207,11 +249,6 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
     debug_file.open("search_debug.csv");
     debug_file << "Node ID, X, Y, Cost, Heuristic, F Value, Num Seen, Seen Bitset\n"; // Header
     debug_file << map.map_name << "\n";
-
-    std::vector<int> incomplete_tasks;
-    for(Position task_pos : incomplete_tasks_pos){
-        incomplete_tasks.push_back(map.get_map_idx(task_pos));
-    }
 
     // Setup the starting variable. Mark all obstacles as seen.
     int num_obstacles = 0;
@@ -227,13 +264,14 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         start_heuristic_type = SINGLETON;
     }
     printf("Incomplete tasks (%ld): ", incomplete_tasks.size());
-    for(int task : incomplete_tasks){
-        printf("%s ", map.get_pos_from_map_idx(task).toString().c_str());
+    for(const Task& task : incomplete_tasks){
+        printf("%s ", task.toString().c_str());
     }
     printf("\n");
-    int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, 0, start_seen, incomplete_tasks, lookup);
+    // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
+    int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
     printf("Start f value: %d\n", start_f_value);
-    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ 0, start_f_value, num_start_seen));
+    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
 
     std::vector<Node> expanded_nodes;
 
@@ -255,7 +293,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
 
         size_t seen_hash = boost::hash_value(curr.seen);
         // std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
-        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), int_array_to_string(curr.tasks_left), seen_hash);
+        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), task_array_hash_string(curr.tasks_left), seen_hash);
         if(visited_nodes.find(visited_key) != visited_nodes.end()){
             // Already visited this node.
             num_skipped += 1;
@@ -266,7 +304,8 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
 
         if(solver_config.heuristic_type == LAZY && curr.is_lazy){
             // Recompute f value.
-            int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
+            int new_f_value = get_f_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, lookup)[0];
+            // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
             new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
             curr.update_f_value(new_f_value);
             queue.push(curr);
@@ -285,7 +324,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         // debug_file.close(); exit(0);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 100 == 0){
+        if(num_fully_expanded % 10 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);
@@ -308,32 +347,35 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
             printf("Solution cost: %d\n", curr.cost);
 
             int curr_id = curr.node_id;
-            std::vector<Position> curr_positions = agent_states_to_positions(id_lookup[curr_id]);
+            std::vector<AgentState> curr_agent_states = id_lookup[curr_id];
+            std::vector<Position> curr_positions = agent_states_to_positions(curr_agent_states);
             while(curr_id != 0){
                 curr_id = pred_lookup[curr_id];
-                std::vector<Position> prev_positions = agent_states_to_positions(id_lookup[curr_id]);
+                std::vector<AgentState> prev_agent_states = id_lookup[curr_id];
+                std::vector<Position> prev_positions = agent_states_to_positions(prev_agent_states);
                 for(int i = 0; i < paths.size(); i++){
                     int idx = map.get_map_idx(curr_positions[i]);
                     int from_idx = map.get_map_idx(prev_positions[i]);
+                    // Add waits into path if it was a wait action.
+                    if(idx == from_idx) {
+                        for(int t = prev_agent_states[i].cost; t < curr_agent_states[i].cost; t++){
+                            paths[i].push_back(prev_positions[i]);
+                        }
+                        continue;
+                    }
                     while(idx != from_idx){
                         paths[i].push_back(map.get_pos_from_map_idx(idx));
                         idx = lookup.apsp_paths[from_idx][idx];
                     }
                 }
                 curr_positions = prev_positions;
+                curr_agent_states = prev_agent_states;
             }
 
             for(int i = 0; i < paths.size(); i++){
                 paths[i].push_back(starts[i]);
-            }
-
-            for(int i = 0; i < paths.size(); i++){
                 std::reverse(paths[i].begin(), paths[i].end());
-                printf("Path for agent (length %ld) %d: ", paths[i].size(), i);
-                for(Position pos : paths[i]){
-                    printf("%s ", pos.toString().c_str());
-                }
-                printf("\n");
+                printf("Path for agent %d (length %ld): %s\n", i, paths[i].size(), pos_array_to_string(paths[i]).c_str());
             }
             break;
         }
@@ -367,6 +409,7 @@ std::vector<std::vector<Position>> run_search(std::vector<Position> starts, std:
         } else{
             printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
             printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
+            printf("MTSP Solver time 2: %.3f seconds\n", SOLVER_RUNTIME2);
             printf("Total MTSP calls: %d\n", TOTAL_CALLS);
         }
     }

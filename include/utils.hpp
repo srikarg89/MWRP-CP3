@@ -8,7 +8,7 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
-inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
+inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
@@ -25,9 +25,19 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
         visited.insert(curr_map_idx);
 
-        if(std::find(tasks_left.begin(), tasks_left.end(), curr_map_idx) != tasks_left.end()){
-            extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
-            continue; // Don't expand further from a task.
+        // Don't wanna do this if agent started at a task, since maybe we don't wanna wait for it.
+        if(curr_cost  > 0){
+            bool at_task = false;
+            for(const Task& task : tasks_left){
+                if(curr_map_idx == task.map_idx){
+                    at_task = true;
+                    break;
+                }
+            }
+            if(at_task){
+                extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
+                continue; // Don't expand further from a task.
+            }
         }
 
         std::vector<Position> neighbors = map.get_neighbors(curr_pos);
@@ -52,7 +62,6 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
     }
 
-    // Filter out unnecessary neighbors. TODO: Figure out if this is actually a good optimization or not.
     // Should result in less node generation, but may require more node expansion.
     for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
         int curr_map_idx = map.get_map_idx(std::get<0>(*it));
@@ -186,7 +195,6 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Sorting precomputation time: %.6f seconds\n", duration.count());
 
     // New sorted LOS method based on centrality. Might be better for multi-agent.
-    // // TODO: Is this "start_seen" part necessary??
     // boost::dynamic_bitset<> start_seen(map.num_squares, 0);
     // for(Position agent_start : agent_starts){
         // Mark all squares visible from the agent start as seen.
@@ -243,8 +251,8 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     duration = end_time - start_time;
     printf("Singleton precomputation time: %.6f seconds\n", duration.count());
 
-    // Precompute the distance between pivots in G_DLC
-    if(heuristic_type == HeuristicType::MST || heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
+    // Precompute the distance between pivots in disjoint graph 
+    if(heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
         for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
             std::vector<int> min_dists(map.num_squares, INT_MAX);
             lookup.pivot_pivot_dists.push_back(min_dists);
@@ -278,7 +286,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Lookup precomputation time: %.6f seconds\n", duration.count());
 }
 
-inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left){
+inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
 
@@ -298,8 +306,9 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         }
 
         // Check if one of the tasks is already a watcher for this pivot.
-        for(int task : tasks_left){
-            if(lookup.pivot_cell_dists[potential_pivot][task] == 0){
+        // for(int task : tasks_left){
+        for(const Task& task : tasks_left){
+            if(lookup.pivot_cell_dists[potential_pivot][task.map_idx] == 0){
                 valid = false;
                 break;
             }
@@ -313,8 +322,10 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
     }
 
     int num_exploration_pivots = pivots.size();
-    for(int task : tasks_left){
-        pivots.push_back(task);
+    std::vector<int> min_task_times;
+    for(const Task& task : tasks_left){
+        pivots.push_back(task.map_idx);
+        min_task_times.push_back(task.min_time);
     }
 
     int max_edge_cost = 0;
@@ -358,6 +369,7 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         .pivots=pivots,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
+        .min_task_times=min_task_times,
         .max_edge_cost=max_edge_cost,
         .num_exploration_pivots=num_exploration_pivots
     };
@@ -402,6 +414,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
         if(shortcut_pivot < graph.num_exploration_pivots){
             graph.num_exploration_pivots -= 1;
+        } else {
+            printf("Warning: Removed a task pivot during pruning. This shouldn't happen.\n");
+            exit(0);
         }
     }
 
@@ -439,6 +454,9 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
         if(worst_pivot < graph.num_exploration_pivots){
             graph.num_exploration_pivots -= 1;
+        } else {
+            printf("Warning 2: Removed a task pivot during pruning. This shouldn't happen.\n");
+            exit(0);
         }
     }
 }

@@ -12,7 +12,15 @@
 double TOTAL_HEURISTIC_TIME = 0.0;
 double TOTAL_TSP_SOLVER_TIME = 0.0;
 
-int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<int>& tasks_left, const Lookup& lookup){
+struct HeuristicInput {
+    std::vector<AgentState> agents;
+    int cost;
+    boost::dynamic_bitset<> seen;
+    std::vector<Task> tasks_left;
+    int num_seen;
+};
+
+int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
     for(int i = 0; i < seen.size(); i++){
         if(!seen[i]) {
@@ -25,11 +33,12 @@ int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vec
             f_value = std::max(f_value, closest_agent_f_value_to_see);
         }
     }
-    for(const int task : tasks_left){
+    for(const Task& task : tasks_left){
         int best_task_f_value = INT_MAX;
         // Find the closest agent and how long it would take to reach the task.
         for(int agent_map_idx : agent_map_idxs){
-            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task]);
+            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task.map_idx]);
+            best_task_f_value = std::max(best_task_f_value, task.min_time); // Ensure that we wait for the task release time.
         }
         f_value = std::max(f_value, best_task_f_value);
     }
@@ -50,8 +59,6 @@ int get_mst_heuristic(const DisjointGraph& disjoint_graph){
     int mst_heuristic = 0;
     std::vector<int> distances(adjacency_matrix.size(), INT_MAX);
     std::vector<bool> added(adjacency_matrix.size(), false);
-
-    // printf("\nMST Calculation:\n");
 
     for(int i = 0; i < adjacency_matrix.size(); i++){
         // Find the min cost node.
@@ -78,7 +85,6 @@ int get_mst_heuristic(const DisjointGraph& disjoint_graph){
         added[next_node_to_add] = true;
     }
 
-    // printf("MST Heuristic: %d\n", mst_heuristic);
     return mst_heuristic;
 }
 
@@ -185,6 +191,11 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
 
     TOTAL_MTSP_CALLS += 1;
     // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
-    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs); // Empty initial path to use greedy.        
+    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
+    // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
+    // if(mtsp_solution != mtsp_solution2){
+    //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);
+    //     exit(1);
+    // }
     return mtsp_solution;
 }

@@ -77,6 +77,7 @@
         "shared_mutex": "cpp",
         "stdfloat": "cpp",
         "stop_token": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "future": "cpp"
     }
 }

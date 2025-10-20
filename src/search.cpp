@@ -259,7 +259,15 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(start_seen[map_idx]){
             continue;
         }
-        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+        // Mark squares that are within los of a task as "seen" since they will be explored when completing the task.
+        bool is_within_los_of_task = false;
+        for(const Task& task : incomplete_tasks){
+            if(lookup.watchers_set[map_idx].find(task.map_idx) != lookup.watchers_set[map_idx].end()){
+                is_within_los_of_task = true;
+                break;
+            }
+        }
+        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx)) || is_within_los_of_task){
             start_seen[map_idx] = 1;
             num_start_seen += 1;
         }
@@ -295,14 +303,13 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     if(start_heuristic_type == LAZY){
         start_heuristic_type = SINGLETON;
     }
-    printf("Incomplete tasks (%ld): ", incomplete_tasks.size());
+    printf("Incomplete tasks (%ld): \n", incomplete_tasks.size());
     for(const Task& task : incomplete_tasks){
-        printf("%s ", task.toString().c_str());
+        printf("\t%s\n", task.toString().c_str());
     }
-    printf("\n");
     // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
     int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
-    printf("Start f value: %d\n", start_f_value);
+    printf("Start f value: %d, Num start seen: %d\n", start_f_value, num_start_seen);
     queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
 
     std::vector<Node> expanded_nodes;
@@ -463,6 +470,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     write_solution_to_file(solution_file, paths, start_seen, map, lookup);
     solution_file.close();
 
+    printf("\n");
     return paths;
 }
 

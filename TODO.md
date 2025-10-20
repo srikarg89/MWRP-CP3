@@ -27,10 +27,17 @@
   - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
   - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
-  - [ ] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 - Minor speedups (non-algorithmic / heuristic speedups)
   - [ ] Unseen set instead of the full dynamic bitset.
   - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
+
+
+**Docket**
+- [ ] Heuristic for MTSP with max time window
+- [ ] Implement tasks that require multiple robots
+- [ ] Heuristic for tasks that require multiple robots
+- [ ] Focal search
+
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -49,7 +56,8 @@
 - [x] Ignore exploration squares that are strictly easier to visit. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
 - [x] For disjoint graph pruning, just do O(N^3) loop to check for shortcuts instead of doing fancy BFS logic.
 - [x] Make heuristic consistent.
-- [x] Parallelization for heuristic calculation during search expansion.
+- [x] Parallelization for heuristic calculation during search expansion (2x speedup).
+- [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 
 **Tested but Worse**
 - Adding in time windows naively.

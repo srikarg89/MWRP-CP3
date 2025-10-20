@@ -187,10 +187,10 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
     TOTAL_MTSP_CALLS += 1;
     // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
     int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
-    int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
-    if(mtsp_solution != mtsp_solution2){
-        printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);
-        exit(1);
-    }
+    // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
+    // if(mtsp_solution != mtsp_solution2){
+    //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);
+    //     exit(1);
+    // }
     return mtsp_solution;
 }

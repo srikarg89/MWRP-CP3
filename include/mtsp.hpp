@@ -328,6 +328,7 @@ inline int run_mtsp(int num_agents, int num_pivots, int num_tasks, const std::ve
 
 
 inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& min_task_times) {
+    printf("Num agents: %d, Num pivots: %d, Num tasks: %d\n", num_agents, num_pivots, num_tasks);
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -354,7 +355,6 @@ inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::v
         // Constraint 2: Continuous path. Leaving loc - arriving at loc = 0 for all loc.
         add_continuous_path_constraint(env, model, x, n, m);
 
-
         // Constraint 3: Every agent has at most one tour. Done by ensuring every agent row sums to at most 1.
         max_one_tour_per_agent_constraint(env, model, x, n, m);
 
@@ -374,20 +374,30 @@ inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::v
         // Constraint 6: Agents that visit a task must wait there (https://www.sciencedirect.com/science/article/pii/S1572528610000289).
         std::vector<IloNumVar> B(n);
         for(int city = 0; city < n; city++) {
-            B[city] = IloNumVar(env, 0, IloInfinity, ILOFLOAT, ("B_" + to_string(city)).c_str());
+            B[city] = IloNumVar(env, 0, 1000000, ILOFLOAT, ("B_" + to_string(city)).c_str());
         }
 
         // Ensure inter-task times.
-        int massive_num = 10000;
-        for(int agent = 0; agent < m; agent++) {
-            for(int i = 0; i < n; i++) {
-                for(int j = 0; j < n; j++) {
-                    if(i != j) {
-                        IloExpr expr(env);
-                        expr = B[i] - B[j] + cost_matrix[i][j] - massive_num * (1 - x[agent][i][j]);
-                        model.add(expr <= 0);
-                        expr.end();
+        int massive_num = 0;
+        for(int cost_row = 0; cost_row < cost_matrix.size(); cost_row++) {
+            for(int cost_col = 0; cost_col < cost_matrix[cost_row].size(); cost_col++) {
+                massive_num = std::max(massive_num, cost_matrix[cost_row][cost_col]);
+            }
+        }
+        massive_num = massive_num * n + 1;
+
+        for(int i = 0; i < n; i++) {
+            for(int j = 0; j < n; j++) {
+                if(i != j) {
+                    IloExpr expr(env);
+                    IloExpr xsum(env);
+                    for(int agent = 0; agent < m; agent++) {
+                        xsum += x[agent][i][j];
                     }
+                    expr = B[i] - B[j] + cost_matrix[i][j] - massive_num * (1 - xsum);
+                    model.add(expr <= 0);
+                    expr.end();
+                    xsum.end();
                 }
             }
         }
@@ -404,13 +414,28 @@ inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::v
 
         // Objective function.
         // For makespan we want to minimize the maximum cost of any agent.
-        IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
-        for(int i = 0; i < n; i++) {
-            model.add(B[i] <= L);
-        }
+        // IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
+        // for(int i = 0; i < n; i++) {
+        //     model.add(B[i] <= L);
+        // }
 
-        for(int i = 0; i < m; i++){
-            model.add(L >= current_costs[i]);
+        // for(int i = 0; i < m; i++){
+        //     model.add(L >= current_costs[i]);
+        // }
+
+        IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
+        for(int agent = 0; agent < m; agent++) {
+            IloExpr agent_cost(env);
+            for(int from = 0; from < n + 1; from++) {
+                for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
+                    if(from != to) {
+                        int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                        agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
+                    }
+                }
+            }
+            model.add(agent_cost + current_costs[agent] <= L);
+            agent_cost.end();
         }
 
         model.add(IloMinimize(env, L));
@@ -419,6 +444,8 @@ inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::v
         IloNumVarArray vars(env);
         IloNumArray vals(env);
         set_MIP_start(vars, vals, x, cost_matrix, n, m);
+
+        printf("ITS TAKING FOREVER TO RUN\n");
 
         // Solve
         IloCplex cplex(model);

@@ -10,6 +10,8 @@
 #include <iostream>
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
+#include "BS_thread_pool.hpp"
+
 
 int NUM_SKIPPED = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
@@ -142,6 +144,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     NEIGHBOR_EXPANSION_TIME += duration.count();
+
+    std::vector<Node> neighbor_nodes_no_f;
+
     for(const auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
@@ -183,21 +188,73 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
         generated_costs[nbr_key] = nbr_cost;
 
-        // Calculate heuristic.
-        HeuristicType heuristic_type = solver_config.heuristic_type;
-        if(heuristic_type == LAZY){
-            heuristic_type = SINGLETON;
-        }
-        auto start = std::chrono::high_resolution_clock::now();
-        int nbr_f_value = get_f_value(heuristic_type, map, nbr, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+        neighbor_nodes_no_f.push_back(Node(/*last_assigned_id = */ 0, nbr, nbr_seen, nbr_tasks_left, nbr_cost, /*f_value = */ 0, nbr_num_seen));
+    }
 
-        // Apply pathmax to ensure consistency.
-        nbr_f_value = std::max(nbr_f_value, node.f_value);
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> duration = end - start;
+
+    HeuristicType heuristic_type = solver_config.heuristic_type;
+    if(heuristic_type == LAZY){
+        heuristic_type = SINGLETON;
+    }
+
+    std::vector<int> f_values(neighbor_nodes_no_f.size());
+
+    // Synchronous version.
+    if(heuristic_type != TSP){
+        for(int i = 0; i < neighbor_nodes_no_f.size(); i++){
+            f_values[i] = get_f_value(heuristic_type, map, neighbor_nodes_no_f[i].agents, neighbor_nodes_no_f[i].cost, neighbor_nodes_no_f[i].seen, neighbor_nodes_no_f[i].tasks_left, lookup);
+        }
+    }
+    else {
+        // Asynchronous version (multi-core usage).
+        BS::thread_pool pool;
+        std::vector<std::future<int>> futures;
+
+        std::vector<int> idxs;
+        for (int i = 0; i < neighbor_nodes_no_f.size(); ++i) {
+            Node temp = neighbor_nodes_no_f[i];
+            std::vector<int> non_terminated_agent_map_idxs;
+            std::vector<int> non_terminated_agent_costs;
+
+            for(const auto& agent : temp.agents){
+                if(!agent.terminated){
+                    non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+                    non_terminated_agent_costs.push_back(agent.cost);
+                }
+            }
+
+            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, temp.seen, temp.tasks_left);
+            prune_graph(disjoint_graph, lookup);
+
+            if(disjoint_graph.pivots.size() == 0){
+                f_values[i] = get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, temp.cost, temp.seen, temp.tasks_left, lookup);
+                continue;
+            }
+            idxs.push_back(i);
+            int node_cost = temp.cost;
+
+            futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, node_cost]() {
+                return std::max(node_cost, get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs));
+            }));
+        }
+
+        start = std::chrono::high_resolution_clock::now();
+
+        for(int i = 0; i < idxs.size(); i++) {
+            f_values[idxs[i]] = futures[i].get();
+        }
+
+        end = std::chrono::high_resolution_clock::now();
+        duration = end - start;
         GET_F_VALUE_TIME += duration.count();
+    }
+
+    for(int i = 0; i < neighbor_nodes_no_f.size(); i++){
+        // Apply pathmax to ensure consistency.
+        int nbr_f_value = std::max(f_values[i], node.f_value);
         last_id_assigned += 1;
-        neighbor_nodes.push_back(Node(last_id_assigned, nbr, nbr_seen, nbr_tasks_left, nbr_cost, nbr_f_value, nbr_num_seen));
+        const Node& neighbor_node_no_f = neighbor_nodes_no_f[i];
+        neighbor_nodes.push_back(Node(last_id_assigned, neighbor_node_no_f.agents, neighbor_node_no_f.seen, neighbor_node_no_f.tasks_left, neighbor_node_no_f.cost, nbr_f_value, neighbor_node_no_f.num_seen));
     }
     return neighbor_nodes;
 }
@@ -306,7 +363,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         // debug_file.close(); exit(0);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 1 == 0){
+        if(num_fully_expanded % 10 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);

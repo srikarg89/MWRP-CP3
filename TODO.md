@@ -6,15 +6,16 @@
 - [ ] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Extensions**
-- [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289).
+- [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289). (need to implement waiting at tasks??).
   - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
-- [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+- [ ] Multi-robot tasks. (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
 - [ ] Tasks that take a certain amount of time to complete.
 - [ ] Search-based collision handling.
 - [ ] Priority-based collision handling.
 - [ ] Extend algorithm to work on weighted graph (different traversabilities).
 - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
   - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
+- [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
 
 **Optimizations**
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.

@@ -169,29 +169,20 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
     // An agent is considered 'free' if it is not terminated and not waiting at a task.
-    std::function<void(int, std::vector<AgentState>, int, int)> backtrack = [&](int idx, std::vector<AgentState> current, int free_agents_needed, int free_agents_left){
+    std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
         if(idx == options.size()){
-            if(free_agents_left >= free_agents_needed){
+            if(has_non_terminated_agent){
                 all_moves.push_back(current);
             }
             return;
         }
         for(AgentState option : options[idx]){
             current.push_back(option);
-
-            int fa_needed = free_agents_needed;
-            int fa_left = free_agents_left;
-            if(option.waiting_idx != -1){
-                fa_needed = std::max(fa_needed, get_task_by_id(tasks_left, option.waiting_idx).num_agents_required);
-            } else if(!option.terminated){
-                fa_left += 1;
-            }
-            backtrack(idx + 1, current, fa_needed, fa_left);
-
+            backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
             current.pop_back();
         }
     };
-    backtrack(0, {}, 1, 0);
+    backtrack(0, {}, false);
     return all_moves;
 }
 
@@ -205,7 +196,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
     std::vector<HeuristicInput> neighbor_heuristic_inputs;
 
-    for(const auto& nbr : neighbors){
+    for(auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
         int new_squares_seen = 0;
@@ -222,8 +213,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         bool task_failed = false;
         for(Task t : node.tasks_left){
             int task_map_idx = map.get_map_idx(t.pos);
-            bool reached = false;
+            std::unordered_map<int, int> num_reached_by_time;
             bool reachable = false;
+            bool completed = false;
             for(const AgentState& agent : nbr){
                 int agent_map_idx = map.get_map_idx(agent.pos);
                 if(!agent.terminated && (agent.cost + lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] <= t.deadline)){
@@ -231,14 +223,26 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 }
 
                 if(agent_map_idx == task_map_idx && agent.cost <= t.deadline){
-                    reached = true;
+                    num_reached_by_time[agent.cost] += 1;
+                    if(num_reached_by_time[agent.cost] >= t.num_agents_required){
+                        completed = true;
+                        break;
+                    }
                 }
             }
             if(!reachable){
                 task_failed = true;
                 break;
             }
-            if(!reached){
+            if(completed) {
+                // Free up agents that were waiting at this task.
+                for(AgentState& agent : nbr){
+                    if(agent.waiting_idx == t.id){
+                        agent.waiting_idx = -1;
+                    }
+                }
+            }
+            else {
                 nbr_tasks_left.push_back(t);
             }
         }

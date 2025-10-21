@@ -47,7 +47,7 @@ public:
             agent_positions[i] = new_positions[i];
             auto it = incomplete_tasks.begin();
             while(it != incomplete_tasks.end()){
-                if(it->pos.equals(new_positions[i]) && timestamp >= it->min_time && timestamp <= it->max_time){
+                if(it->pos.equals(new_positions[i]) && timestamp <= it->deadline){
                     // Task completed.
                     completed_tasks.push_back(*it);
                     it = incomplete_tasks.erase(it);

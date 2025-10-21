@@ -101,17 +101,17 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
                 agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
             }
             // If we're at a task, add a wait action to wait until the task's release time.
-            int agent_map_idx = map.get_map_idx(agent.pos);
-            for(const Task& t : tasks_left){
-                if(agent_map_idx == t.map_idx){
-                    if(agent.cost >= t.min_time){
-                        printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
-                        exit(0);
-                    }
-                    agent_options.push_back(AgentState(agent.pos, false, t.min_time));
-                    break;
-                }
-            }
+            // int agent_map_idx = map.get_map_idx(agent.pos);
+            // for(const Task& t : tasks_left){
+            //     if(agent_map_idx == t.map_idx){
+            //         if(agent.cost >= t.min_time){
+            //             printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
+            //             exit(0);
+            //         }
+            //         agent_options.push_back(AgentState(agent.pos, false, t.min_time));
+            //         break;
+            //     }
+            // }
         }
         // Generic one-step implementation
         else {
@@ -167,19 +167,37 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
 
         std::vector<Task> nbr_tasks_left;
+        bool task_failed = false;
         for(Task t : node.tasks_left){
             int task_map_idx = map.get_map_idx(t.pos);
             bool reached = false;
+            bool reachable = false;
             for(const AgentState& agent : nbr){
                 int agent_map_idx = map.get_map_idx(agent.pos);
-                if(agent_map_idx == task_map_idx && agent.cost >= t.min_time && agent.cost <= t.max_time){
-                    reached = true;
-                    break;
+                if(!agent.terminated && (agent.cost + lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] <= t.deadline)){
+                    reachable = true;
                 }
+
+                if(agent_map_idx == task_map_idx && agent.cost <= t.deadline){
+                    reached = true;
+                }
+            }
+            if(!reachable){
+                task_failed = true;
+                break;
             }
             if(!reached){
                 nbr_tasks_left.push_back(t);
             }
+        }
+
+        if(task_failed){
+            // Don't generate neighbors that have failed tasks. That is, have strict deadlines on the deadline.
+            // NOTE: This could possibly create feasibility issues where no solution exists.
+            // TODO: In the future, we can instead model this by adding a penalty to the cost based on how far past the deadline we are.
+            // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
+            // This could also be configurable on a per-task basis.
+            continue;
         }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
@@ -260,11 +278,15 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             continue;
         }
         // Mark squares that are within los of a task as "seen" since they will be explored when completing the task.
+        // Don't include squares that are the task themselves.
         bool is_within_los_of_task = false;
         for(const Task& task : incomplete_tasks){
+            if(map_idx == task.map_idx){
+                is_within_los_of_task = false;
+                continue;
+            }
             if(lookup.watchers_set[map_idx].find(task.map_idx) != lookup.watchers_set[map_idx].end()){
                 is_within_los_of_task = true;
-                break;
             }
         }
         if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx)) || is_within_los_of_task){
@@ -325,6 +347,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     auto start_time = std::chrono::high_resolution_clock::now();
 
     std::vector<std::vector<Position>> paths(starts.size(), std::vector<Position>());
+    bool solution_found = false;
 
     while(!queue.empty()){
         Node curr = queue.top();
@@ -360,8 +383,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], solver_config.heuristic_type);
 
-        // debug_file.close(); exit(0);
-
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
         if(num_fully_expanded % 10 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
@@ -373,6 +394,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         // Goal condition.
         if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
+            solution_found = true;
             printf("Goal condition met!\n");
             printf("Num seen: %d / %d\n", curr.num_seen, map.num_squares);
             for(int i = 0; i < curr.seen.size(); i++){
@@ -432,6 +454,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             pred_lookup[nbr.node_id] = curr.node_id;
             queue.push(nbr);
         }
+    }
+
+    if(!solution_found){
+        printf("\n\nNO SOLUTION FOUND!!!\n\n");
     }
 
     if(solver_config.collision_resolution == POSTPROCESS){

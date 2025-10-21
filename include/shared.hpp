@@ -103,13 +103,12 @@ struct Task {
     int id;
     Position pos;
     int map_idx;
-    int min_time;
-    int max_time;
+    int deadline;
 
-    Task(int id, Position p, int map_idx, int min, int max) : id(id), pos(p), map_idx(map_idx), min_time(min), max_time(max) {}
+    Task(int id, Position p, int map_idx, int deadline) : id(id), pos(p), map_idx(map_idx), deadline(deadline) {}
 
     std::string toString() const {
-        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Min Time: " + std::to_string(min_time) + ", Max Time: " + std::to_string(max_time);
+        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Deadline: " + std::to_string(deadline);
     }
 };
 
@@ -305,7 +304,6 @@ struct DisjointGraph {
     std::vector<int> pivots;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
-    std::vector<int> min_task_times;
     int max_edge_cost;
     int num_exploration_pivots;
 };
@@ -432,16 +430,12 @@ struct ScenarioConfig {
             if(task_position.size() != 2) {
                 throw std::runtime_error("Each task position must have exactly two coordinates.");
             }
-            int min_time = 0;
-            int max_time = INT_MAX;
-            if(task.contains("min_time")) {
-                min_time = task["min_time"].get<int>();
-            }
-            if(task.contains("max_time")) {
-                max_time = task["max_time"].get<int>();
+            int deadline = INT_MAX;
+            if(task.contains("deadline")) {
+                deadline = task["deadline"].get<int>();
             }
             Position task_pos = Position{task_position[0], task_position[1]};
-            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), min_time, max_time));
+            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), deadline));
         }
 
         // Validate agent and task positions.

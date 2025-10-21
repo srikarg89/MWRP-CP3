@@ -198,7 +198,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 
 
 // NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
-inline int run_mtsp(int num_agents, int num_pivots, int num_tasks, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& min_task_times) {
+inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -327,8 +327,7 @@ inline int run_mtsp(int num_agents, int num_pivots, int num_tasks, const std::ve
 }
 
 
-inline int run_mtsp2(int num_agents, int num_pivots, int num_tasks, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& min_task_times) {
-    printf("Num agents: %d, Num pivots: %d, Num tasks: %d\n", num_agents, num_pivots, num_tasks);
+inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {

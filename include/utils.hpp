@@ -322,10 +322,8 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
     }
 
     int num_exploration_pivots = pivots.size();
-    std::vector<int> min_task_times;
     for(const Task& task : tasks_left){
         pivots.push_back(task.map_idx);
-        min_task_times.push_back(task.min_time);
     }
 
     int max_edge_cost = 0;
@@ -369,7 +367,6 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         .pivots=pivots,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
-        .min_task_times=min_task_times,
         .max_edge_cost=max_edge_cost,
         .num_exploration_pivots=num_exploration_pivots
     };

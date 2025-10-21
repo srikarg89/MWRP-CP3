@@ -2,7 +2,6 @@
 - [ ] Test old vs new pivot sorting order (new could work better with multi-agent).
 - [ ] Duplicate / Dominance Detection.
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
-- [ ] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Extensions**
 - Tasks
@@ -22,8 +21,6 @@
 
 **Optimizations**
 - Major speedups
-  - [ ] Look into heuristics for the TSP problem instead of actually solving it.
-  - [ ] Use focal search for iterative searches (i.e. searches once task is found).
   - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
   - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
@@ -33,10 +30,15 @@
 
 
 **Docket**
-- [ ] Heuristic for MTSP with max time window
-- [ ] Implement tasks that require multiple robots
-- [ ] Heuristic for tasks that require multiple robots
+- [ ] Implement tasks that require multiple robots to be there at the same time.
+- [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search
+  - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
+  - [ ] Deadline-based MTSP heuristic
+  - [ ] Idk do more research for better focal search heuristics.
+- [ ] Better direct heuristic for MTSP with deadline
+- [ ] Better direct heuristic for tasks that require multiple robots
+
 
 
  **Verified Working**
@@ -60,7 +62,8 @@
 - [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 
 **Tested but Worse**
-- Adding in time windows naively.
+- [x] Adding in time windows naively into the MTSP formulation.
+- [x] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Improvements / Changes to Remember**
 - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.

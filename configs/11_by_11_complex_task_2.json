@@ -4,12 +4,12 @@
         {
             "id": 0,
             "location": [0, 10],
-            "deadline": 28
+            "max_time": 28
         },
         {
             "id": 1,
             "location": [3, 7],
-            "deadline": 20
+            "max_time": 20
         },
         {
             "id": 2,

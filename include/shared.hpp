@@ -56,9 +56,10 @@ inline std::string int_array_to_string(const std::vector<int>& arr){
 struct AgentState {
     Position pos;
     bool terminated;
+    int waiting_idx; // -1 if not waiting, otherwise the index of the task being waited at.
     int cost;
 
-    AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
+    AgentState(Position p, bool t, int w, int c) : pos(p), terminated(t), waiting_idx(w), cost(c) {}
 };
 
 inline std::vector<Position> agent_states_to_positions(const std::vector<AgentState>& agents){
@@ -104,11 +105,12 @@ struct Task {
     Position pos;
     int map_idx;
     int deadline;
+    int num_agents_required;
 
-    Task(int id, Position p, int map_idx, int deadline) : id(id), pos(p), map_idx(map_idx), deadline(deadline) {}
+    Task(int id, Position p, int map_idx, int deadline, int num_agents_required) : id(id), pos(p), map_idx(map_idx), deadline(deadline), num_agents_required(num_agents_required) {}
 
     std::string toString() const {
-        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Deadline: " + std::to_string(deadline);
+        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Deadline: " + std::to_string(deadline) + ", Num Agents Required: " + std::to_string(num_agents_required);
     }
 };
 
@@ -431,11 +433,15 @@ struct ScenarioConfig {
                 throw std::runtime_error("Each task position must have exactly two coordinates.");
             }
             int deadline = INT_MAX;
+            int num_agents_required = 1;
             if(task.contains("deadline")) {
                 deadline = task["deadline"].get<int>();
             }
+            if(task.contains("num_agents_required")) {
+                num_agents_required = task["num_agents_required"].get<int>();
+            }
             Position task_pos = Position{task_position[0], task_position[1]};
-            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), deadline));
+            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), deadline, num_agents_required));
         }
 
         // Validate agent and task positions.

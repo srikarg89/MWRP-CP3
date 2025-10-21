@@ -36,9 +36,12 @@ int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vec
     for(const Task& task : tasks_left){
         int best_task_f_value = INT_MAX;
         // Find the closest agent and how long it would take to reach the task.
+        std::vector<int> times_to_reach_task;
         for(int agent_map_idx : agent_map_idxs){
-            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task.map_idx]);
+            times_to_reach_task.push_back(lookup.apsp[agent_map_idx][task.map_idx]);
         }
+        std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
+        best_task_f_value = times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task.
         f_value = std::max(f_value, best_task_f_value);
     }
     return std::max(node_cost, f_value);

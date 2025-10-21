@@ -84,6 +84,35 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
     return f_values;
 }
 
+Task get_task_by_id(const std::vector<Task>& tasks, int id){
+    for(const Task& task : tasks){
+        if(task.id == id){
+            return task;
+        }
+    }
+    throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
+}
+
+// TODO: There can exist a deadlock where all agents are waiting at different tasks. Need to figure out how to avoid this. Need to ensure that at least one task is solvable at all times. Need to throw out states where no tasks are solvable.
+int get_wait_action_end_time(const Map& map, const Lookup& lookup, const std::vector<AgentState>& agents, Task task, int agent_cost){
+    // If we're at a task, clearly it hasn't been completed yet, so I guess more robots need to come. Add a wait action to wait until however long it'll take someone else to come.
+    std::vector<int> agent_min_arrival_times;
+    for(AgentState agent : agents) {
+        // Ignore agents that are terminated or waiting at other tasks, since they can't really come help right now.
+        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)) {
+            continue;
+        }
+        int agent_map_idx = map.get_map_idx(agent.pos);
+        agent_min_arrival_times.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+    }
+
+    std::sort(agent_min_arrival_times.begin(), agent_min_arrival_times.end());
+    // Since we need num_agents_required agents to reach the task. NOTE: It is possible that there aren't num_agents_required available, because other agents are waiting, and will be freed up once their task is completed.
+    int min_alt_wait_time = agent_min_arrival_times[std::min(task.num_agents_required - 1, (int)agent_min_arrival_times.size() - 1)];
+    return std::max(agent_cost, min_alt_wait_time);
+}
+
+
 std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
@@ -94,52 +123,75 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         }
         std::vector<AgentState> agent_options;
 
+        int at_incomplete_task_idx = -1;
+        for(const Task& t : tasks_left){
+            if(map.get_map_idx(agent.pos) == t.map_idx){
+                at_incomplete_task_idx = t.id;
+                break;
+            }
+        }
+
+        // If not waiting, but we're at a task, and the task is incomplete, then we can wait at the task.
+        // If we're currently waiting, we should continue to wait at the task.
+        if(agent.waiting_idx != -1 || at_incomplete_task_idx != -1){
+            printf("WE'RE AT AN INCOMPLETE TASK, ADDING WAIT OPTION\n");
+            // Figure out how long to wait for.
+            int wait_task_idx = (agent.waiting_idx != -1) ? agent.waiting_idx : at_incomplete_task_idx;
+            Task task = get_task_by_id(tasks_left, wait_task_idx);
+            int wait_time = get_wait_action_end_time(map, lookup, agents, task, agent.cost);
+            agent_options.push_back(AgentState(agent.pos, false, wait_task_idx, wait_time));
+
+            // If we're currently waiting, we can't move until we complete the task.
+            if(agent.waiting_idx != -1){
+                options.push_back(agent_options);
+                continue;
+            }
+        }
+
         // Expanding borders implementation.
         if(expanding_borders){
             std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
             for(auto [nbr, added_cost] : nbrs_with_added_cost){
-                agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
+                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
             }
-            // If we're at a task, add a wait action to wait until the task's release time.
-            // int agent_map_idx = map.get_map_idx(agent.pos);
-            // for(const Task& t : tasks_left){
-            //     if(agent_map_idx == t.map_idx){
-            //         if(agent.cost >= t.min_time){
-            //             printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
-            //             exit(0);
-            //         }
-            //         agent_options.push_back(AgentState(agent.pos, false, t.min_time));
-            //         break;
-            //     }
-            // }
         }
         // Generic one-step implementation
         else {
             std::vector<Position> nbrs = map.get_neighbors(agent.pos);
             for(Position nbr : nbrs){
-                agent_options.push_back(AgentState(nbr, false, agent.cost + 1));
+                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + 1));
             }
         }
 
-        agent_options.push_back(AgentState(agent.pos, true, agent.cost)); // Option to terminate.
+        agent_options.push_back(AgentState(agent.pos, true, -1, agent.cost)); // Option to terminate.
         options.push_back(agent_options);
     }
     // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
-    std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
+    // An agent is considered 'free' if it is not terminated and not waiting at a task.
+    std::function<void(int, std::vector<AgentState>, int, int)> backtrack = [&](int idx, std::vector<AgentState> current, int free_agents_needed, int free_agents_left){
         if(idx == options.size()){
-            if(has_non_terminated_agent){
+            if(free_agents_left >= free_agents_needed){
                 all_moves.push_back(current);
             }
             return;
         }
         for(AgentState option : options[idx]){
             current.push_back(option);
-            backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
+
+            int fa_needed = free_agents_needed;
+            int fa_left = free_agents_left;
+            if(option.waiting_idx != -1){
+                fa_needed = std::max(fa_needed, get_task_by_id(tasks_left, option.waiting_idx).num_agents_required);
+            } else if(!option.terminated){
+                fa_left += 1;
+            }
+            backtrack(idx + 1, current, fa_needed, fa_left);
+
             current.pop_back();
         }
     };
-    backtrack(0, {}, false);
+    backtrack(0, {}, 1, 0);
     return all_moves;
 }
 
@@ -197,6 +249,29 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             // TODO: In the future, we can instead model this by adding a penalty to the cost based on how far past the deadline we are.
             // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
             // This could also be configurable on a per-task basis.
+            printf("Task failure detected, skipping neighbor generation.\n");
+            continue;
+        }
+
+        // Check if we have a deadlock. That is, check if there is at least one task that is reachable by at least one non-terminated agent.
+        bool task_deadlocked = false;
+        for(const Task& t : nbr_tasks_left){
+            int agents_available = 0;
+            for(const AgentState& agent : nbr){
+                if(agent.waiting_idx == t.id || (!agent.terminated && agent.waiting_idx == -1)){
+                    agents_available += 1;
+                    continue;
+                }
+            }
+            if(agents_available < t.num_agents_required){
+                task_deadlocked = true;
+                break;
+            }
+        }
+
+        if(task_deadlocked) {
+            // Don't generate neighbors that have deadlocked tasks.
+            printf("Deadlocked task detected, skipping neighbor generation.\n");
             continue;
         }
 
@@ -297,7 +372,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        start_agent_states.push_back(AgentState(start, false, start_timestep));
+        start_agent_states.push_back(AgentState(start, false, -1, start_timestep));
     }
 
     // Initialize search data structures.

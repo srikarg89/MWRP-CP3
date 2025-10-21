@@ -7,12 +7,12 @@
         },
         {
             "id": 1,
-            "location": [3, 7]
+            "location": [3, 7],
+            "num_agents_required": 2
         },
         {
             "id": 2,
-            "location": [9, 5],
-            "deadline": 15
+            "location": [9, 5]
         }
     ],
     "map": "custom-11-11.map",

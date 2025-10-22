@@ -70,14 +70,24 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
 }
 
 // Used for hashing visited nodes.
+// inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+//     std::string str = "[";
+//     for(const AgentState& agent : agents){
+//         str += agent.pos.toString() + " / " + (agent.terminated ? " / T" : "") + ", ";
+//     }
+//     str += "]";
+//     return str;
+// }
+
 inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
     std::string str = "[";
     for(const AgentState& agent : agents){
-        str += agent.pos.toString() + " / " + (agent.terminated ? " / T" : "") + ", ";
+        str += agent.pos.toString() + ", ";
     }
     str += "]";
     return str;
 }
+
 
 // Used for printing debug information.
 inline std::string agent_states_to_print_string(const std::vector<AgentState>& agents){

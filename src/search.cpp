@@ -143,7 +143,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, int, boost::hash<node_hash_key>>& generated_costs){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs){
     std::vector<Node> neighbor_nodes;
     auto start = std::chrono::high_resolution_clock::now();
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
@@ -185,14 +185,46 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
         node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
-        if(generated_costs.find(nbr_key) != generated_costs.end()){
-            if(nbr_cost >= generated_costs[nbr_key]){
-                // We've already generated a cheaper version of this node.
+        std::vector<int> agent_costs;
+        for(const AgentState& agent : nbr){
+            agent_costs.push_back(agent.cost);
+        }
+        if(generated_costs.find(nbr_key) == generated_costs.end()){
+            generated_costs[nbr_key] = {agent_costs};
+        }
+        else {
+            bool skip_dominated_nbr = false;
+            auto it = generated_costs[nbr_key].begin();
+            while (it != generated_costs[nbr_key].end()) {
+                bool dominated = true;
+                bool dominating = true;
+                for(int i = 0; i < agent_costs.size(); i++){
+                    if(agent_costs[i] < it->at(i)){
+                        // Better cost, so not dominated.
+                        dominated = false;
+                    } else if(agent_costs[i] > it->at(i)){
+                        // Worse cost, so not dominating.
+                        dominating = false;
+                    }
+                }
+                if(dominated){
+                    // Current costs are dominated, skip this neighbor.
+                    skip_dominated_nbr = true;
+                    break;
+                } else if(dominating){
+                    // Current costs dominate existing costs, remove existing costs.
+                    it = generated_costs[nbr_key].erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if(skip_dominated_nbr){
                 NUM_SKIPPED += 1;
                 continue;
+            } else {
+                generated_costs[nbr_key].push_back(agent_costs);
             }
         }
-        generated_costs[nbr_key] = nbr_cost;
 
         neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
     }
@@ -243,7 +275,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::unordered_map<int, int> pred_lookup;
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)
-    std::unordered_map<node_hash_key, int, boost::hash<node_hash_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
+    std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
 
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");
@@ -291,14 +323,14 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         Node curr = queue.top();
         queue.pop();
 
-        size_t seen_hash = boost::hash_value(curr.seen);
-        // std::tuple<std::string, size_t> visited_key = std::make_tuple(agent_states_to_string(curr.agents), seen_hash);
-        node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), task_array_hash_string(curr.tasks_left), seen_hash);
-        if(visited_nodes.find(visited_key) != visited_nodes.end()){
-            // Already visited this node.
-            num_skipped += 1;
-            continue;
-        }
+        // TODO: Add this back in??
+        // size_t seen_hash = boost::hash_value(curr.seen);
+        // node_hash_key visited_key = std::make_tuple(agent_states_to_string(curr.agents), task_array_hash_string(curr.tasks_left), seen_hash);
+        // if(visited_nodes.find(visited_key) != visited_nodes.end()){
+        //     // Already visited this node.
+        //     num_skipped += 1;
+        //     continue;
+        // }
 
         num_expanded += 1;
 
@@ -316,7 +348,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         expanded_nodes.push_back(curr);
 
-        visited_nodes.insert(visited_key);
+        // visited_nodes.insert(visited_key);
         id_lookup[curr.node_id] = curr.agents;
 
         write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], solver_config.heuristic_type);
@@ -345,6 +377,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
             printf("Search time taken: %.3f seconds\n", seconds_taken);
             printf("Solution cost: %d\n", curr.cost);
+            for(AgentState agent : curr.agents){
+                printf("\tAgent final time: %d\n", agent.cost);
+            }
 
             int curr_id = curr.node_id;
             std::vector<AgentState> curr_agent_states = id_lookup[curr_id];

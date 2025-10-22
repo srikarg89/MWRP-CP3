@@ -30,7 +30,6 @@
 
 
 **Docket**
-- [ ] Implement tasks that require multiple robots to be there at the same time.
 - [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search
   - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
@@ -38,7 +37,6 @@
   - [ ] Idk do more research for better focal search heuristics.
 - [ ] Better direct heuristic for MTSP with deadline
 - [ ] Better direct heuristic for tasks that require multiple robots
-
 
 
  **Verified Working**
@@ -60,6 +58,7 @@
 - [x] Make heuristic consistent.
 - [x] Parallelization for heuristic calculation during search expansion (2x speedup).
 - [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
+- [x] Implement tasks that require multiple robots to be there at the same time.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -71,6 +70,7 @@
 - Ignore exploration squares that are strictly easier to visit.
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
+- Multi robot tasks
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

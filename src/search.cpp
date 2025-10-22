@@ -14,6 +14,8 @@
 
 
 int NUM_SKIPPED = 0;
+int NUM_SKIPPED_TASK_DEADLINE_PASSED = 0;
+int NUM_SKIPPED_TASK_DEADLOCK = 0;
 int MAX_EXISTING_NODES_SIZE = 0;
 double NEIGHBOR_EXPANSION_TIME = 0.0;
 double GET_F_VALUE_TIME = 0.0;
@@ -134,7 +136,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         // If not waiting, but we're at a task, and the task is incomplete, then we can wait at the task.
         // If we're currently waiting, we should continue to wait at the task.
         if(agent.waiting_idx != -1 || at_incomplete_task_idx != -1){
-            printf("WE'RE AT AN INCOMPLETE TASK, ADDING WAIT OPTION\n");
+            // printf("WE'RE AT AN INCOMPLETE TASK, ADDING WAIT OPTION\n");
             // Figure out how long to wait for.
             int wait_task_idx = (agent.waiting_idx != -1) ? agent.waiting_idx : at_incomplete_task_idx;
             Task task = get_task_by_id(tasks_left, wait_task_idx);
@@ -253,7 +255,8 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             // TODO: In the future, we can instead model this by adding a penalty to the cost based on how far past the deadline we are.
             // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
             // This could also be configurable on a per-task basis.
-            printf("Task failure detected, skipping neighbor generation.\n");
+            // printf("Task failure detected, skipping neighbor generation.\n");
+            NUM_SKIPPED_TASK_DEADLINE_PASSED += 1;
             continue;
         }
 
@@ -275,12 +278,14 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         if(task_deadlocked) {
             // Don't generate neighbors that have deadlocked tasks.
-            printf("Deadlocked task detected, skipping neighbor generation.\n");
+            // printf("Deadlocked task detected, skipping neighbor generation.\n");
+            NUM_SKIPPED_TASK_DEADLOCK += 1;
             continue;
         }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
+        // TODO: Have to change this if we add in tasks that take a certain amount of time to complete.
         node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         std::vector<int> agent_costs;
         for(const AgentState& agent : nbr){
@@ -463,7 +468,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], solver_config.heuristic_type);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 10 == 0){
+        if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
             // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);
@@ -548,7 +553,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
-    printf("Total generations skipped: %d\n", NUM_SKIPPED);
+    printf("Total generations skipped because of inferior cost: %d\n", NUM_SKIPPED);
+    printf("Total generations skipped because of task failure: %d\n", NUM_SKIPPED_TASK_DEADLINE_PASSED);
+    printf("Total generations skipped because of task deadlock: %d\n", NUM_SKIPPED_TASK_DEADLOCK);
     printf("Total nodes generated: %d\n", num_generated);
     if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
         if(start_agent_states.size() == 1){

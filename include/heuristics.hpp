@@ -17,27 +17,6 @@ struct HeuristicInput {
     int num_seen;
 };
 
-int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
-    // Find the closest agent and how long it would take to reach the task.
-    std::vector<int> times_to_reach_task;
-    for(const AgentState& agent : agents){
-        // Only include non-terminated agents that are waiting for this task or not waiting at all.
-        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)){
-            continue;
-        }
-        int agent_map_idx = map.get_map_idx(agent.pos);
-        times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
-    }
-    std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
-
-    // If there's less agents than required for the task, then another task must be completed first. Just choose the max time for now.
-    if(times_to_reach_task.size() < task.num_agents_required){
-        return times_to_reach_task.back();
-    }
-
-    return times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task, see how long it'll take the slowest one to get there.
-}
-
 // TODO: Speed this up by keeping track of only unseen squares instead of iterating through all squares.
 int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
@@ -213,7 +192,7 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
         cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
     }
 
-    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs);
+    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
     // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
     // if(mtsp_solution != mtsp_solution2){
     //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);

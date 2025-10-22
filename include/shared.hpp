@@ -175,6 +175,15 @@ inline std::vector<Position> task_to_pos_array(const std::vector<Task>& tasks){
     return poses;
 }
 
+inline Task get_task_by_id(const std::vector<Task>& tasks, int id){
+    for(const Task& task : tasks){
+        if(task.id == id){
+            return task;
+        }
+    }
+    throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
+}
+
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
@@ -348,6 +357,8 @@ struct Lookup {
 
 struct DisjointGraph {
     std::vector<int> pivots;
+    std::vector<int> pivot_task_ids; // -1 if exploration pivot, otherwise the task id.
+    std::vector<int> num_required_visits;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
     int max_edge_cost;

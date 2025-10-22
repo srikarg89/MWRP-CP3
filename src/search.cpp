@@ -31,26 +31,30 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++) {
         const auto& input = neighbor_heuristic_inputs[i];
-        std::vector<int> non_terminated_agent_map_idxs;
-        std::vector<int> non_terminated_agent_costs;
+        std::vector<AgentState> non_terminated_agents;
 
         for(const auto& agent : input.agents){
             if(!agent.terminated){
-                non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
-                non_terminated_agent_costs.push_back(agent.cost);
+                non_terminated_agents.push_back(agent);
             }
         }
 
         bool use_singleton = (heuristic_type == SINGLETON || heuristic_type == LAZY || heuristic_type == MAX);
 
         if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
-            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            // DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, input.tasks_left, lookup);
             prune_graph(disjoint_graph, lookup);
+            // alter_disjoint_graph_for_waiting_robots(disjoint_graph, non_terminated_agents, lookup);
 
             // If there's no pivots, just return the singleton heuristic.
             if(disjoint_graph.pivots.size() == 0){
                 use_singleton = true;
             } else {
+                std::vector<int> non_terminated_agent_costs;
+                for(const auto& agent : non_terminated_agents){
+                    non_terminated_agent_costs.push_back(agent.cost);
+                }
                 tsp_idxs.push_back(i);
                 futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
                     return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
@@ -76,15 +80,6 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
     }
 
     return f_values;
-}
-
-Task get_task_by_id(const std::vector<Task>& tasks, int id){
-    for(const Task& task : tasks){
-        if(task.id == id){
-            return task;
-        }
-    }
-    throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
 }
 
 // TODO: There can exist a deadlock where all agents are waiting at different tasks. Need to figure out how to avoid this. Need to ensure that at least one task is solvable at all times. Need to throw out states where no tasks are solvable.

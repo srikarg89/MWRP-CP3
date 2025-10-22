@@ -55,7 +55,9 @@ inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::
     return initial_paths;
 }
 
-inline void add_single_visit_constraint(IloEnv& env, IloModel& model, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, int n, int m){
+// TODO: Equalities are bad, maybe setting this to >=1 is better?
+// TODO: Add in multi robot constraints (has to be visited N times).
+inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, int n, int m, const std::vector<int>& num_required_visits){
     for(int loc = 0; loc < n; loc++) {
         IloExpr expr(env);
         for(int agent = 0; agent < m; agent++) {
@@ -66,7 +68,7 @@ inline void add_single_visit_constraint(IloEnv& env, IloModel& model, const std:
             }
         }
 
-        model.add(expr == 1);
+        model.add(expr == num_required_visits[loc]);
         expr.end();
     }
 }
@@ -193,7 +195,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 
 
 // NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
-inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
+inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -215,7 +217,7 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
         }
 
         // Constraint 1: Every location is visited exactly once. Done by ensuring every column sums to 1. But only for the N locations (not dummy depots).
-        add_single_visit_constraint(env, model, x, n, m);
+        add_num_visits_constraint(env, model, x, n, m, num_required_visits);
 
         // Constraint 2: Continuous path. Leaving loc - arriving at loc = 0 for all loc.
         add_continuous_path_constraint(env, model, x, n, m);
@@ -322,7 +324,7 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
 }
 
 
-inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs) {
+inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -344,7 +346,7 @@ inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vect
         }
 
         // Constraint 1: Every location is visited exactly once. Done by ensuring every column sums to 1. But only for the N locations (not dummy depots).
-        add_single_visit_constraint(env, model, x, n, m);
+        add_num_visits_constraint(env, model, x, n, m, num_required_visits);
 
         // Constraint 2: Continuous path. Leaving loc - arriving at loc = 0 for all loc.
         add_continuous_path_constraint(env, model, x, n, m);

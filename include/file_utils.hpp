@@ -8,13 +8,15 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, const Look
     std::unordered_set<int> exploration_pivots;
     std::unordered_set<int> task_pivots;
     std::unordered_set<int> watchers;
-    std::vector<int> agent_map_idxs;
+    std::vector<AgentState> non_terminated_agents;
     for(const AgentState& agent : node.agents){
-        agent_map_idxs.push_back(map.get_map_idx(agent.pos));
+        if(!agent.terminated){
+            non_terminated_agents.push_back(agent);
+        }
     }
 
     if(heuristic_type == TSP || heuristic_type == MAX) {
-        DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, agent_map_idxs, node.seen, node.tasks_left);
+        DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, node.seen, node.tasks_left, lookup);
         prune_graph(disjoint_graph, lookup);
         for(int i = 0; i < disjoint_graph.pivots.size(); i++){
             int pivot = disjoint_graph.pivots[i];

@@ -60,9 +60,9 @@ public:
 
             if(num_agents_at_task >= it->num_agents_required && timestamp <= it->deadline){
                 // Task completed.
+                printf("Task completed at %s!\n", it->pos.toString().c_str());
                 completed_tasks.push_back(*it);
                 it = incomplete_tasks.erase(it);
-                printf("Task completed at %s!\n", it->pos.toString().c_str());
             } else {
                 ++it;
             }

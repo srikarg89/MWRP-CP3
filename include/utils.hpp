@@ -432,6 +432,8 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
 
         graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
+        graph.pivot_task_ids.erase(graph.pivot_task_ids.begin() + shortcut_pivot);
+        graph.num_required_visits.erase(graph.num_required_visits.begin() + shortcut_pivot);
         graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);
         for(auto& row : graph.pivot_pivot_costs){
             row.erase(row.begin() + shortcut_pivot);

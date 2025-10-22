@@ -192,6 +192,18 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
         cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
     }
 
+    // printf("Pivots:\n");
+    // for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+    //     int p = disjoint_graph.pivots[i];
+    //     printf("\t%d: %d\n", i, p);
+    // }
+    // for(int i = 0; i < disjoint_graph.num_required_visits.size(); i++){
+    //     printf("Pivot %d requires %d visits\n", i, disjoint_graph.num_required_visits[i]);
+    // }
+    if(disjoint_graph.pivots.size() != disjoint_graph.num_required_visits.size()){
+        printf("Pivots size %ld != num required visits size %ld\n", disjoint_graph.pivots.size(), disjoint_graph.num_required_visits.size());
+        exit(1);
+    }
     int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
     // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
     // if(mtsp_solution != mtsp_solution2){

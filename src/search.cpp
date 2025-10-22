@@ -548,7 +548,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(start_agent_states.size() == 1){
             printf("Total heuristic time: %.3f seconds\n", METRICS.tsp_total_heuristic_time);
         } else{
-            printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_total_runtime);
+            printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
             printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
             printf("MTSP Solver time 2: %.3f seconds\n", METRICS.mtsp_solver_runtime_2);
             printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);

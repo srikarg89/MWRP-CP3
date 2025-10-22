@@ -71,6 +71,7 @@
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
 - Multi robot tasks
+- Force multiple robots to reach task in MTSP heuristic.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

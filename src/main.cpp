@@ -67,8 +67,12 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     }
     printf("Number of strictly easier points: %d\n", num_strictly_easier);
 
+    Metrics aggregated;
+    aggregated.reset();
+
     int timestep = 0;
     std::vector<std::vector<Position>> solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+    aggregated.add(METRICS);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -119,6 +123,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
             printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
             solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
+            aggregated.add(METRICS);
             s_t = 1;
         }
     }
@@ -127,6 +132,11 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
 
     final_run_file.close();
+
+    printf("Aggregated Metrics:\n");
+    printf("\tMTSP Calls: %d\n", aggregated.mtsp_total_calls);
+    printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
+    printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;

@@ -19,7 +19,7 @@ struct Metrics {
     double f_value_calculation_time = 0.0;
 
     // MTSP Metrics.
-    double mtsp_total_runtime = 0.0;
+    double mtsp_setup_time = 0.0;
     double mtsp_solver_runtime = 0.0;
     double mtsp_solver_runtime_2 = 0.0;
     int mtsp_total_calls = 0;
@@ -38,7 +38,7 @@ struct Metrics {
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
 
-        mtsp_total_runtime = 0.0;
+        mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
         mtsp_solver_runtime_2 = 0.0;
         mtsp_total_calls = 0;
@@ -48,6 +48,25 @@ struct Metrics {
         tsp_total_concorde_time = 0.0;
         tsp_total_brute_force_calls = 0;
         tsp_total_concorde_calls = 0;
+    }
+
+    void add(const Metrics& other) {
+        num_skipped_duplicate_node += other.num_skipped_duplicate_node;
+        num_skipped_task_deadline_passed += other.num_skipped_task_deadline_passed;
+        num_skipped_task_deadlock += other.num_skipped_task_deadlock;
+        neighbor_expansion_time += other.neighbor_expansion_time;
+        f_value_calculation_time += other.f_value_calculation_time;
+
+        mtsp_setup_time += other.mtsp_setup_time;
+        mtsp_solver_runtime += other.mtsp_solver_runtime;
+        mtsp_solver_runtime_2 += other.mtsp_solver_runtime_2;
+        mtsp_total_calls += other.mtsp_total_calls;
+
+        tsp_total_heuristic_time += other.tsp_total_heuristic_time;
+        tsp_total_brute_force_time += other.tsp_total_brute_force_time;
+        tsp_total_concorde_time += other.tsp_total_concorde_time;
+        tsp_total_brute_force_calls += other.tsp_total_brute_force_calls;
+        tsp_total_concorde_calls += other.tsp_total_concorde_calls;
     }
 };
 

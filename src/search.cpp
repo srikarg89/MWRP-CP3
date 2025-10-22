@@ -66,13 +66,13 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
         }
 
         if(use_singleton) {
-            f_values[i] = std::max(f_values[i], get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, input.cost, input.seen, input.tasks_left, lookup));
+            f_values[i] = std::max(f_values[i], get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
         }
     }
 
     // Collect TSP/MAX heuristic results.
     for(int i = 0; i < tsp_idxs.size(); i++) {
-        f_values[tsp_idxs[i]] = futures[i].get();
+        f_values[tsp_idxs[i]] = std::max(f_values[tsp_idxs[i]], futures[i].get());
     }
 
     return f_values;
@@ -481,9 +481,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     printf("UNSEEN: %s\n", map.get_pos_from_map_idx(i).toString().c_str());
                 }
             }
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
-            printf("Search time taken: %.3f seconds\n", seconds_taken);
             printf("Solution cost: %d\n", curr.cost);
             for(AgentState agent : curr.agents){
                 printf("\tAgent final time: %d\n", agent.cost);
@@ -567,6 +564,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     for(int i = 0; i < paths.size(); i++){
         printf("Path %d length: %ld\n", i, paths[i].size());
     }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
+    printf("Total search time taken: %.3f seconds\n", seconds_taken);
 
     debug_file.close();
 

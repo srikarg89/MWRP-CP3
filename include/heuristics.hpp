@@ -17,29 +17,55 @@ struct HeuristicInput {
     int num_seen;
 };
 
-int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
-    int f_value = 0;
-    for(int i = 0; i < seen.size(); i++){
-        if(!seen[i]) {
-            int closest_agent_f_value_to_see = INT_MAX;
-            for(int j = 0; j < agent_map_idxs.size(); j++){
-                int agent_map_idx = agent_map_idxs[j];
-                closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, lookup.min_dist_to_see[agent_map_idx][i] + agent_current_costs[j]);
-            }
-
-            f_value = std::max(f_value, closest_agent_f_value_to_see);
+int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
+    // Find the closest agent and how long it would take to reach the task.
+    std::vector<int> times_to_reach_task;
+    for(const AgentState& agent : agents){
+        // Only include non-terminated agents that are waiting for this task or not waiting at all.
+        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)){
+            continue;
         }
+        int agent_map_idx = map.get_map_idx(agent.pos);
+        times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
     }
+    std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
+
+    // If there's less agents than required for the task, then another task must be completed first. Just choose the max time for now.
+    if(times_to_reach_task.size() < task.num_agents_required){
+        return times_to_reach_task.back();
+    }
+
+    return times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task, see how long it'll take the slowest one to get there.
+}
+
+// TODO: Speed this up by keeping track of only unseen squares instead of iterating through all squares.
+int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+    int f_value = 0;
+    std::unordered_map<int, int> min_time_to_complete_task;
     for(const Task& task : tasks_left){
-        int best_task_f_value = INT_MAX;
-        // Find the closest agent and how long it would take to reach the task.
-        std::vector<int> times_to_reach_task;
-        for(int agent_map_idx : agent_map_idxs){
-            times_to_reach_task.push_back(lookup.apsp[agent_map_idx][task.map_idx]);
+        int ttc = get_min_time_for_task_completion(agents, map, task, lookup);
+        min_time_to_complete_task[task.id] = ttc;
+        f_value = std::max(f_value, ttc);
+    }
+    for(int i = 0; i < seen.size(); i++){
+        if(seen[i]) {
+            continue;
         }
-        std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
-        best_task_f_value = times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task.
-        f_value = std::max(f_value, best_task_f_value);
+        int closest_agent_f_value_to_see = INT_MAX;
+        for(const AgentState& agent : agents){
+            if(agent.terminated){
+                continue;
+            }
+            int agent_map_idx = map.get_map_idx(agent.pos);
+            int agent_cost_before_moving = agent.cost;
+            if(agent.waiting_idx != -1){
+                // Agent is waiting at a task, so its "release time" from this task is effectively the time it'll take to complete that task.
+                agent_cost_before_moving = std::max(agent_cost_before_moving, min_time_to_complete_task[agent.waiting_idx]);
+            }
+            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, lookup.min_dist_to_see[agent_map_idx][i] + agent_cost_before_moving);
+        }
+
+        f_value = std::max(f_value, closest_agent_f_value_to_see);
     }
     return std::max(node_cost, f_value);
 }

@@ -87,9 +87,6 @@ inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::v
         // model.add(expr >= num_required_visits[loc]);
         model.add(expr == num_required_visits[loc]);
 
-        // model.add(expr >= 1);
-        // model.add(expr == 1);
-
         expr.end();
     }
 }

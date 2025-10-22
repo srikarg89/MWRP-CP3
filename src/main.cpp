@@ -81,12 +81,12 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     final_run_file << "Timestep, Num Agents, Agent positions, Seen Bitset\n";
     final_run_file << scenario_config.map.map_name << "\n";
 
-
     int s_t = 1;
     while(s_t < solution[0].size()){
         std::vector<std::vector<Position>> paths_to_go;
         for(int i = 0; i < solution.size(); i++) {
             std::vector<Position> path_to_go;
+            path_to_go.push_back(env.get_agent_positions()[i]);
             for(int t = s_t; t < solution[i].size(); t++) {
                 path_to_go.push_back(solution[i][t]);
             }

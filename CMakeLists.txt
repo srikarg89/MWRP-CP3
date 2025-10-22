@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_BUILD_TYPE Release)
 # set(CMAKE_BUILD_TYPE Debug)
 
-set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/)
+set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/cplex/)
 
 find_package(nlohmann_json 3.11.0 REQUIRED) # Specify required version
 find_package(Boost 1.70 REQUIRED COMPONENTS system filesystem program_options)
@@ -21,7 +21,6 @@ CPMAddPackage(
 
 
 set(CONCORDE_DIR "/home/srikar/libraries/concorde_build")
-set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/cplex/)
 
 # Specify include directories for the project
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

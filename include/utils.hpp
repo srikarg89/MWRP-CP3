@@ -8,6 +8,27 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
+inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
+    // Find the closest agent and how long it would take to reach the task.
+    std::vector<int> times_to_reach_task;
+    for(const AgentState& agent : agents){
+        // Only include non-terminated agents that are waiting for this task or not waiting at all.
+        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)){
+            continue;
+        }
+        int agent_map_idx = map.get_map_idx(agent.pos);
+        times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+    }
+    std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
+
+    // If there's less agents than required for the task, then another task must be completed first. Just choose the max time for now.
+    if(times_to_reach_task.size() < task.num_agents_required){
+        return times_to_reach_task.back();
+    }
+
+    return times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task, see how long it'll take the slowest one to get there.
+}
+
 inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
@@ -286,9 +307,11 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Lookup precomputation time: %.6f seconds\n", duration.count());
 }
 
-inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<int> agent_map_idxs, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left){
+inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
+    std::vector<int> pivot_task_ids;
+    std::vector<int> num_required_visits;
 
     for(int potential_pivot : lookup.sorted_pivot_order){
         if(seen[potential_pivot]){
@@ -319,18 +342,20 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         }
 
         pivots.push_back(potential_pivot);
+        pivot_task_ids.push_back(-1); // Exploration pivot.
+        num_required_visits.push_back(1); // Exploration pivot requires 1 visit.
     }
 
     int num_exploration_pivots = pivots.size();
-    std::vector<int> min_task_times;
     for(const Task& task : tasks_left){
         pivots.push_back(task.map_idx);
-        min_task_times.push_back(task.min_time);
+        pivot_task_ids.push_back(task.id);
+        num_required_visits.push_back(task.num_agents_required);
     }
 
     int max_edge_cost = 0;
     std::vector<std::vector<int>> pivot_pivot_costs;
-    std::vector<std::vector<int>> agent_pivot_costs(agent_map_idxs.size(), std::vector<int>());
+    std::vector<std::vector<int>> agent_pivot_costs(agents.size(), std::vector<int>());
     for(int i = 0; i < pivots.size(); i++){
         int p1 = pivots[i];
         // Add outgoing edges for each pivot.
@@ -353,12 +378,13 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
         }
         pivot_pivot_costs.push_back(pivot_outgoing_costs);
 
-        for(int j = 0; j < agent_map_idxs.size(); j++){
+        for(int j = 0; j < agents.size(); j++){
             int cost = 0;
+            int agent_map_idx = map.get_map_idx(agents[j].pos);
             if(i < num_exploration_pivots) {
-                cost = lookup.pivot_cell_dists[p1][agent_map_idxs[j]];
+                cost = lookup.pivot_cell_dists[p1][agent_map_idx];
             } else {
-                cost = lookup.apsp[p1][agent_map_idxs[j]];
+                cost = lookup.apsp[p1][agent_map_idx];
             }
             agent_pivot_costs[j].push_back(cost);
             max_edge_cost = std::max(max_edge_cost, cost);
@@ -367,9 +393,10 @@ inline DisjointGraph compute_disjoint_graph(const Lookup& lookup, std::vector<in
 
     return DisjointGraph {
         .pivots=pivots,
+        .pivot_task_ids=pivot_task_ids,
+        .num_required_visits=num_required_visits,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
-        .min_task_times=min_task_times,
         .max_edge_cost=max_edge_cost,
         .num_exploration_pivots=num_exploration_pivots
     };
@@ -405,6 +432,8 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
 
         graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
+        graph.pivot_task_ids.erase(graph.pivot_task_ids.begin() + shortcut_pivot);
+        graph.num_required_visits.erase(graph.num_required_visits.begin() + shortcut_pivot);
         graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);
         for(auto& row : graph.pivot_pivot_costs){
             row.erase(row.begin() + shortcut_pivot);
@@ -445,6 +474,8 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
 
         graph.pivots.erase(graph.pivots.begin() + worst_pivot);
+        graph.pivot_task_ids.erase(graph.pivot_task_ids.begin() + worst_pivot);
+        graph.num_required_visits.erase(graph.num_required_visits.begin() + worst_pivot);
         graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + worst_pivot);
         for(auto& row : graph.pivot_pivot_costs){
             row.erase(row.begin() + worst_pivot);
@@ -458,5 +489,46 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
             printf("Warning 2: Removed a task pivot during pruning. This shouldn't happen.\n");
             exit(0);
         }
+    }
+}
+
+inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const Map& map, const std::vector<AgentState>& non_terminated_agents, const std::vector<Task>& tasks_left, const Lookup& lookup) {
+    int max_apsp = map.num_squares;
+    int U = max_apsp * std::accumulate(graph.num_required_visits.begin(), graph.num_required_visits.end(), 0);; // Some large number.
+    for(int i = 0; i < non_terminated_agents.size(); i++){
+        const AgentState& agent = non_terminated_agents[i];
+        if(agent.waiting_idx == -1){
+            continue;
+        }
+
+        Task task = get_task_by_id(tasks_left, agent.waiting_idx);
+        int time_to_complete = get_min_time_for_task_completion(non_terminated_agents, map, task, lookup);
+
+        // Option 1:
+        // Robot is waiting at a task, so set the cost for the robot to directly go to any other location as infinite.
+        // Also, set the cost to go to the task itself as however long it would take to complete the task.
+        // for(int j = 0; j < graph.pivots.size(); j++){
+        //     if(graph.pivot_task_ids[j] == agent.waiting_idx){
+        //         if(graph.agent_pivot_costs[i][j] != 0){
+        //             printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
+        //             exit(0);
+        //         }
+        //         graph.agent_pivot_costs[i][j] = time_to_complete;
+        //     } else {
+        //         // graph.agent_pivot_costs
+        //         // What to do here?? Set to infinite?? Is this correct behavior??
+        //         graph.agent_pivot_costs[i][j] = U;
+        //     }
+        // }
+
+        // Option 2:
+        // For each robot that visits a multi-robot task, calculate the cost (c) of the path AFTER visiting this task, and set c + ttc <= L.
+        // To calculate the cost (c) of the path AFTER visiting this task, we need to know which nodes are visited after this task (every pivot with higher MTZ than task).
+            // I think you can do this with N - 1 boolean variables, each representing whether or not pivot p comes after the task (t).
+            // Then you can add 2 * (N - 1) constraints to ensure this boolean is represented properly, for example "u[p] - u[t] - N * b <= 0 && u[t] - u[p] - N * b >= 0" -> b = 1 if u[p] > u[t], else b = 0.
+        // Then, we need to sum up the costs of travelling to each of these nodes that come after the task (every pivot with higher MTZ than task).
+        // Can use a similar logic to ensure deadline (sum up cost of travelling to each of the nodes that come before the task <= Deadline)
+
+
     }
 }

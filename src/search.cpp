@@ -12,12 +12,6 @@
 #include <boost/functional/hash.hpp> // For boost::hash_value
 #include "BS_thread_pool.hpp"
 
-
-int NUM_SKIPPED = 0;
-int MAX_EXISTING_NODES_SIZE = 0;
-double NEIGHBOR_EXPANSION_TIME = 0.0;
-double GET_F_VALUE_TIME = 0.0;
-
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
 std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
@@ -37,26 +31,30 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++) {
         const auto& input = neighbor_heuristic_inputs[i];
-        std::vector<int> non_terminated_agent_map_idxs;
-        std::vector<int> non_terminated_agent_costs;
+        std::vector<AgentState> non_terminated_agents;
 
         for(const auto& agent : input.agents){
             if(!agent.terminated){
-                non_terminated_agent_map_idxs.push_back(map.get_map_idx(agent.pos));
-                non_terminated_agent_costs.push_back(agent.cost);
+                non_terminated_agents.push_back(agent);
             }
         }
 
         bool use_singleton = (heuristic_type == SINGLETON || heuristic_type == LAZY || heuristic_type == MAX);
 
         if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
-            DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            // DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
+            DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, input.tasks_left, lookup);
             prune_graph(disjoint_graph, lookup);
+            // alter_disjoint_graph_for_waiting_robots(disjoint_graph, non_terminated_agents, lookup);
 
             // If there's no pivots, just return the singleton heuristic.
             if(disjoint_graph.pivots.size() == 0){
                 use_singleton = true;
             } else {
+                std::vector<int> non_terminated_agent_costs;
+                for(const auto& agent : non_terminated_agents){
+                    non_terminated_agent_costs.push_back(agent.cost);
+                }
                 tsp_idxs.push_back(i);
                 futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
                     return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
@@ -72,17 +70,37 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
         }
 
         if(use_singleton) {
-            f_values[i] = std::max(f_values[i], get_singleton_f_value(non_terminated_agent_map_idxs, non_terminated_agent_costs, input.cost, input.seen, input.tasks_left, lookup));
+            f_values[i] = std::max(f_values[i], get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
         }
     }
 
     // Collect TSP/MAX heuristic results.
     for(int i = 0; i < tsp_idxs.size(); i++) {
-        f_values[tsp_idxs[i]] = futures[i].get();
+        f_values[tsp_idxs[i]] = std::max(f_values[tsp_idxs[i]], futures[i].get());
     }
 
     return f_values;
 }
+
+// TODO: There can exist a deadlock where all agents are waiting at different tasks. Need to figure out how to avoid this. Need to ensure that at least one task is solvable at all times. Need to throw out states where no tasks are solvable.
+int get_wait_action_end_time(const Map& map, const Lookup& lookup, const std::vector<AgentState>& agents, Task task, int agent_cost){
+    // If we're at a task, clearly it hasn't been completed yet, so I guess more robots need to come. Add a wait action to wait until however long it'll take someone else to come.
+    std::vector<int> agent_min_arrival_times;
+    for(AgentState agent : agents) {
+        // Ignore agents that are terminated or waiting at other tasks, since they can't really come help right now.
+        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)) {
+            continue;
+        }
+        int agent_map_idx = map.get_map_idx(agent.pos);
+        agent_min_arrival_times.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+    }
+
+    std::sort(agent_min_arrival_times.begin(), agent_min_arrival_times.end());
+    // Since we need num_agents_required agents to reach the task. NOTE: It is possible that there aren't num_agents_required available, because other agents are waiting, and will be freed up once their task is completed.
+    int min_alt_wait_time = agent_min_arrival_times[std::min(task.num_agents_required - 1, (int)agent_min_arrival_times.size() - 1)];
+    return std::max(agent_cost, min_alt_wait_time);
+}
+
 
 std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
     std::vector<std::vector<AgentState>> options;
@@ -94,38 +112,52 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         }
         std::vector<AgentState> agent_options;
 
+        int at_incomplete_task_idx = -1;
+        for(const Task& t : tasks_left){
+            if(map.get_map_idx(agent.pos) == t.map_idx){
+                at_incomplete_task_idx = t.id;
+                break;
+            }
+        }
+
+        // If not waiting, but we're at a task, and the task is incomplete, then we can wait at the task.
+        // If we're currently waiting, we should continue to wait at the task.
+        if(agent.waiting_idx != -1 || at_incomplete_task_idx != -1){
+            // printf("WE'RE AT AN INCOMPLETE TASK, ADDING WAIT OPTION\n");
+            // Figure out how long to wait for.
+            int wait_task_idx = (agent.waiting_idx != -1) ? agent.waiting_idx : at_incomplete_task_idx;
+            Task task = get_task_by_id(tasks_left, wait_task_idx);
+            int wait_time = get_wait_action_end_time(map, lookup, agents, task, agent.cost);
+            agent_options.push_back(AgentState(agent.pos, false, wait_task_idx, wait_time));
+
+            // If we're currently waiting, we can't move until we complete the task.
+            if(agent.waiting_idx != -1){
+                options.push_back(agent_options);
+                continue;
+            }
+        }
+
         // Expanding borders implementation.
         if(expanding_borders){
             std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
             for(auto [nbr, added_cost] : nbrs_with_added_cost){
-                agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
-            }
-            // If we're at a task, add a wait action to wait until the task's release time.
-            int agent_map_idx = map.get_map_idx(agent.pos);
-            for(const Task& t : tasks_left){
-                if(agent_map_idx == t.map_idx){
-                    if(agent.cost >= t.min_time){
-                        printf("Shouldn't be possible. This task should be marked as complete????? Agent Cost: %d, Task min time: %d\n", agent.cost, t.min_time);
-                        exit(0);
-                    }
-                    agent_options.push_back(AgentState(agent.pos, false, t.min_time));
-                    break;
-                }
+                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
             }
         }
         // Generic one-step implementation
         else {
             std::vector<Position> nbrs = map.get_neighbors(agent.pos);
             for(Position nbr : nbrs){
-                agent_options.push_back(AgentState(nbr, false, agent.cost + 1));
+                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + 1));
             }
         }
 
-        agent_options.push_back(AgentState(agent.pos, true, agent.cost)); // Option to terminate.
+        agent_options.push_back(AgentState(agent.pos, true, -1, agent.cost)); // Option to terminate.
         options.push_back(agent_options);
     }
     // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
+    // An agent is considered 'free' if it is not terminated and not waiting at a task.
     std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
         if(idx == options.size()){
             if(has_non_terminated_agent){
@@ -149,11 +181,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
-    NEIGHBOR_EXPANSION_TIME += duration.count();
+    METRICS.neighbor_expansion_time += duration.count();
 
     std::vector<HeuristicInput> neighbor_heuristic_inputs;
 
-    for(const auto& nbr : neighbors){
+    for(auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
         int new_squares_seen = 0;
@@ -167,23 +199,80 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
 
         std::vector<Task> nbr_tasks_left;
+        bool task_failed = false;
         for(Task t : node.tasks_left){
             int task_map_idx = map.get_map_idx(t.pos);
-            bool reached = false;
+            std::unordered_map<int, int> num_reached_by_time;
+            bool reachable = false;
+            bool completed = false;
             for(const AgentState& agent : nbr){
                 int agent_map_idx = map.get_map_idx(agent.pos);
-                if(agent_map_idx == task_map_idx && agent.cost >= t.min_time && agent.cost <= t.max_time){
-                    reached = true;
-                    break;
+                if(!agent.terminated && (agent.cost + lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] <= t.deadline)){
+                    reachable = true;
+                }
+
+                if(agent_map_idx == task_map_idx && agent.cost <= t.deadline){
+                    num_reached_by_time[agent.cost] += 1;
+                    if(num_reached_by_time[agent.cost] >= t.num_agents_required){
+                        completed = true;
+                        break;
+                    }
                 }
             }
-            if(!reached){
+            if(!reachable){
+                task_failed = true;
+                break;
+            }
+            if(completed) {
+                // Free up agents that were waiting at this task.
+                for(AgentState& agent : nbr){
+                    if(agent.waiting_idx == t.id){
+                        agent.waiting_idx = -1;
+                    }
+                }
+            }
+            else {
                 nbr_tasks_left.push_back(t);
             }
         }
 
+        if(task_failed){
+            // Don't generate neighbors that have failed tasks. That is, have strict deadlines on the deadline.
+            // NOTE: This could possibly create feasibility issues where no solution exists.
+            // TODO: In the future, we can instead model this by adding a penalty to the cost based on how far past the deadline we are.
+            // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
+            // This could also be configurable on a per-task basis.
+            // printf("Task failure detected, skipping neighbor generation.\n");
+            METRICS.num_skipped_task_deadline_passed += 1;
+            continue;
+        }
+
+        // Check if we have a deadlock. That is, check if there is at least one task that is reachable by at least one non-terminated agent.
+        bool task_deadlocked = false;
+        for(const Task& t : nbr_tasks_left){
+            int agents_available = 0;
+            for(const AgentState& agent : nbr){
+                if(agent.waiting_idx == t.id || (!agent.terminated && agent.waiting_idx == -1)){
+                    agents_available += 1;
+                    continue;
+                }
+            }
+            if(agents_available < t.num_agents_required){
+                task_deadlocked = true;
+                break;
+            }
+        }
+
+        if(task_deadlocked) {
+            // Don't generate neighbors that have deadlocked tasks.
+            // printf("Deadlocked task detected, skipping neighbor generation.\n");
+            METRICS.num_skipped_task_deadlock += 1;
+            continue;
+        }
+
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
+        // TODO: Have to change this if we add in tasks that take a certain amount of time to complete (instead of just task id should also be time remaining on task).
         node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         std::vector<int> agent_costs;
         for(const AgentState& agent : nbr){
@@ -219,7 +308,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 }
             }
             if(skip_dominated_nbr){
-                NUM_SKIPPED += 1;
+                METRICS.num_skipped_duplicate_node += 1;
                 continue;
             } else {
                 generated_costs[nbr_key].push_back(agent_costs);
@@ -238,7 +327,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
-    GET_F_VALUE_TIME += duration.count();
+    METRICS.f_value_calculation_time += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.
@@ -253,13 +342,28 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
 std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
+    // Reset metrics for every search run.
+    METRICS.reset();
+
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
         if(start_seen[map_idx]){
             continue;
         }
-        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
+        // Mark squares that are within los of a task as "seen" since they will be explored when completing the task.
+        // Don't include squares that are the task themselves.
+        bool is_within_los_of_task = false;
+        for(const Task& task : incomplete_tasks){
+            if(map_idx == task.map_idx){
+                is_within_los_of_task = false;
+                continue;
+            }
+            if(lookup.watchers_set[map_idx].find(task.map_idx) != lookup.watchers_set[map_idx].end()){
+                is_within_los_of_task = true;
+            }
+        }
+        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx)) || is_within_los_of_task){
             start_seen[map_idx] = 1;
             num_start_seen += 1;
         }
@@ -267,7 +371,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        start_agent_states.push_back(AgentState(start, false, start_timestep));
+        start_agent_states.push_back(AgentState(start, false, -1, start_timestep));
     }
 
     // Initialize search data structures.
@@ -295,14 +399,13 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     if(start_heuristic_type == LAZY){
         start_heuristic_type = SINGLETON;
     }
-    printf("Incomplete tasks (%ld): ", incomplete_tasks.size());
+    printf("Incomplete tasks (%ld): \n", incomplete_tasks.size());
     for(const Task& task : incomplete_tasks){
-        printf("%s ", task.toString().c_str());
+        printf("\t%s\n", task.toString().c_str());
     }
-    printf("\n");
     // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
     int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
-    printf("Start f value: %d\n", start_f_value);
+    printf("Start f value: %d, Num start seen: %d\n", start_f_value, num_start_seen);
     queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
 
     std::vector<Node> expanded_nodes;
@@ -318,6 +421,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     auto start_time = std::chrono::high_resolution_clock::now();
 
     std::vector<std::vector<Position>> paths(starts.size(), std::vector<Position>());
+    bool solution_found = false;
 
     while(!queue.empty()){
         Node curr = queue.top();
@@ -353,19 +457,18 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], solver_config.heuristic_type);
 
-        // debug_file.close(); exit(0);
-
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 10 == 0){
+        if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
-            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);
+            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
 
         // Goal condition.
         if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
+            solution_found = true;
             printf("Goal condition met!\n");
             printf("Num seen: %d / %d\n", curr.num_seen, map.num_squares);
             for(int i = 0; i < curr.seen.size(); i++){
@@ -373,9 +476,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     printf("UNSEEN: %s\n", map.get_pos_from_map_idx(i).toString().c_str());
                 }
             }
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
-            printf("Search time taken: %.3f seconds\n", seconds_taken);
             printf("Solution cost: %d\n", curr.cost);
             for(AgentState agent : curr.agents){
                 printf("\tAgent final time: %d\n", agent.cost);
@@ -427,6 +527,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
     }
 
+    if(!solution_found){
+        printf("\n\nNO SOLUTION FOUND!!!\n\n");
+    }
+
     if(solver_config.collision_resolution == POSTPROCESS){
         paths = postprocess_collisions(paths);
     }
@@ -436,23 +540,29 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
-    printf("Total generations skipped: %d\n", NUM_SKIPPED);
+    printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
+    printf("Total generations skipped because of task failure: %d\n", METRICS.num_skipped_task_deadline_passed);
+    printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
     printf("Total nodes generated: %d\n", num_generated);
     if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
         if(start_agent_states.size() == 1){
-            printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
+            printf("Total heuristic time: %.3f seconds\n", METRICS.tsp_total_heuristic_time);
         } else{
-            printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
-            printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
-            printf("MTSP Solver time 2: %.3f seconds\n", SOLVER_RUNTIME2);
-            printf("Total MTSP calls: %d\n", TOTAL_CALLS);
+            printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
+            printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
+            printf("MTSP Solver time 2: %.3f seconds\n", METRICS.mtsp_solver_runtime_2);
+            printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
         }
     }
-    printf("Total neighbor expansion time: %.3f seconds\n", NEIGHBOR_EXPANSION_TIME);
-    printf("Total get_f_value time: %.3f seconds\n", GET_F_VALUE_TIME);
+    printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
+    printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
     for(int i = 0; i < paths.size(); i++){
         printf("Path %d length: %ld\n", i, paths[i].size());
     }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto seconds_taken = std::chrono::duration<double>(end_time - start_time).count();
+    printf("Total search time taken: %.3f seconds\n", seconds_taken);
 
     debug_file.close();
 
@@ -463,6 +573,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     write_solution_to_file(solution_file, paths, start_seen, map, lookup);
     solution_file.close();
 
+    printf("\n");
     return paths;
 }
 

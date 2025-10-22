@@ -2,7 +2,6 @@
 - [ ] Test old vs new pivot sorting order (new could work better with multi-agent).
 - [ ] Duplicate / Dominance Detection.
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
-- [ ] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Extensions**
 - Tasks
@@ -22,15 +21,23 @@
 
 **Optimizations**
 - Major speedups
-  - [ ] Look into heuristics for the TSP problem instead of actually solving it.
-  - [ ] Use focal search for iterative searches (i.e. searches once task is found).
   - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
   - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
-  - [ ] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 - Minor speedups (non-algorithmic / heuristic speedups)
   - [ ] Unseen set instead of the full dynamic bitset.
   - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
+
+
+**Docket**
+- [ ] Implement tasks that take a certain amount of time to complete.
+- [ ] Focal search
+  - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
+  - [ ] Deadline-based MTSP heuristic
+  - [ ] Idk do more research for better focal search heuristics.
+- [ ] Better direct heuristic for MTSP with deadline
+- [ ] Better direct heuristic for tasks that require multiple robots
+
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -49,10 +56,13 @@
 - [x] Ignore exploration squares that are strictly easier to visit. i.e. every watcher of square A is also a watcher of square B, thus I don't need to worry about watching square B.
 - [x] For disjoint graph pruning, just do O(N^3) loop to check for shortcuts instead of doing fancy BFS logic.
 - [x] Make heuristic consistent.
-- [x] Parallelization for heuristic calculation during search expansion.
+- [x] Parallelization for heuristic calculation during search expansion (2x speedup).
+- [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
+- [x] Implement tasks that require multiple robots to be there at the same time.
 
 **Tested but Worse**
-- Adding in time windows naively.
+- [x] Adding in time windows naively into the MTSP formulation.
+- [x] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
 
 **Improvements / Changes to Remember**
 - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
@@ -60,6 +70,8 @@
 - Ignore exploration squares that are strictly easier to visit.
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
+- Multi robot tasks
+- Force multiple robots to reach task in MTSP heuristic.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

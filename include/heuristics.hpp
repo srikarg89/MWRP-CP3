@@ -9,9 +9,6 @@
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
 
-double TOTAL_HEURISTIC_TIME = 0.0;
-double TOTAL_TSP_SOLVER_TIME = 0.0;
-
 struct HeuristicInput {
     std::vector<AgentState> agents;
     int cost;
@@ -20,27 +17,34 @@ struct HeuristicInput {
     int num_seen;
 };
 
-int get_singleton_f_value(const std::vector<int>& agent_map_idxs, const std::vector<int>& agent_current_costs, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+// TODO: Speed this up by keeping track of only unseen squares instead of iterating through all squares.
+int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
-    for(int i = 0; i < seen.size(); i++){
-        if(!seen[i]) {
-            int closest_agent_f_value_to_see = INT_MAX;
-            for(int j = 0; j < agent_map_idxs.size(); j++){
-                int agent_map_idx = agent_map_idxs[j];
-                closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, lookup.min_dist_to_see[agent_map_idx][i] + agent_current_costs[j]);
-            }
-
-            f_value = std::max(f_value, closest_agent_f_value_to_see);
-        }
-    }
+    std::unordered_map<int, int> min_time_to_complete_task;
     for(const Task& task : tasks_left){
-        int best_task_f_value = INT_MAX;
-        // Find the closest agent and how long it would take to reach the task.
-        for(int agent_map_idx : agent_map_idxs){
-            best_task_f_value = std::min(best_task_f_value, lookup.apsp[agent_map_idx][task.map_idx]);
-            best_task_f_value = std::max(best_task_f_value, task.min_time); // Ensure that we wait for the task release time.
+        int ttc = get_min_time_for_task_completion(agents, map, task, lookup);
+        min_time_to_complete_task[task.id] = ttc;
+        f_value = std::max(f_value, ttc);
+    }
+    for(int i = 0; i < seen.size(); i++){
+        if(seen[i]) {
+            continue;
         }
-        f_value = std::max(f_value, best_task_f_value);
+        int closest_agent_f_value_to_see = INT_MAX;
+        for(const AgentState& agent : agents){
+            if(agent.terminated){
+                continue;
+            }
+            int agent_map_idx = map.get_map_idx(agent.pos);
+            int agent_cost_before_moving = agent.cost;
+            if(agent.waiting_idx != -1){
+                // Agent is waiting at a task, so its "release time" from this task is effectively the time it'll take to complete that task.
+                agent_cost_before_moving = std::max(agent_cost_before_moving, min_time_to_complete_task[agent.waiting_idx]);
+            }
+            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, lookup.min_dist_to_see[agent_map_idx][i] + agent_cost_before_moving);
+        }
+
+        f_value = std::max(f_value, closest_agent_f_value_to_see);
     }
     return std::max(node_cost, f_value);
 }
@@ -174,8 +178,7 @@ std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoin
     auto end = std::chrono::high_resolution_clock::now();
     auto heuristic_seconds_taken = std::chrono::duration<double>(end - heuristic_start).count();
     auto tsp_solver_seconds_taken = std::chrono::duration<double>(end - solver_start).count();
-    TOTAL_HEURISTIC_TIME += heuristic_seconds_taken;
-    TOTAL_TSP_SOLVER_TIME += tsp_solver_seconds_taken;
+    METRICS.tsp_total_heuristic_time += heuristic_seconds_taken;
 
     assert(tsp_heuristic >= 0);
     return std::make_tuple(tsp_heuristic, tsp_pivots_path);
@@ -189,10 +192,20 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
         cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
     }
 
-    TOTAL_MTSP_CALLS += 1;
-    // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
-    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
-    // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), disjoint_graph.min_task_times.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
+    // printf("Pivots:\n");
+    // for(int i = 0; i < disjoint_graph.pivots.size(); i++){
+    //     int p = disjoint_graph.pivots[i];
+    //     printf("\t%d: %d\n", i, p);
+    // }
+    // for(int i = 0; i < disjoint_graph.num_required_visits.size(); i++){
+    //     printf("Pivot %d requires %d visits\n", i, disjoint_graph.num_required_visits[i]);
+    // }
+    if(disjoint_graph.pivots.size() != disjoint_graph.num_required_visits.size()){
+        printf("Pivots size %ld != num required visits size %ld\n", disjoint_graph.pivots.size(), disjoint_graph.num_required_visits.size());
+        exit(1);
+    }
+    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
+    // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
     // if(mtsp_solution != mtsp_solution2){
     //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);
     //     exit(1);

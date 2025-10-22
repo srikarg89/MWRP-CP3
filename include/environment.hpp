@@ -45,18 +45,27 @@ public:
     void run_action(int timestamp, std::vector<Position> new_positions) {
         for(int i = 0; i < agent_positions.size(); i++){
             agent_positions[i] = new_positions[i];
-            auto it = incomplete_tasks.begin();
-            while(it != incomplete_tasks.end()){
-                if(it->pos.equals(new_positions[i]) && timestamp >= it->min_time && timestamp <= it->max_time){
-                    // Task completed.
-                    completed_tasks.push_back(*it);
-                    it = incomplete_tasks.erase(it);
-                    printf("Agent at %s completed a task!\n", new_positions[i].toString().c_str());
-                } else {
-                    ++it;
+            add_los_to_seen(this->seen, this->los[map.get_map_idx(new_positions[i])], map);
+        }
+
+        auto it = incomplete_tasks.begin();
+        while(it != incomplete_tasks.end()){
+            // Check if the task has been completed.
+            int num_agents_at_task = 0;
+            for(Position pos : new_positions){
+                if(it->pos.equals(pos)){
+                    num_agents_at_task += 1;
                 }
             }
-            add_los_to_seen(this->seen, this->los[map.get_map_idx(new_positions[i])], map);
+
+            if(num_agents_at_task >= it->num_agents_required && timestamp <= it->deadline){
+                // Task completed.
+                printf("Task completed at %s!\n", it->pos.toString().c_str());
+                completed_tasks.push_back(*it);
+                it = incomplete_tasks.erase(it);
+            } else {
+                ++it;
+            }
         }
     }
 

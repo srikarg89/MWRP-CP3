@@ -9,6 +9,69 @@
 
 inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
 
+// Singleton metrics.
+struct Metrics {
+    // General search metrics.
+    int num_skipped_duplicate_node = 0;
+    int num_skipped_task_deadline_passed = 0;
+    int num_skipped_task_deadlock = 0;
+    double neighbor_expansion_time = 0.0;
+    double f_value_calculation_time = 0.0;
+
+    // MTSP Metrics.
+    double mtsp_setup_time = 0.0;
+    double mtsp_solver_runtime = 0.0;
+    double mtsp_solver_runtime_2 = 0.0;
+    int mtsp_total_calls = 0;
+
+    // TSP Metrics.
+    double tsp_total_heuristic_time = 0.0;
+    double tsp_total_brute_force_time = 0.0;
+    double tsp_total_concorde_time = 0.0;
+    int tsp_total_brute_force_calls = 0;
+    int tsp_total_concorde_calls = 0;
+
+    void reset() {
+        num_skipped_duplicate_node = 0;
+        num_skipped_task_deadline_passed = 0;
+        num_skipped_task_deadlock = 0;
+        neighbor_expansion_time = 0.0;
+        f_value_calculation_time = 0.0;
+
+        mtsp_setup_time = 0.0;
+        mtsp_solver_runtime = 0.0;
+        mtsp_solver_runtime_2 = 0.0;
+        mtsp_total_calls = 0;
+
+        tsp_total_heuristic_time = 0.0;
+        tsp_total_brute_force_time = 0.0;
+        tsp_total_concorde_time = 0.0;
+        tsp_total_brute_force_calls = 0;
+        tsp_total_concorde_calls = 0;
+    }
+
+    void add(const Metrics& other) {
+        num_skipped_duplicate_node += other.num_skipped_duplicate_node;
+        num_skipped_task_deadline_passed += other.num_skipped_task_deadline_passed;
+        num_skipped_task_deadlock += other.num_skipped_task_deadlock;
+        neighbor_expansion_time += other.neighbor_expansion_time;
+        f_value_calculation_time += other.f_value_calculation_time;
+
+        mtsp_setup_time += other.mtsp_setup_time;
+        mtsp_solver_runtime += other.mtsp_solver_runtime;
+        mtsp_solver_runtime_2 += other.mtsp_solver_runtime_2;
+        mtsp_total_calls += other.mtsp_total_calls;
+
+        tsp_total_heuristic_time += other.tsp_total_heuristic_time;
+        tsp_total_brute_force_time += other.tsp_total_brute_force_time;
+        tsp_total_concorde_time += other.tsp_total_concorde_time;
+        tsp_total_brute_force_calls += other.tsp_total_brute_force_calls;
+        tsp_total_concorde_calls += other.tsp_total_concorde_calls;
+    }
+};
+
+inline Metrics METRICS;
+
 // General, shared types.
 
 struct Position {
@@ -56,9 +119,10 @@ inline std::string int_array_to_string(const std::vector<int>& arr){
 struct AgentState {
     Position pos;
     bool terminated;
+    int waiting_idx; // -1 if not waiting, otherwise the index of the task being waited at.
     int cost;
 
-    AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
+    AgentState(Position p, bool t, int w, int c) : pos(p), terminated(t), waiting_idx(w), cost(c) {}
 };
 
 inline std::vector<Position> agent_states_to_positions(const std::vector<AgentState>& agents){
@@ -103,13 +167,13 @@ struct Task {
     int id;
     Position pos;
     int map_idx;
-    int min_time;
-    int max_time;
+    int deadline;
+    int num_agents_required;
 
-    Task(int id, Position p, int map_idx, int min, int max) : id(id), pos(p), map_idx(map_idx), min_time(min), max_time(max) {}
+    Task(int id, Position p, int map_idx, int deadline, int num_agents_required) : id(id), pos(p), map_idx(map_idx), deadline(deadline), num_agents_required(num_agents_required) {}
 
     std::string toString() const {
-        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Min Time: " + std::to_string(min_time) + ", Max Time: " + std::to_string(max_time);
+        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Deadline: " + std::to_string(deadline) + ", Num Agents Required: " + std::to_string(num_agents_required);
     }
 };
 
@@ -128,6 +192,15 @@ inline std::vector<Position> task_to_pos_array(const std::vector<Task>& tasks){
         poses.push_back(task.pos);
     }
     return poses;
+}
+
+inline Task get_task_by_id(const std::vector<Task>& tasks, int id){
+    for(const Task& task : tasks){
+        if(task.id == id){
+            return task;
+        }
+    }
+    throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
 }
 
 struct Node {
@@ -303,9 +376,10 @@ struct Lookup {
 
 struct DisjointGraph {
     std::vector<int> pivots;
+    std::vector<int> pivot_task_ids; // -1 if exploration pivot, otherwise the task id.
+    std::vector<int> num_required_visits;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
-    std::vector<int> min_task_times;
     int max_edge_cost;
     int num_exploration_pivots;
 };
@@ -432,16 +506,16 @@ struct ScenarioConfig {
             if(task_position.size() != 2) {
                 throw std::runtime_error("Each task position must have exactly two coordinates.");
             }
-            int min_time = 0;
-            int max_time = INT_MAX;
-            if(task.contains("min_time")) {
-                min_time = task["min_time"].get<int>();
+            int deadline = INT_MAX;
+            int num_agents_required = 1;
+            if(task.contains("deadline")) {
+                deadline = task["deadline"].get<int>();
             }
-            if(task.contains("max_time")) {
-                max_time = task["max_time"].get<int>();
+            if(task.contains("num_agents_required")) {
+                num_agents_required = task["num_agents_required"].get<int>();
             }
             Position task_pos = Position{task_position[0], task_position[1]};
-            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), min_time, max_time));
+            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), deadline, num_agents_required));
         }
 
         // Validate agent and task positions.

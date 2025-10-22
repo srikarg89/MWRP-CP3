@@ -23,14 +23,6 @@ extern "C" {
 #undef new
 #undef class
 
-inline double TOTAL_MTSP_TIME = 0.0;
-inline double TOTAL_TSP_BRUTE_FORCE_TIME = 0.0;
-inline double TOTAL_TSP_CONCORDE_TIME = 0.0;
-inline int TOTAL_MTSP_CALLS = 0;
-inline int TOTAL_TSP_BRUTE_FORCE_CALLS = 0;
-inline int TOTAL_TSP_CONCORDE_CALLS = 0;
-
-
 namespace pathfinding {
     inline std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, const Map& map){
         std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
@@ -159,11 +151,11 @@ namespace pathfinding {
 
         if(dist.size() <= 4){
             // printf("Dist size: %ld. Solving brute force\n", dist.size());
-            TOTAL_TSP_BRUTE_FORCE_CALLS += 1;
+            METRICS.tsp_total_brute_force_calls += 1;
             auto ret = solve_tsp_brute_force(dist);
             auto end = std::chrono::high_resolution_clock::now();
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
-            TOTAL_TSP_BRUTE_FORCE_TIME += seconds_taken;
+            METRICS.tsp_total_brute_force_time += seconds_taken;
 
             // if(std::get<0>(ret) != mtsp_solution){
             //     printf("Brute force TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
@@ -173,11 +165,11 @@ namespace pathfinding {
         }
         else{
             // printf("Dist size: %ld. Solving Concorde\n", dist.size());
-            TOTAL_TSP_CONCORDE_CALLS += 1;
+            METRICS.tsp_total_concorde_calls += 1;
             auto ret = solve_tsp_concorde(dist);
             auto end = std::chrono::high_resolution_clock::now();
             auto seconds_taken = std::chrono::duration<double>(end - start).count();
-            TOTAL_TSP_CONCORDE_TIME += seconds_taken;
+            METRICS.tsp_total_concorde_time += seconds_taken;
             // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
 
             return ret;

@@ -9,6 +9,50 @@
 
 inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
 
+// Singleton metrics.
+struct Metrics {
+    // General search metrics.
+    int num_skipped_duplicate_node = 0;
+    int num_skipped_task_deadline_passed = 0;
+    int num_skipped_task_deadlock = 0;
+    double neighbor_expansion_time = 0.0;
+    double f_value_calculation_time = 0.0;
+
+    // MTSP Metrics.
+    double mtsp_total_runtime = 0.0;
+    double mtsp_solver_runtime = 0.0;
+    double mtsp_solver_runtime_2 = 0.0;
+    int mtsp_total_calls = 0;
+
+    // TSP Metrics.
+    double tsp_total_heuristic_time = 0.0;
+    double tsp_total_brute_force_time = 0.0;
+    double tsp_total_concorde_time = 0.0;
+    int tsp_total_brute_force_calls = 0;
+    int tsp_total_concorde_calls = 0;
+
+    void reset() {
+        num_skipped_duplicate_node = 0;
+        num_skipped_task_deadline_passed = 0;
+        num_skipped_task_deadlock = 0;
+        neighbor_expansion_time = 0.0;
+        f_value_calculation_time = 0.0;
+
+        mtsp_total_runtime = 0.0;
+        mtsp_solver_runtime = 0.0;
+        mtsp_solver_runtime_2 = 0.0;
+        mtsp_total_calls = 0;
+
+        tsp_total_heuristic_time = 0.0;
+        tsp_total_brute_force_time = 0.0;
+        tsp_total_concorde_time = 0.0;
+        tsp_total_brute_force_calls = 0;
+        tsp_total_concorde_calls = 0;
+    }
+};
+
+inline Metrics METRICS;
+
 // General, shared types.
 
 struct Position {

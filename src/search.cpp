@@ -12,14 +12,6 @@
 #include <boost/functional/hash.hpp> // For boost::hash_value
 #include "BS_thread_pool.hpp"
 
-
-int NUM_SKIPPED = 0;
-int NUM_SKIPPED_TASK_DEADLINE_PASSED = 0;
-int NUM_SKIPPED_TASK_DEADLOCK = 0;
-int MAX_EXISTING_NODES_SIZE = 0;
-double NEIGHBOR_EXPANSION_TIME = 0.0;
-double GET_F_VALUE_TIME = 0.0;
-
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
 std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
@@ -194,7 +186,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
-    NEIGHBOR_EXPANSION_TIME += duration.count();
+    METRICS.neighbor_expansion_time += duration.count();
 
     std::vector<HeuristicInput> neighbor_heuristic_inputs;
 
@@ -256,7 +248,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
             // This could also be configurable on a per-task basis.
             // printf("Task failure detected, skipping neighbor generation.\n");
-            NUM_SKIPPED_TASK_DEADLINE_PASSED += 1;
+            METRICS.num_skipped_task_deadline_passed += 1;
             continue;
         }
 
@@ -279,13 +271,13 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         if(task_deadlocked) {
             // Don't generate neighbors that have deadlocked tasks.
             // printf("Deadlocked task detected, skipping neighbor generation.\n");
-            NUM_SKIPPED_TASK_DEADLOCK += 1;
+            METRICS.num_skipped_task_deadlock += 1;
             continue;
         }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
-        // TODO: Have to change this if we add in tasks that take a certain amount of time to complete.
+        // TODO: Have to change this if we add in tasks that take a certain amount of time to complete (instead of just task id should also be time remaining on task).
         node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         std::vector<int> agent_costs;
         for(const AgentState& agent : nbr){
@@ -321,7 +313,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 }
             }
             if(skip_dominated_nbr){
-                NUM_SKIPPED += 1;
+                METRICS.num_skipped_duplicate_node += 1;
                 continue;
             } else {
                 generated_costs[nbr_key].push_back(agent_costs);
@@ -340,7 +332,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
-    GET_F_VALUE_TIME += duration.count();
+    METRICS.f_value_calculation_time += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.
@@ -355,6 +347,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
 std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
+    // Reset metrics for every search run.
+    METRICS.reset();
+
     // Create initial seen bitset.
     int num_start_seen = start_seen.count();
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -471,7 +466,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
-            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Max existing nodes size: %d. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), MAX_EXISTING_NODES_SIZE, num_skipped);
+            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -553,22 +548,22 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
-    printf("Total generations skipped because of inferior cost: %d\n", NUM_SKIPPED);
-    printf("Total generations skipped because of task failure: %d\n", NUM_SKIPPED_TASK_DEADLINE_PASSED);
-    printf("Total generations skipped because of task deadlock: %d\n", NUM_SKIPPED_TASK_DEADLOCK);
+    printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
+    printf("Total generations skipped because of task failure: %d\n", METRICS.num_skipped_task_deadline_passed);
+    printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
     printf("Total nodes generated: %d\n", num_generated);
     if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
         if(start_agent_states.size() == 1){
-            printf("Total heuristic time: %.3f seconds\n", TOTAL_HEURISTIC_TIME);
+            printf("Total heuristic time: %.3f seconds\n", METRICS.tsp_total_heuristic_time);
         } else{
-            printf("MTSP Setup time: %.3f seconds\n", TOTAL_RUNTIME);
-            printf("MTSP Solver time: %.3f seconds\n", SOLVER_RUNTIME);
-            printf("MTSP Solver time 2: %.3f seconds\n", SOLVER_RUNTIME2);
-            printf("Total MTSP calls: %d\n", TOTAL_CALLS);
+            printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_total_runtime);
+            printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
+            printf("MTSP Solver time 2: %.3f seconds\n", METRICS.mtsp_solver_runtime_2);
+            printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
         }
     }
-    printf("Total neighbor expansion time: %.3f seconds\n", NEIGHBOR_EXPANSION_TIME);
-    printf("Total get_f_value time: %.3f seconds\n", GET_F_VALUE_TIME);
+    printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
+    printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
     for(int i = 0; i < paths.size(); i++){
         printf("Path %d length: %ld\n", i, paths[i].size());
     }

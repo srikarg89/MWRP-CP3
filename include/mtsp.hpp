@@ -9,11 +9,6 @@
 
 using namespace std;
 
-inline double TOTAL_RUNTIME = 0.0;
-inline double SOLVER_RUNTIME = 0.0;
-inline double SOLVER_RUNTIME2 = 0.0;
-inline int TOTAL_CALLS = 0;
-
 inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
     std::vector<std::vector<int>> initial_paths(m, std::vector<int>());
@@ -278,8 +273,8 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
 
         auto end = std::chrono::high_resolution_clock::now();
         auto seconds_taken = std::chrono::duration<double>(end - start).count();
-        TOTAL_RUNTIME += seconds_taken;
-        TOTAL_CALLS += 1;
+        METRICS.mtsp_total_runtime += seconds_taken;
+        METRICS.mtsp_total_calls += 1;
 
         start = std::chrono::high_resolution_clock::now();
 
@@ -287,7 +282,7 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
 
         end = std::chrono::high_resolution_clock::now();
         seconds_taken = std::chrono::duration<double>(end - start).count();
-        SOLVER_RUNTIME += seconds_taken;
+        METRICS.mtsp_solver_runtime += seconds_taken;
 
         if(solve) {
             // printf("Solution found:\n");
@@ -459,8 +454,8 @@ inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vect
 
         auto end = std::chrono::high_resolution_clock::now();
         auto seconds_taken = std::chrono::duration<double>(end - start).count();
-        TOTAL_RUNTIME += seconds_taken;
-        TOTAL_CALLS += 1;
+        METRICS.mtsp_total_runtime += seconds_taken;
+        METRICS.mtsp_total_calls += 1;
 
         start = std::chrono::high_resolution_clock::now();
 
@@ -468,7 +463,7 @@ inline int run_mtsp2(int num_agents, int num_pivots, const std::vector<std::vect
 
         end = std::chrono::high_resolution_clock::now();
         seconds_taken = std::chrono::duration<double>(end - start).count();
-        SOLVER_RUNTIME2 += seconds_taken;
+        METRICS.mtsp_solver_runtime_2 += seconds_taken;
 
         if(solve) {
             // printf("Solution found 2:\n");

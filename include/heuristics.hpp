@@ -9,9 +9,6 @@
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
 
-double TOTAL_HEURISTIC_TIME = 0.0;
-double TOTAL_TSP_SOLVER_TIME = 0.0;
-
 struct HeuristicInput {
     std::vector<AgentState> agents;
     int cost;
@@ -176,8 +173,7 @@ std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoin
     auto end = std::chrono::high_resolution_clock::now();
     auto heuristic_seconds_taken = std::chrono::duration<double>(end - heuristic_start).count();
     auto tsp_solver_seconds_taken = std::chrono::duration<double>(end - solver_start).count();
-    TOTAL_HEURISTIC_TIME += heuristic_seconds_taken;
-    TOTAL_TSP_SOLVER_TIME += tsp_solver_seconds_taken;
+    METRICS.tsp_total_heuristic_time += heuristic_seconds_taken;
 
     assert(tsp_heuristic >= 0);
     return std::make_tuple(tsp_heuristic, tsp_pivots_path);
@@ -191,8 +187,6 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
         cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
     }
 
-    TOTAL_MTSP_CALLS += 1;
-    // printf("Calls: %d\n", TOTAL_MTSP_CALLS);
     int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs);
     // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
     // if(mtsp_solution != mtsp_solution2){

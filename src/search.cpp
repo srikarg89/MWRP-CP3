@@ -150,15 +150,15 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     std::vector<std::vector<AgentState>> all_moves;
     // for(int i = 0; i < agents.size(); i++){
 
-    agent_to_expand = -1;
-    for(int i = 0; i < agents.size(); i++){
-        if(agents[i].terminated){
-            continue;
-        }
-        if(agent_to_expand == -1 || agents[i].cost < agents[agent_to_expand].cost){
-            agent_to_expand = i;
-        }
-    }
+    // agent_to_expand = -1;
+    // for(int i = 0; i < agents.size(); i++){
+    //     if(agents[i].terminated){
+    //         continue;
+    //     }
+    //     if(agent_to_expand == -1 || agents[i].cost < agents[agent_to_expand].cost){
+    //         agent_to_expand = i;
+    //     }
+    // }
 
     for(int i = agent_to_expand; i <= agent_to_expand; i++){
         for(AgentState option : options[i]){

@@ -146,7 +146,7 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
 inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
     std::string str = "[";
     for(const AgentState& agent : agents){
-        str += agent.pos.toString() + ", ";
+        str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
     }
     str += "]";
     return str;

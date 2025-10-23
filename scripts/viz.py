@@ -10,6 +10,13 @@ with open("../configs/" + config_file) as f:
 agents = config["agents"]
 map = config["map"]
 
+with open("../maps/" + map) as f:
+    lines = f.readlines()
+    map_lines = lines[4:] # Skip the first four header lines
+    map_lines = [line.strip() for line in map_lines if line.strip()]  # Remove any empty lines
+    map = [[0 if c == '.' else 1 for c in line.strip()] for line in map_lines]
+
+
 fig, ax = plt.subplots()
 
 for x, y in agents:

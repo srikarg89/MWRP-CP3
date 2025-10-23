@@ -1,0 +1,7 @@
+{
+    "agents": [[1, 1], [1, 31], [1, 29]],
+    "tasks": [],
+    "map": "custom-test.map",
+    "movement": "EIGHT_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

@@ -7,7 +7,6 @@
 
 std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) {
     // Setup scenario config.
-    bool expanding_borders = true; // Use expanding borders optimization by default.
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
 
     // Setup solver config.
@@ -45,7 +44,6 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
         .collision_resolution = collision_resolution,
-        .expanding_borders = expanding_borders
     };
 
     return {scenario_config, solver_config};

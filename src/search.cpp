@@ -58,13 +58,6 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
                 tsp_idxs.push_back(i);
                 futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
                     return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
-
-                    // Concorde doesn't support running in parallel.
-                    // if(non_terminated_agent_costs.size() == 1){
-                    //     return non_terminated_agent_costs[0] + std::get<0>(get_tsp_heuristic(disjoint_graph));
-                    // } else {
-                        // return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
-                    // }
                 }));
             }
         }
@@ -102,7 +95,7 @@ int get_wait_action_end_time(const Map& map, const Lookup& lookup, const std::ve
 }
 
 
-std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expanding_borders){
+std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, int agent_to_expand){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
         if(agent.terminated){
@@ -138,47 +131,69 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         }
 
         // Expanding borders implementation.
-        if(expanding_borders){
-            std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
-            for(auto [nbr, added_cost] : nbrs_with_added_cost){
-                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
-            }
+        std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
+        for(auto [nbr, added_cost] : nbrs_with_added_cost){
+            agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
         }
+
         // Generic one-step implementation
-        else {
-            std::vector<Position> nbrs = map.get_neighbors(agent.pos);
-            for(Position nbr : nbrs){
-                agent_options.push_back(AgentState(nbr, false, -1, agent.cost + 1));
-            }
-        }
+        // std::vector<Position> nbrs = map.get_neighbors(agent.pos);
+        // for(Position nbr : nbrs){
+        //     agent_options.push_back(AgentState(nbr, false, -1, agent.cost + 1));
+        // }
 
         agent_options.push_back(AgentState(agent.pos, true, -1, agent.cost)); // Option to terminate.
         options.push_back(agent_options);
     }
     // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
+    bool allow_termination = false;
+    for(int i = 0; i < agents.size(); i++){
+        if(i == agent_to_expand){
+            continue;
+        }
+        AgentState a = agents[i];
+        if(!a.terminated){
+            allow_termination = true;
+            break;
+        }
+    }
+    for(AgentState option : options[agent_to_expand]){
+        if(option.terminated && !allow_termination){
+            continue;
+        }
+        std::vector<AgentState> move = agents;
+        move[agent_to_expand] = option;
+        all_moves.push_back(move);
+    }
+
     // An agent is considered 'free' if it is not terminated and not waiting at a task.
-    std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
-        if(idx == options.size()){
-            if(has_non_terminated_agent){
-                all_moves.push_back(current);
-            }
-            return;
-        }
-        for(AgentState option : options[idx]){
-            current.push_back(option);
-            backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
-            current.pop_back();
-        }
-    };
-    backtrack(0, {}, false);
+    // std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
+    //     if(idx == options.size()){
+    //         if(has_non_terminated_agent){
+    //             all_moves.push_back(current);
+    //         }
+    //         return;
+    //     }
+    //     for(AgentState option : options[idx]){
+    //         current.push_back(option);
+    //         backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
+    //         current.pop_back();
+    //     }
+    // };
+    // backtrack(0, {}, false);
     return all_moves;
 }
 
 std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs){
+    int agent_to_expand = (node.last_agent_expanded + 1) % node.agents.size();
+    while(node.agents[agent_to_expand].terminated){
+        agent_to_expand = (agent_to_expand + 1) % node.agents.size();
+    }
+
     std::vector<Node> neighbor_nodes;
     auto start = std::chrono::high_resolution_clock::now();
-    auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.expanding_borders);
+    auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, agent_to_expand);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     METRICS.neighbor_expansion_time += duration.count();
@@ -273,7 +288,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
         // TODO: Have to change this if we add in tasks that take a certain amount of time to complete (instead of just task id should also be time remaining on task).
-        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr) + "_" + std::to_string(agent_to_expand), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         std::vector<int> agent_costs;
         for(const AgentState& agent : nbr){
             agent_costs.push_back(agent.cost);
@@ -334,7 +349,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_f_value = std::max(f_values[i], node.f_value);
         last_id_assigned += 1;
         const HeuristicInput& input = neighbor_heuristic_inputs[i];
-        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen));
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen, agent_to_expand));
     }
     return neighbor_nodes;
 }
@@ -406,7 +421,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
     int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
     printf("Start f value: %d, Num start seen: %d\n", start_f_value, num_start_seen);
-    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen));
+    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen, 0));
 
     std::vector<Node> expanded_nodes;
 

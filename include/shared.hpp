@@ -213,8 +213,9 @@ struct Node {
     int num_seen;
     int f_value;
     bool is_lazy;
+    int last_agent_expanded;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n, int l){
         node_id = id;
         agents = a;
         seen = s;
@@ -223,6 +224,7 @@ struct Node {
         heuristic = f - c;
         num_seen = n;
         f_value = f;
+        last_agent_expanded = l;
         is_lazy = true;
     }
 
@@ -402,7 +404,6 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
 struct SolverConfig {
     HeuristicType heuristic_type;
     CollisionResolution collision_resolution;
-    bool expanding_borders;    
 };
 
 inline void strip(std::string& s) {

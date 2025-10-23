@@ -145,26 +145,37 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         agent_options.push_back(AgentState(agent.pos, true, -1, agent.cost)); // Option to terminate.
         options.push_back(agent_options);
     }
-    // Now, take the cartesian product of options. Don't include states in which all of the agents terminate.
+
+    // Now, take the sum of the options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
-    bool allow_termination = false;
+    // for(int i = 0; i < agents.size(); i++){
+
+    agent_to_expand = -1;
     for(int i = 0; i < agents.size(); i++){
-        if(i == agent_to_expand){
+        if(agents[i].terminated){
             continue;
         }
-        AgentState a = agents[i];
-        if(!a.terminated){
-            allow_termination = true;
-            break;
+        if(agent_to_expand == -1 || agents[i].cost < agents[agent_to_expand].cost){
+            agent_to_expand = i;
         }
     }
-    for(AgentState option : options[agent_to_expand]){
-        if(option.terminated && !allow_termination){
-            continue;
+
+    for(int i = agent_to_expand; i <= agent_to_expand; i++){
+        for(AgentState option : options[i]){
+            std::vector<AgentState> move = agents;
+            move[i] = option;
+            bool skip = true;
+            for(AgentState a : move){
+                if(!a.terminated){
+                    skip = false;
+                    break;
+                }
+            }
+            if(skip){
+                continue;
+            }
+            all_moves.push_back(move);
         }
-        std::vector<AgentState> move = agents;
-        move[agent_to_expand] = option;
-        all_moves.push_back(move);
     }
 
     // An agent is considered 'free' if it is not terminated and not waiting at a task.
@@ -288,7 +299,8 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
         // TODO: Have to change this if we add in tasks that take a certain amount of time to complete (instead of just task id should also be time remaining on task).
-        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr) + "_" + std::to_string(agent_to_expand), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        // node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr) + "_" + std::to_string(agent_to_expand), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
         std::vector<int> agent_costs;
         for(const AgentState& agent : nbr){
             agent_costs.push_back(agent.cost);

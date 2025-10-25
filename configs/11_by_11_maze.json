@@ -3,5 +3,5 @@
     "tasks": [],
     "map": "custom-11-11.map",
     "movement": "FOUR_WAY_MOVEMENT",
-    "los": "FOUR_WAY_LOS"
+    "los": "BRES_LOS"
 }

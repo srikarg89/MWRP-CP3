@@ -112,7 +112,128 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
     return extended_neighbors;
 }
 
-inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type){
+inline std::vector<bool> calculate_square_dominance(const Map& map, const std::vector<std::vector<Position>>& watchers, const std::vector<std::unordered_set<int>>& watchers_set) {
+    std::vector<bool> strictly_easier(map.num_squares, false);
+
+    for(int i = 0; i < map.num_squares; i++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+            continue;
+        }
+        for(int j = 0; j < map.num_squares; j++){
+            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j)) || watchers[i].size() < watchers[j].size()){
+                continue;
+            }
+
+            // If i and j have the exact same watchers, only set the higher one as strictly easier to avoid marking both as seen.
+            if(watchers[i].size() == watchers[j].size() && i < j){
+                continue;
+            }
+
+            // If every watcher of j is also a watcher of i, then j is strictly harder to see than i (thus i can be ignored during the search).
+            bool dominated = true;
+            for(Position watcher_j : watchers[j]){
+                int watcher_map_idx = map.get_map_idx(watcher_j);
+                if(watchers_set[i].find(watcher_map_idx) == watchers_set[i].end()){
+                    dominated = false;
+                    break;
+                }
+            }
+
+            if(dominated){
+                strictly_easier[i] = true;
+                break;
+            }
+        }
+    }
+
+    return strictly_easier;
+}
+
+// If all paths from A to B require looking at C, then we can say that given starting location A, C is strictly easier than B.
+// NOTE: We want to handle edge cases where B dominates C and C dominates B, thus once we determine that B dominates C, we should remove any dominance relationships where C dominates B.
+// Assumes that every cell is unseen.
+inline std::vector<bool> calculate_path_dominance(std::vector<Position> start_positions, const Map& map, const std::vector<std::vector<Position>>& watchers, const std::vector<std::unordered_set<int>>& watchers_set, const std::vector<std::vector<Position>>& los) {
+    // path_dominations[i][j] = true if i is easier to see than j given start_pos.
+    std::vector<std::vector<bool>> path_dominations(map.num_squares, std::vector<bool>(map.num_squares, false));
+    for(int i = 0; i < map.num_squares; i++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+            continue;
+        }
+
+        // Check all squares I can see from start without looking at i.
+        std::vector<bool> seen(map.num_squares, false);
+        std::vector<bool> visited(map.num_squares, false);
+        std::queue<int> queue;
+
+        for(const Position& start_pos : start_positions){
+            queue.push(map.get_map_idx(start_pos));
+            seen[map.get_map_idx(start_pos)] = true;
+        }
+
+        while(!queue.empty()){
+            int curr = queue.front();
+            queue.pop();
+
+            if(visited[curr]){
+                continue;
+            }
+            visited[curr] = true;
+
+            if(watchers_set[i].find(curr) != watchers_set[i].end()){
+                continue; // Can't look at i, so can't go here.
+            }
+
+            for(Position visible : los[curr]){
+                int visible_map_idx = map.get_map_idx(visible);
+                seen[visible_map_idx] = true;
+            }
+
+            for(int neighbor_map_idx : map.neighbors[curr]){
+                if(visited[neighbor_map_idx]){
+                    continue;
+                }
+                queue.push(neighbor_map_idx);
+            }
+        }
+
+        for(int j = 0; j < map.num_squares; j++){
+            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j))){
+                continue;
+            }
+
+            // If j cannot be seen without looking at i, then i is easier to see than j.
+            if(!seen[j]){
+                path_dominations[i][j] = true;
+            }
+        }
+    }
+
+    // Remove duplicate dominations.
+    for(int i = 0; i < map.num_squares; i++){
+        for(int j = i + 1; j < map.num_squares; j++){
+            if(path_dominations[i][j] && path_dominations[j][i]){
+                path_dominations[j][i] = false;
+                // path_dominations[i][j] = false;
+            }
+        }
+    }
+
+    // Return set of dominated cells.
+    std::vector<bool> strictly_easier(map.num_squares, false);
+    for(int i = 0; i < map.num_squares; i++){
+        for(int j = 0; j < map.num_squares; j++){
+            if(path_dominations[i][j]){
+                // printf("If you never see %s, then you will never be able to see %s\n", map.get_pos_from_map_idx(i).toString().c_str(), map.get_pos_from_map_idx(j).toString().c_str());
+                strictly_easier[i] = true;
+                break;
+            }
+        }
+    }
+
+    return strictly_easier;
+}
+
+inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -158,34 +279,10 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("LOS and APSP precomputation time: %.6f seconds\n", duration.count());
 
     // Find squares whose watchers are dominated by another square.
-    std::vector<bool> strictly_easier(map.num_squares, false);
-    for(int i = 0; i < map.num_squares; i++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
-            continue;
-        }
-        for(int j = 0; j < map.num_squares; j++){
-            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j)) || lookup.watchers[i].size() <= lookup.watchers[j].size()){
-                continue;
-            }
-            // If every watcher of j is also a watcher of i, then j is strictly harder to see than i (thus i can be ignored during the search).
-            bool dominated = true;
-            for(Position watcher_j : lookup.watchers[j]){
-                int watcher_map_idx = map.get_map_idx(watcher_j);
-                if(lookup.watchers_set[i].find(watcher_map_idx) == lookup.watchers_set[i].end()){
-                    dominated = false;
-                    break;
-                }
-            }
+    // lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
 
-            if(dominated){
-                strictly_easier[i] = true;
-                // printf("Square %s is strictly harder to see than %s\n", map.get_pos_from_map_idx(j).toString().c_str(), map.get_pos_from_map_idx(i).toString().c_str());
-                break;
-            }
-        }
-    }
-
-    lookup.strictly_easier = strictly_easier;
+    // Find path dominance
+    lookup.strictly_easier = calculate_path_dominance(agent_starts, map, lookup.watchers, lookup.watchers_set, lookup.los);
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;

@@ -57,6 +57,9 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type);
 
+    print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
+    exit(0);
+
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
     int num_strictly_easier = 0;

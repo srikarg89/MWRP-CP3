@@ -10,6 +10,7 @@
 #include <iostream>
 #include <chrono>
 #include <boost/functional/hash.hpp> // For boost::hash_value
+#include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
@@ -402,7 +403,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     }
 
     // Initialize search data structures.
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
+    boost::heap::fibonacci_heap<Node, boost::heap::compare<std::greater<Node>>> queue;
     std::unordered_map<int, int> pred_lookup;
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)

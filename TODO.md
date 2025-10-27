@@ -17,11 +17,11 @@
   - [ ] Extend algorithm to work on weighted graph (different traversabilities).
   - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
     - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
-  - [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+  - [ ] Anytime search
+  - [ ] Iterative search using prior experience to improve future searches??
 
 **Optimizations**
 - Major speedups
-  - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
   - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 - Minor speedups (non-algorithmic / heuristic speedups)
@@ -30,6 +30,9 @@
 
 
 **Docket**
+- [ ] Fibonacci heap
+- [ ] Focal search
+  - [ ] SOC heuristic (requires rerunning mTSP?? Probably better to just use solution from the original one).
 - [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search
   - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
@@ -59,6 +62,8 @@
 - [x] Parallelization for heuristic calculation during search expansion (2x speedup).
 - [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
 - [x] Implement tasks that require multiple robots to be there at the same time.
+  - [x] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
+  - Whether or not this is better, not completely sure.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -73,6 +78,7 @@
 - Multi robot tasks
 - Deadline tasks
 - Force multiple robots to reach task in MTSP heuristic.
+- Path dominance.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

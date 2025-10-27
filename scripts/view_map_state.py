@@ -12,8 +12,6 @@ for i in range(0, len(map_state), map_width):
     row = [int(c) / 4 for c in row_str]
     map.append(row)
 
-print(map)
-
 fig, ax = plt.subplots()
 
 cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","orange","gray","black"])

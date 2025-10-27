@@ -361,7 +361,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_f_value = std::max(f_values[i], node.f_value);
         last_id_assigned += 1;
         const HeuristicInput& input = neighbor_heuristic_inputs[i];
-        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen, agent_to_expand));
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen, agent_to_expand, node.depth + 1));
     }
     return neighbor_nodes;
 }
@@ -430,10 +430,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     for(const Task& task : incomplete_tasks){
         printf("\t%s\n", task.toString().c_str());
     }
-    // int start_f_value = get_f_value(start_heuristic_type, map, start_agent_states, start_timestep, start_seen, incomplete_tasks, lookup);
     int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
     printf("Start f value: %d, Num start seen: %d\n", start_f_value, num_start_seen);
-    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen, 0));
+    // exit(0);
+    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen, 0, 0));
 
     std::vector<Node> expanded_nodes;
 
@@ -449,6 +449,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
     std::vector<std::vector<Position>> paths(starts.size(), std::vector<Position>());
     bool solution_found = false;
+    int max_node_depth_expanded = 0;
 
     while(!queue.empty()){
         Node curr = queue.top();
@@ -478,6 +479,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         num_fully_expanded += 1;
 
         expanded_nodes.push_back(curr);
+        max_node_depth_expanded = std::max(max_node_depth_expanded, curr.depth);
 
         // visited_nodes.insert(visited_key);
         id_lookup[curr.node_id] = curr.agents;
@@ -488,6 +490,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
+            printf("\tNode depth: %d, Max node depth expanded: %d\n", curr.depth, max_node_depth_expanded);
             // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
         }
 
@@ -498,6 +501,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             solution_found = true;
             printf("Goal condition met!\n");
             printf("Num seen: %d / %d\n", curr.num_seen, map.num_squares);
+            printf("Solution node depth: %d\n", curr.depth);
             for(int i = 0; i < curr.seen.size(); i++){
                 if(!curr.seen[i]){
                     printf("UNSEEN: %s\n", map.get_pos_from_map_idx(i).toString().c_str());
@@ -583,6 +587,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     }
     printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
     printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
+    printf("Max node depth expanded: %d\n", max_node_depth_expanded);
     for(int i = 0; i < paths.size(); i++){
         printf("Path %d length: %ld\n", i, paths[i].size());
     }

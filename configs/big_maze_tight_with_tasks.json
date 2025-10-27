@@ -1,0 +1,12 @@
+{
+    "agents": [[1, 1], [31, 31]],
+    "tasks": [
+        {
+            "id": 1,
+            "location": [25, 10]
+        }
+    ],
+    "map": "maze-32-32-2.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

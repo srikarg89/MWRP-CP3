@@ -7,7 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
+inline double WEIGHTED_ASTAR_WEIGHT = 1.5;
 
 // Singleton metrics.
 struct Metrics {
@@ -144,8 +144,22 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
 // }
 
 inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+    std::vector<AgentState> sorted_agents = agents;
+    std::sort(sorted_agents.begin(), sorted_agents.end(), [](const AgentState& a, const AgentState& b){
+        if(a.pos.x != b.pos.x){
+            return a.pos.x < b.pos.x;
+        }
+        if(a.pos.y != b.pos.y){
+            return a.pos.y < b.pos.y;
+        }
+        if(a.terminated != b.terminated){
+            return a.terminated < b.terminated;
+        }
+        return a.cost < b.cost;
+    });
+
     std::string str = "[";
-    for(const AgentState& agent : agents){
+    for(const AgentState& agent : sorted_agents){
         str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
     }
     str += "]";
@@ -214,8 +228,9 @@ struct Node {
     int f_value;
     bool is_lazy;
     int last_agent_expanded;
+    int depth;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n, int l){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n, int l, int d){
         node_id = id;
         agents = a;
         seen = s;
@@ -225,6 +240,7 @@ struct Node {
         num_seen = n;
         f_value = f;
         last_agent_expanded = l;
+        depth = d;
         is_lazy = true;
     }
 

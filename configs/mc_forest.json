@@ -11,8 +11,7 @@
         },
         {
             "id": 2,
-            "location": [27, 1],
-            "num_agents_required": 2
+            "location": [27, 1]
         },
         {
             "id": 3,

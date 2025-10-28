@@ -1,4 +1,5 @@
 import json, sys
+from turtle import width
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors
@@ -58,21 +59,45 @@ ax.set_yticklabels([])
 ax.set_xticklabels([])
 
 arrows = {}
-for i in range(len(map_bitset)):
-    row = i // len(map[0])
-    col = i % len(map[0])
-    major_offset, minor_offset, length, width = 0.85, 0.1, 0.75, 0.4
-    # Right, Left, Up, Down
-    arrows[(col, row)] = [
-        patches.Arrow(col - major_offset, row + minor_offset, length, 0, width=width, color='green'),
-        patches.Arrow(col + major_offset, row - minor_offset, -length, 0, width=width, color='green'),
-        patches.Arrow(col - minor_offset, row - major_offset, 0, length, width=width, color='green'),
-        patches.Arrow(col + minor_offset, row + major_offset, 0, -length, width=width, color='green'),
-    ]
-    for arrow in arrows[(col, row)]:
-        arrow.set_zorder(5)
-        arrow.set_alpha(0.0) # Invisible by default
-        ax.add_patch(arrow)
+for df in data:
+    timestep, map_bitset, task_bitset, planned_paths = df
+    for path in planned_paths:
+        path = path.split("_")
+        for i in range(len(path) - 1):
+            if path[i] == path[i + 1] or path[i] == '' or path[i + 1] == '':
+                continue
+
+            prev = int(path[i])
+            prev_pos = (prev % len(map[0]), prev // len(map[0])) # (col, row) = (x, y)
+            after = int(path[i + 1])
+            after_pos = (after % len(map[0]), after // len(map[0])) # (col, row) = (x, y)
+
+            major_offset, minor_offset, length, width = 0.85, 0.1, 0.75, 0.4
+            diag_minor_offset = 0.2
+            diag_length = .75
+
+            if after_pos == (prev_pos[0] + 1, prev_pos[1]): # Right
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] + minor_offset, prev_pos[1] + minor_offset, length, 0, width=width, color='green')
+            elif after_pos == (prev_pos[0] - 1, prev_pos[1]): # Left
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] - minor_offset, prev_pos[1] - minor_offset, -length, 0, width=width, color='green')
+            elif after_pos == (prev_pos[0], prev_pos[1] + 1): # Down
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] - minor_offset, prev_pos[1] + minor_offset, 0, length, width=width, color='green')
+            elif after_pos == (prev_pos[0], prev_pos[1] - 1): # Up
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] + minor_offset, prev_pos[1] - minor_offset, 0, -length, width=width, color='green')
+            elif after_pos == (prev_pos[0] + 1, prev_pos[1] + 1): # Down-Right
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0], prev_pos[1] + diag_minor_offset, diag_length, diag_length - diag_minor_offset, width=width, color='green')
+            elif after_pos == (prev_pos[0] - 1, prev_pos[1] + 1): # Down-Left
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] - diag_minor_offset, prev_pos[1], -diag_length + diag_minor_offset, diag_length, width=width, color='green')
+            elif after_pos == (prev_pos[0] + 1, prev_pos[1] - 1): # Up-Right
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0] + diag_minor_offset, prev_pos[1], diag_length - diag_minor_offset, -diag_length, width=width, color='green')
+            elif after_pos == (prev_pos[0] - 1, prev_pos[1] - 1): # Up-Left
+                arrows[(prev_pos, after_pos)] = patches.Arrow(prev_pos[0], prev_pos[1] - diag_minor_offset, -diag_length, -diag_length + diag_minor_offset, width=width, color='green')
+
+
+for key, arrow in arrows.items():
+    arrow.set_zorder(5)
+    arrow.set_alpha(0.0) # Invisible by default
+    ax.add_patch(arrow)
 
 
 map_copy = [r.copy() for r in map.copy()]
@@ -109,11 +134,10 @@ def animate_func(frame_num):
         elif task_bitset[i] == '3': # Unknown Task
             task_patches[i].set_alpha(1.0)
             task_patches[i].set_color('red')
-    
-    for key, val in arrows.items():
-        for arrow in val:
-            arrow.set_alpha(0.0) # Hide all arrows initially
-    
+
+    for key, arrow in arrows.items():
+        arrow.set_alpha(0.0) # Hide all arrows initially
+
     for path in planned_paths:
         path = path.split("_")
         for i in range(len(path) - 1):
@@ -127,18 +151,11 @@ def animate_func(frame_num):
             # Scale from 1.0 to 0.3
             alpha = 1.0 - (0.7 * (i / (len(path) - 1)))
 
-            if after_pos == (prev_pos[0] + 1, prev_pos[1]):
-                arrows[after_pos][0].set_alpha(alpha) # Right
-            elif after_pos == (prev_pos[0] - 1, prev_pos[1]):
-                arrows[after_pos][1].set_alpha(alpha) # Left
-            elif after_pos == (prev_pos[0], prev_pos[1] + 1):
-                arrows[after_pos][2].set_alpha(alpha) # Up
-            elif after_pos == (prev_pos[0], prev_pos[1] - 1):
-                arrows[after_pos][3].set_alpha(alpha) # Down
-
+            arrows[(prev_pos, after_pos)].set_alpha(alpha)
     
     pat = [p for p in task_patches if p is not None]
-    arrow_pats = [a for arrow_list in arrows.values() for a in arrow_list]
+    # arrow_pats = [a for arrow_list in arrows.values() for a in arrow_list]
+    arrow_pats = [a for a in arrows.values()]
     return [im, text, *pat, *arrow_pats] # Return a list of artists that were modified
 
 name = sys.argv[1]

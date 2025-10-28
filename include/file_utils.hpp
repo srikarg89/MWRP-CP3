@@ -54,6 +54,30 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, const Look
     file << map_list << "\n";
 }
 
+inline void print_map_state(const Lookup& lookup, const Map& map, boost::dynamic_bitset<> seen, const std::vector<Position>& agents){
+    std::string map_list = "";
+    std::unordered_set<int> agent_positions;
+    for(const Position& pos : agents){
+        agent_positions.insert(map.get_map_idx(pos));
+    }
+    for(int i = 0; i < map.num_squares; i++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+            map_list += "4"; // Obstacle
+        } else if(agent_positions.find(i) != agent_positions.end()){
+            map_list += "1"; // Agent
+        } else if(seen[i]){
+            map_list += "3"; // Seen
+        } else if(lookup.strictly_easier[i]){
+            map_list += "2"; // Strictly easier
+        } else {
+            map_list += "0"; // Not seen
+        }
+    }
+
+    printf("Map State: %s\n", map_list.c_str());
+    printf("Map width: %d, height: %d\n", map.x_size, map.y_size);
+}
+
 inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, boost::dynamic_bitset<> start_seen, const Map& map, const Lookup& lookup){
     boost::dynamic_bitset<> seen = start_seen;
     int num_seen = 0;

@@ -144,9 +144,23 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
 // }
 
 inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+    std::vector<AgentState> sorted_agents = agents;
+    std::sort(sorted_agents.begin(), sorted_agents.end(), [](const AgentState& a, const AgentState& b){
+        if(a.pos.x != b.pos.x){
+            return a.pos.x < b.pos.x;
+        }
+        if(a.pos.y != b.pos.y){
+            return a.pos.y < b.pos.y;
+        }
+        if(a.terminated != b.terminated){
+            return a.terminated < b.terminated;
+        }
+        return a.cost < b.cost;
+    });
+
     std::string str = "[";
-    for(const AgentState& agent : agents){
-        str += agent.pos.toString() + ", ";
+    for(const AgentState& agent : sorted_agents){
+        str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
     }
     str += "]";
     return str;
@@ -212,9 +226,12 @@ struct Node {
     int heuristic;
     int num_seen;
     int f_value;
+    int focal_heuristic;
     bool is_lazy;
+    int last_agent_expanded;
+    int depth;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int n){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int foc, int n, int l, int d){
         node_id = id;
         agents = a;
         seen = s;
@@ -223,6 +240,9 @@ struct Node {
         heuristic = f - c;
         num_seen = n;
         f_value = f;
+        focal_heuristic = foc;
+        last_agent_expanded = l;
+        depth = d;
         is_lazy = true;
     }
 
@@ -232,6 +252,10 @@ struct Node {
         is_lazy = false;
     }
 
+    void update_focal_heuristic(int new_focal_heuristic){
+        focal_heuristic = new_focal_heuristic;
+    }
+
     bool operator>(const Node& rhs) const {
         int weighted_f = (int)(cost + heuristic * WEIGHTED_ASTAR_WEIGHT);
         int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * WEIGHTED_ASTAR_WEIGHT);
@@ -239,6 +263,13 @@ struct Node {
         // return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
     }
 };
+
+struct CompareNodeFocal {
+    bool operator()(const Node& a, const Node& b) const {
+        return a.focal_heuristic > b.focal_heuristic;  // "greater" means min-heap
+    }
+};
+
 
 enum HeuristicType {
     BFS,
@@ -402,7 +433,6 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
 struct SolverConfig {
     HeuristicType heuristic_type;
     CollisionResolution collision_resolution;
-    bool expanding_borders;    
 };
 
 inline void strip(std::string& s) {

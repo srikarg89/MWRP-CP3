@@ -87,9 +87,6 @@ inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::v
         // model.add(expr >= num_required_visits[loc]);
         model.add(expr == num_required_visits[loc]);
 
-        // model.add(expr >= 1);
-        // model.add(expr == 1);
-
         expr.end();
     }
 }
@@ -216,7 +213,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 
 
 // NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
-inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits) {
+inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -327,10 +324,23 @@ inline int run_mtsp(int num_agents, int num_pivots, const std::vector<std::vecto
             //     exit(0);
             // }
 
-            double result = cplex.getObjValue();
-            int result_int = static_cast<int>(std::round(result));
+            double makespan_double = cplex.getObjValue();
+            int makespan = static_cast<int>(std::round(makespan_double));
+            int sum_of_costs = 0;
+            for(int agent = 0; agent < m; agent++) {
+                int agent_cost = 0;
+                for(int from = 0; from < n + 1; from++) {
+                    for(int to = 0; to < n; to++) {
+                        if(from != to && cplex.getValue(x[agent][from][to]) > 0.5) {
+                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                            agent_cost += cost_matrix[c_from][to];
+                        }
+                    }
+                }
+                sum_of_costs += agent_cost;
+            }
             env.end();
-            return result_int;
+            return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
 
         } else {
             cout << "No solution found." << endl;

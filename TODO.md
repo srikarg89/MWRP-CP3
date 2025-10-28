@@ -4,30 +4,27 @@
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
 
 **Extensions**
-- Tasks
-  - [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289). (need to implement waiting at tasks??).
-    - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
-  - [ ] Multi-robot tasks. (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+- Definitely should do
   - [ ] Tasks that take a certain amount of time to complete.
-- Collision handling
+  - [ ] Provide vision radius **R** to the LOS functions.
+  - [ ] Anytime search
+  - [ ] Iterative search using prior experience to improve future searches??
+- Would be dope extensions
+  - [ ] Extend algorithm to continuous space.
+  - [ ] Use multi-agent focal search to determine "who sees what" and then run individual single-agent searches to get optimal paths to see those squares.
+- Still dope but probably won't get to
+  - [ ] Change problem such that you have probabilities of where tasks are, as opposed to the normal free-space assumption.
+- Less important
   - [ ] Search-based collision handling.
   - [ ] Priority-based collision handling.
-- Other
-    - [ ] Provide vision radius **R** to the LOS functions.
-  - [ ] Extend algorithm to work on weighted graph (different traversabilities).
   - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
     - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
-  - [ ] Tasks with precedence constraints (need to implement waiting at tasks??). (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+  - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
+  - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 
 **Optimizations**
-- Major speedups
-  - [ ] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
-  - [ ] Optimizations on future searches by reusing previous search / expanded nodes.
-  - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
-- Minor speedups (non-algorithmic / heuristic speedups)
-  - [ ] Unseen set instead of the full dynamic bitset.
-  - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
-
+- [ ] Unseen set instead of the full dynamic bitset.
+- [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
 - [ ] Implement tasks that take a certain amount of time to complete.
@@ -37,7 +34,8 @@
   - [ ] Idk do more research for better focal search heuristics.
 - [ ] Better direct heuristic for MTSP with deadline
 - [ ] Better direct heuristic for tasks that require multiple robots
-
+- [ ] Disincentivize time wasting behavior for the lower path-length robot. Could end up causing harm in the future (mc_forest.json).
+  - [ ] Maybe some sort of post-search optimization. Another simple solution is to sum up all the squares you see and then run a single-agent optimal search to see those squares.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -58,7 +56,13 @@
 - [x] Make heuristic consistent.
 - [x] Parallelization for heuristic calculation during search expansion (2x speedup).
 - [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
+- [x] Implement tasks with deadlines.
 - [x] Implement tasks that require multiple robots to be there at the same time.
+- [x] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
+  - For two agents: Better for single-thread (less nodes expanded), worse for multi-thread (since expansions are parallelized).
+- [x] Fibonacci heap
+- [x] Focal search
+  - [x] SOC focal heuristic.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -71,7 +75,9 @@
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
 - Multi robot tasks
+- Deadline tasks
 - Force multiple robots to reach task in MTSP heuristic.
+- Path dominance.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

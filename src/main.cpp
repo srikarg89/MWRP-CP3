@@ -7,7 +7,6 @@
 
 std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) {
     // Setup scenario config.
-    bool expanding_borders = true; // Use expanding borders optimization by default.
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
 
     // Setup solver config.
@@ -45,7 +44,6 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
         .collision_resolution = collision_resolution,
-        .expanding_borders = expanding_borders
     };
 
     return {scenario_config, solver_config};
@@ -57,7 +55,10 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     auto start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
-    precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type);
+    precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type, env.get_agent_positions());
+
+    print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
+    // exit(0);
 
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
@@ -81,12 +82,12 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     final_run_file << "Timestep, Num Agents, Agent positions, Seen Bitset\n";
     final_run_file << scenario_config.map.map_name << "\n";
 
-
     int s_t = 1;
     while(s_t < solution[0].size()){
         std::vector<std::vector<Position>> paths_to_go;
         for(int i = 0; i < solution.size(); i++) {
             std::vector<Position> path_to_go;
+            path_to_go.push_back(env.get_agent_positions()[i]);
             for(int t = s_t; t < solution[i].size(); t++) {
                 path_to_go.push_back(solution[i][t]);
             }
@@ -155,3 +156,63 @@ int main(int argc, char** argv) {
     run(scenario_config, solver_config);
     return 0;
 }
+
+/*
+mc_forest, two agents, same start (51, 25), no tasks, 1.5 epsilon focal search
+Max time: 284
+Total nodes expanded: 18656
+Total nodes fully expanded: 18656
+Total expansions skipped: 0
+Total generations skipped because of inferior cost: 145582
+Total generations skipped because of task failure: 0
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 79743
+MTSP Setup time: 29.972 seconds
+MTSP Solver time: 304.725 seconds
+MTSP Solver time 2: 0.000 seconds
+Total MTSP calls: 79651
+Total neighbor expansion time: 32.087 seconds
+Total get_f_value time: 115.640 seconds
+Max node depth expanded: 75
+Path 0 length: 284
+Path 1 length: 284
+Total search time taken: 151.301 seconds
+
+Final timestep: 283
+Aggregated Metrics:
+	MTSP Calls: 79651
+	MTSP Setup Time: 29.972 seconds
+	MTSP Solver Time: 304.725 seconds
+Total time taken: 152.505 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+
+mc_forest, two agents, different starts (51, 25) and (2, 25), no tasks, 1.5 epsilon focal search
+Max time: 240
+Total nodes expanded: 1022
+Total nodes fully expanded: 1022
+Total expansions skipped: 0
+Total generations skipped because of inferior cost: 139513
+Total generations skipped because of task failure: 0
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 38673
+MTSP Setup time: 13.914 seconds
+MTSP Solver time: 260.933 seconds
+MTSP Solver time 2: 0.000 seconds
+Total MTSP calls: 38618
+Total neighbor expansion time: 0.642 seconds
+Total get_f_value time: 22.091 seconds
+Max node depth expanded: 42
+Path 0 length: 240
+Path 1 length: 240
+Total search time taken: 23.364 seconds
+
+Final timestep: 239
+Aggregated Metrics:
+	MTSP Calls: 38618
+	MTSP Setup Time: 13.914 seconds
+	MTSP Solver Time: 260.933 seconds
+Total time taken: 24.610 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+*/

@@ -206,7 +206,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs, std::vector<Node>& generated_costs_list){
     int agent_to_expand = (node.last_agent_expanded + 1) % node.agents.size();
     while(node.agents[agent_to_expand].terminated){
         agent_to_expand = (agent_to_expand + 1) % node.agents.size();
@@ -315,10 +315,12 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         for(const AgentState& agent : nbr){
             agent_costs.push_back(agent.cost);
         }
+
         if(generated_costs.find(nbr_key) == generated_costs.end()){
             generated_costs[nbr_key] = {agent_costs};
         }
         else {
+            // TODO: If this node dominates other, delete other from open list.
             bool skip_dominated_nbr = false;
             auto it = generated_costs[nbr_key].begin();
             while (it != generated_costs[nbr_key].end()) {
@@ -351,6 +353,44 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 generated_costs[nbr_key].push_back(agent_costs);
             }
         }
+
+        // Check for dominance in generated costs.
+        // TODO: If this node dominates other, delete other from open list.
+        bool dominated = false;
+        for(const Node& other : generated_costs_list){
+            if(other.cost <= agent_costs[0] && nbr[0].pos.equals(other.agents[0].pos) && is_subset(nbr_seen, other.seen)){
+                // printf("Dominated by existing node detected, skipping neighbor generation.\n");
+                // printf("Other pos: %s, nbr pos: %s\n", other.agents[0].pos.toString().c_str(), nbr[0].pos.toString().c_str());
+                // printf("Other cost: %d, nbr cost: %d\n", other.cost, agent_costs[0]);
+                // printf("Other seen count: %ld, nbr seen count: %ld\n", other.seen.count(), nbr_seen.count());
+                // printf("Other unseen: ");
+                // for(int i = 0; i < other.seen.size(); i++){
+                //     if(!other.seen[i]){
+                //         printf("%d ", i);
+                //     }
+                // }
+                // printf("\n");
+                // printf("Nbr unseen: ");
+                // for(int i = 0; i < nbr_seen.size(); i++){
+                //     if(!nbr_seen[i]){
+                //         printf("%d ", i);
+                //     }
+                // }
+                // printf("\n");
+                // exit(0);
+                dominated = true;
+                break;
+                // // Current node is dominated by existing node, skip.
+                // METRICS.num_skipped_dominated_node += 1;
+                // task_deadlocked = true;
+                // break;
+            }
+        }
+        if(dominated){
+            continue;
+        }
+
+        generated_costs_list.push_back(node);
 
         neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
     }
@@ -425,6 +465,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)
     std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
+    std::vector<Node> generated_costs_list;
 
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");
@@ -534,7 +575,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
             printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(ASTAR_EPSILON_FACTOR * prev_min_f));
-            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", open_set.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -589,7 +629,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             break;
         }
 
-        std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, last_id_assigned, generated_costs);
+        std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, last_id_assigned, generated_costs, generated_costs_list);
         num_generated += neighbors.size();
         if(neighbors.size() > 0){
             last_id_assigned = neighbors.back().node_id;

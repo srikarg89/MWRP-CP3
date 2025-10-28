@@ -8,6 +8,16 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
+inline bool is_subset(const boost::dynamic_bitset<>& a, const boost::dynamic_bitset<>& b) {
+    // Returns true if a is a subset of b.
+    for(size_t i = 0; i < a.size(); i++){
+        if(a[i] && !b[i]){
+            return false;
+        }
+    }
+    return true;
+}
+
 inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
     // Find the closest agent and how long it would take to reach the task.
     std::vector<int> times_to_reach_task;

@@ -156,3 +156,63 @@ int main(int argc, char** argv) {
     run(scenario_config, solver_config);
     return 0;
 }
+
+/*
+mc_forest, two agents, same start (51, 25), no tasks, 1.5 epsilon focal search
+Max time: 284
+Total nodes expanded: 18656
+Total nodes fully expanded: 18656
+Total expansions skipped: 0
+Total generations skipped because of inferior cost: 145582
+Total generations skipped because of task failure: 0
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 79743
+MTSP Setup time: 29.972 seconds
+MTSP Solver time: 304.725 seconds
+MTSP Solver time 2: 0.000 seconds
+Total MTSP calls: 79651
+Total neighbor expansion time: 32.087 seconds
+Total get_f_value time: 115.640 seconds
+Max node depth expanded: 75
+Path 0 length: 284
+Path 1 length: 284
+Total search time taken: 151.301 seconds
+
+Final timestep: 283
+Aggregated Metrics:
+	MTSP Calls: 79651
+	MTSP Setup Time: 29.972 seconds
+	MTSP Solver Time: 304.725 seconds
+Total time taken: 152.505 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+
+mc_forest, two agents, different starts (51, 25) and (2, 25), no tasks, 1.5 epsilon focal search
+Max time: 240
+Total nodes expanded: 1022
+Total nodes fully expanded: 1022
+Total expansions skipped: 0
+Total generations skipped because of inferior cost: 139513
+Total generations skipped because of task failure: 0
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 38673
+MTSP Setup time: 13.914 seconds
+MTSP Solver time: 260.933 seconds
+MTSP Solver time 2: 0.000 seconds
+Total MTSP calls: 38618
+Total neighbor expansion time: 0.642 seconds
+Total get_f_value time: 22.091 seconds
+Max node depth expanded: 42
+Path 0 length: 240
+Path 1 length: 240
+Total search time taken: 23.364 seconds
+
+Final timestep: 239
+Aggregated Metrics:
+	MTSP Calls: 38618
+	MTSP Setup Time: 13.914 seconds
+	MTSP Solver Time: 260.933 seconds
+Total time taken: 24.610 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+*/

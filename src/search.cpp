@@ -5,7 +5,6 @@
 #include "heuristics.hpp"
 #include "collisions.hpp"
 #include "los.hpp"
-#include <queue>
 #include <unordered_map>
 #include <iostream>
 #include <chrono>
@@ -13,21 +12,23 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
+const double ASTAR_EPSILON_FACTOR = 1.5;
+
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
 
-std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
-    std::vector<int> f_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
+std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
+    std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
     for (const auto& input : neighbor_heuristic_inputs) {
-        f_values.push_back(input.cost);
+        f_and_focal_values.push_back(std::make_pair(input.cost, 0));
     }
 
     if(heuristic_type == BFS){
-        return f_values;
+        return f_and_focal_values;
     }
 
     // Used for parallel TSP heuristic computation.
     BS::thread_pool pool;
-    std::vector<std::future<int>> futures;
+    std::vector<std::future<std::pair<int, int>>> futures;
     std::vector<int> tsp_idxs;
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++) {
@@ -58,22 +59,30 @@ std::vector<int> get_f_values(HeuristicType heuristic_type, const Map& map, cons
                 }
                 tsp_idxs.push_back(i);
                 futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
-                    return get_multi_tsp_f_value(disjoint_graph, non_terminated_agent_costs);
+                    return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs);
                 }));
             }
         }
 
         if(use_singleton) {
-            f_values[i] = std::max(f_values[i], get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
+            f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
+            // Make copy of agents, but at 0 cost. Focal value is the singleton heuristic if the search just started (estimate of how much searching there is left to do).
+            std::vector<AgentState> agents_copy = input.agents;
+            for(auto& agent : agents_copy){
+                agent.cost = 0;
+            }
+            f_and_focal_values[i].second = get_singleton_f_value(agents_copy, map, 0, input.seen, input.tasks_left, lookup);
         }
     }
 
     // Collect TSP/MAX heuristic results.
     for(int i = 0; i < tsp_idxs.size(); i++) {
-        f_values[tsp_idxs[i]] = std::max(f_values[tsp_idxs[i]], futures[i].get());
+        auto result = futures[i].get();
+        f_and_focal_values[tsp_idxs[i]].first = std::max(f_and_focal_values[tsp_idxs[i]].first, result.first); // Ensure that f value is max of singleton and TSP.
+        f_and_focal_values[tsp_idxs[i]].second = std::max(f_and_focal_values[tsp_idxs[i]].second, result.second); // Ensure that focal value is max of singleton and TSP.
     }
 
-    return f_values;
+    return f_and_focal_values;
 }
 
 // TODO: There can exist a deadlock where all agents are waiting at different tasks. Need to figure out how to avoid this. Need to ensure that at least one task is solvable at all times. Need to throw out states where no tasks are solvable.
@@ -161,39 +170,39 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     //     }
     // }
 
-    for(int i = agent_to_expand; i <= agent_to_expand; i++){
-        for(AgentState option : options[i]){
-            std::vector<AgentState> move = agents;
-            move[i] = option;
-            bool skip = true;
-            for(AgentState a : move){
-                if(!a.terminated){
-                    skip = false;
-                    break;
-                }
-            }
-            if(skip){
-                continue;
-            }
-            all_moves.push_back(move);
-        }
-    }
+    // for(int i = agent_to_expand; i <= agent_to_expand; i++){
+    //     for(AgentState option : options[i]){
+    //         std::vector<AgentState> move = agents;
+    //         move[i] = option;
+    //         bool skip = true;
+    //         for(AgentState a : move){
+    //             if(!a.terminated){
+    //                 skip = false;
+    //                 break;
+    //             }
+    //         }
+    //         if(skip){
+    //             continue;
+    //         }
+    //         all_moves.push_back(move);
+    //     }
+    // }
 
     // An agent is considered 'free' if it is not terminated and not waiting at a task.
-    // std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
-    //     if(idx == options.size()){
-    //         if(has_non_terminated_agent){
-    //             all_moves.push_back(current);
-    //         }
-    //         return;
-    //     }
-    //     for(AgentState option : options[idx]){
-    //         current.push_back(option);
-    //         backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
-    //         current.pop_back();
-    //     }
-    // };
-    // backtrack(0, {}, false);
+    std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
+        if(idx == options.size()){
+            if(has_non_terminated_agent){
+                all_moves.push_back(current);
+            }
+            return;
+        }
+        for(AgentState option : options[idx]){
+            current.push_back(option);
+            backtrack(idx + 1, current, has_non_terminated_agent || !option.terminated);
+            current.pop_back();
+        }
+    };
+    backtrack(0, {}, false);
     return all_moves;
 }
 
@@ -352,17 +361,18 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     }
 
     start = std::chrono::high_resolution_clock::now();
-    std::vector<int> f_values = get_f_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
+    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
     METRICS.f_value_calculation_time += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         // Apply pathmax to ensure consistency.
-        int nbr_f_value = std::max(f_values[i], node.f_value);
+        int nbr_f_value = std::max(f_and_focal_values[i].first, node.f_value);
+        int nbr_focal_value = f_and_focal_values[i].second;
         last_id_assigned += 1;
         const HeuristicInput& input = neighbor_heuristic_inputs[i];
-        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, input.num_seen, agent_to_expand, node.depth + 1));
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, agent_to_expand, node.depth + 1));
     }
     return neighbor_nodes;
 }
@@ -403,7 +413,14 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     }
 
     // Initialize search data structures.
-    boost::heap::fibonacci_heap<Node, boost::heap::compare<std::greater<Node>>> queue;
+    using Heap = boost::heap::fibonacci_heap<Node, boost::heap::compare<std::greater<Node>>>;
+    Heap open_set;
+    std::unordered_map<int, Heap::handle_type> handle_lookup;
+
+    boost::heap::fibonacci_heap<Node, boost::heap::compare<CompareNodeFocal>> focal_list;
+    int prev_min_f = 0;
+    std::unordered_set<int> added_to_focal_list;
+
     std::unordered_map<int, int> pred_lookup;
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)
@@ -431,10 +448,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     for(const Task& task : incomplete_tasks){
         printf("\t%s\n", task.toString().c_str());
     }
-    int start_f_value = get_f_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
-    printf("Start f value: %d, Num start seen: %d\n", start_f_value, num_start_seen);
+    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
+    printf("Start f value: %d, Start focal value: %d, Num start seen: %d\n", start_f_value, start_focal_value, num_start_seen);
     // exit(0);
-    queue.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, num_start_seen, 0, 0));
+
+    handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*last_agent_expanded = */ 0, /*depth = */ 0));
 
     std::vector<Node> expanded_nodes;
 
@@ -452,9 +470,31 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     bool solution_found = false;
     int max_node_depth_expanded = 0;
 
-    while(!queue.empty()){
-        Node curr = queue.top();
-        queue.pop();
+    while(!open_set.empty()){
+        // Node curr = open_set.top();
+        // open_set.pop();
+
+        // Check if focal list needs to be updated.
+        int min_f_value = open_set.top().f_value;
+        if(min_f_value > prev_min_f){
+            prev_min_f = min_f_value;
+            // Add to focal list.
+            auto it = open_set.ordered_begin();
+            int max_f_value = (int)(ASTAR_EPSILON_FACTOR * min_f_value);
+            while(it != open_set.ordered_end() && it->f_value <= max_f_value){
+                if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
+                    focal_list.push(*it);
+                    added_to_focal_list.insert(it->node_id);
+                }
+                ++it;
+            }
+        }
+
+        // Get lowest cost node by focal heuristic.
+        Node curr = focal_list.top();
+        focal_list.pop();
+        // Remove from open set as well.
+        open_set.erase(handle_lookup[curr.node_id]);
 
         // TODO: Add this back in??
         // size_t seen_hash = boost::hash_value(curr.seen);
@@ -469,11 +509,13 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         if(solver_config.heuristic_type == LAZY && curr.is_lazy){
             // Recompute f value.
-            int new_f_value = get_f_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, lookup)[0];
+            auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, lookup)[0];
             // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
             new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
+            new_focal_value = std::max(new_focal_value, curr.focal_heuristic); // Ensure focal value never decreases.
             curr.update_f_value(new_f_value);
-            queue.push(curr);
+            curr.update_focal_heuristic(new_focal_value);
+            open_set.update(handle_lookup[curr.node_id], curr);
             continue;
         }
 
@@ -490,9 +532,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
         if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
-            printf("\tF value: %d. Cost: %d. Heuristic: %d\n", curr.f_value, curr.cost, curr.heuristic);
-            printf("\tNode depth: %d, Max node depth expanded: %d\n", curr.depth, max_node_depth_expanded);
-            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", queue.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
+            printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
+            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(ASTAR_EPSILON_FACTOR * prev_min_f));
+            // printf("\tQueue size: %ld. Visited size: %ld. Generated costs size: %ld. Num skipped: %d\n", open_set.size(), visited_nodes.size(), generated_costs.size(), num_skipped);
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -555,7 +597,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         for(Node& nbr : neighbors){
             // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
-            queue.push(nbr);
+            handle_lookup[nbr.node_id] = open_set.push(nbr);
+            if(nbr.f_value <= (int)(ASTAR_EPSILON_FACTOR * prev_min_f)){
+                focal_list.push(nbr);
+                added_to_focal_list.insert(nbr.node_id);
+            }
         }
     }
 

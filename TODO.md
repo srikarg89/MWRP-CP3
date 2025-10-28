@@ -4,21 +4,20 @@
   - [ ] Also need to fix current duplicate checking (doesn't check agent order).
 
 **Extensions**
-- Tasks
-  - [ ] Tasks with absolute time limits (https://www.sciencedirect.com/science/article/pii/S1572528610000289). (need to implement waiting at tasks??).
-    - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
-  - [ ] Multi-robot tasks. (https://www.sciencedirect.com/science/article/pii/S0377221723000735) Didn't fully read this.
+- Definitely should do
   - [ ] Tasks that take a certain amount of time to complete.
-- Collision handling
-  - [ ] Search-based collision handling.
-  - [ ] Priority-based collision handling.
-- Other
-    - [ ] Provide vision radius **R** to the LOS functions.
-  - [ ] Extend algorithm to work on weighted graph (different traversabilities).
-  - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
-    - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
+  - [ ] Provide vision radius **R** to the LOS functions.
   - [ ] Anytime search
   - [ ] Iterative search using prior experience to improve future searches??
+- Would be dope extensions
+  - [ ] Extend algorithm to continuous space.
+  - [ ] 
+- Less important
+  - [ ] Search-based collision handling.
+  - [ ] Priority-based collision handling.
+  - [ ] Rolling horizon variation: Only consider squares within X distance to you, but do consider all tasks?
+    - [ ] Alternatively, maybe only consider squares that you are the closest robot to (within some limit of # of squares)?
+  - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
 
 **Optimizations**
 - Major speedups
@@ -40,6 +39,7 @@
   - [ ] Idk do more research for better focal search heuristics.
 - [ ] Better direct heuristic for MTSP with deadline
 - [ ] Better direct heuristic for tasks that require multiple robots
+- [ ] Disincentivize time wasting behavior for the lower path-length robot. Could end up causing harm in the future (mc_forest.json).
 
 
  **Verified Working**
@@ -61,9 +61,10 @@
 - [x] Make heuristic consistent.
 - [x] Parallelization for heuristic calculation during search expansion (2x speedup).
 - [x] Ignore squares that are gonna be explored anyways by doing tasks (i.e. any square within LOS of a known task).
+- [x] Implement tasks with deadlines.
 - [x] Implement tasks that require multiple robots to be there at the same time.
-  - [x] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
-  - Whether or not this is better, not completely sure.
+- [x] What if the expansion only expands one agent at a time (they take turns, or maybe just the agent with a lower makespan). Also, this can be further improved by choosing to expand the node with the lower time each time. Results in a **deeper** but **less wide** tree (could result in less node generation??).
+  - For two agents: Better for single-thread (less nodes expanded), worse for multi-thread (since expansions are parallelized).
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.

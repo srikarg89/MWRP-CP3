@@ -184,7 +184,7 @@ std::tuple<int, std::vector<int>> get_tsp_heuristic(const DisjointGraph& disjoin
     return std::make_tuple(tsp_heuristic, tsp_pivots_path);
 }
 
-int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs){
+std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs){
     auto heuristic_start = std::chrono::high_resolution_clock::now();
 
     std::vector<std::vector<int>> cost_map = disjoint_graph.pivot_pivot_costs;
@@ -204,7 +204,7 @@ int get_multi_tsp_f_value(const DisjointGraph& disjoint_graph, const std::vector
         printf("Pivots size %ld != num required visits size %ld\n", disjoint_graph.pivots.size(), disjoint_graph.num_required_visits.size());
         exit(1);
     }
-    int mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
+    auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
     // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
     // if(mtsp_solution != mtsp_solution2){
     //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);

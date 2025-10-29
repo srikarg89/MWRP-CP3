@@ -12,7 +12,6 @@
         {
             "id": 2,
             "location": [9, 5],
-            "deadline": 15
         }
     ],
     "map": "custom-11-11.map",

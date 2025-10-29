@@ -3,13 +3,11 @@
     "tasks": [
         {
             "id": 0,
-            "location": [0, 10],
-            "deadline": 28
+            "location": [0, 10]
         },
         {
             "id": 1,
-            "location": [3, 7],
-            "deadline": 20
+            "location": [3, 7]
         },
         {
             "id": 2,

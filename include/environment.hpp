@@ -58,7 +58,7 @@ public:
                 }
             }
 
-            if(num_agents_at_task >= it->num_agents_required && timestamp <= it->deadline){
+            if(num_agents_at_task >= it->num_agents_required){
                 // Task completed.
                 printf("Task completed at %s!\n", it->pos.toString().c_str());
                 completed_tasks.push_back(*it);

@@ -11,7 +11,7 @@
   - [ ] Iterative search using prior experience to improve future searches??
 - Would be dope extensions
   - [ ] Extend algorithm to continuous space.
-  - [ ] Use multi-agent focal search to determine "who sees what" and then run individual single-agent searches to get optimal paths to see those squares.
+  - [ ] Use multi-agent focal search to determine "cell partition" and then run individual single-agent searches to get optimal paths to see those squares.
 - Still dope but probably won't get to
   - [ ] Change problem such that you have probabilities of where tasks are, as opposed to the normal free-space assumption.
 - Less important
@@ -23,22 +23,16 @@
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 
 **Optimizations**
-- [ ] Unseen set instead of the full dynamic bitset.
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
-- [ ] Node dominance check.
-- [ ] Cleanup
-  - [ ] Delete task deadlines.
-  - [ ] Delete collision resolution.
-  - [ ] Pass in epsilon as input into solver config.
 - [ ] Implement tasks that take a certain amount of time to complete.
-- [ ] Focal search
-  - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
-  - [ ] Num seen heuristic.
+- [ ] Anytime focal search
+- [ ] Focal search heuristics
+  - [ ] Max of costs (as opposed to sum of costs).
 - [ ] Better direct heuristic for tasks that require multiple robots
-- [ ] Disincentivize time wasting behavior for the lower path-length robot. Could end up causing harm in the future (mc_forest.json).
-  - [ ] Maybe some sort of post-search optimization. Another simple solution is to sum up all the squares you see and then run a single-agent optimal search to see those squares.
+- [ ] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized framework).
+- [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -66,10 +60,19 @@
 - [x] Fibonacci heap
 - [x] Focal search
   - [x] SOC focal heuristic.
+  - [x] Num seen focal heuristic.
+  - [x] Weighted A* for focal heuristic.
+- [x] Node dominance check.
+- [x] Cleanup
+  - [x] Delete task deadlines.
+  - [x] Delete collision resolution.
+  - [x] Pass in epsilon as input into solver config.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
 - [x] Try the method of adding every single unseen cell as a pivot, and then iteratively pruning using the prune_graph function.
+- [x] Unseen set instead of the full dynamic bitset.
+- [x] Num seen heuristic.
 
 **Improvements / Changes to Remember**
 - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
@@ -78,9 +81,11 @@
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
 - Multi robot tasks
-- Deadline tasks
 - Force multiple robots to reach task in MTSP heuristic.
 - Path dominance.
+- Node dominance (also in original paper).
+- Focal search.
+  - SOC focal heuristic.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

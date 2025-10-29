@@ -328,12 +328,12 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                     }
                 }
 
-                if(visited_cost_better && is_subset(nbr_seen, it->seen)){
+                if(visited_cost_better && nbr_seen.is_subset_of(it->seen)){
                     // Existing node dominates current node, skip current node.
                     METRICS.num_skipped_duplicate_node += 1;
                     dominated = true;
                     break;
-                } else if(nbr_cost_better && is_subset(it->seen, nbr_seen)){
+                } else if(nbr_cost_better && it->seen.is_subset_of(nbr_seen)){
                     // Current node dominates existing node, remove existing node.
                     it = visited_node_list.erase(it);
                     avoid_expansion_list.insert(it->id);

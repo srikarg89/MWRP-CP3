@@ -62,6 +62,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
             }
         }
 
+        // Singleton heuristic.
         if(use_singleton) {
             f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
             // Make copy of agents, but at 0 cost. Focal value is the singleton heuristic if the search just started (estimate of how much searching there is left to do).

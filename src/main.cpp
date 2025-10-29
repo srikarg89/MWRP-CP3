@@ -231,26 +231,25 @@ Total generations skipped because of inferior cost: 194758
 Total generations skipped because of task failure: 0
 Total generations skipped because of task deadlock: 0
 Total nodes generated: 126943
-MTSP Setup time: 48.247 seconds
-MTSP Solver time: 889.748 seconds
-Total MTSP calls: 126745
-Total neighbor expansion time: 20.980 seconds
-Total get_f_value time: 289.261 seconds
-Total domination check time: 40.916 seconds
+MTSP Setup time: 48.892 seconds
+MTSP Solver time: 903.050 seconds
+Total MTSP calls: 126704
+Total neighbor expansion time: 21.571 seconds
+Total get_f_value time: 293.306 seconds
+Total domination check time: 22.316 seconds
 Max node depth expanded: 73
 Path 0 length: 450
-Total search time taken: 359.014 seconds
+Total search time taken: 345.360 seconds
 
 Final timestep: 449
 Aggregated Metrics:
-	MTSP Calls: 126745
-	MTSP Setup Time: 48.247 seconds
-	MTSP Solver Time: 889.748 seconds
-	Get f_value Time: 289.261 seconds
-	Neighbor Expansion Time: 20.980 seconds
-	Domination Check Time: 40.916 seconds
-Total time taken: 360.270 seconds
+	MTSP Calls: 126704
+	MTSP Setup Time: 48.892 seconds
+	MTSP Solver Time: 903.050 seconds
+	Get f_value Time: 293.306 seconds
+	Neighbor Expansion Time: 21.571 seconds
+	Domination Check Time: 22.316 seconds
+Total time taken: 346.670 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
-
 */

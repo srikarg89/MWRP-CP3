@@ -619,7 +619,6 @@ inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const 
             // I think you can do this with N - 1 boolean variables, each representing whether or not pivot p comes after the task (t).
             // Then you can add 2 * (N - 1) constraints to ensure this boolean is represented properly, for example "u[p] - u[t] - N * b <= 0 && u[t] - u[p] - N * b >= 0" -> b = 1 if u[p] > u[t], else b = 0.
         // Then, we need to sum up the costs of travelling to each of these nodes that come after the task (every pivot with higher MTZ than task).
-        // Can use a similar logic to ensure deadline (sum up cost of travelling to each of the nodes that come before the task <= Deadline)
 
 
     }

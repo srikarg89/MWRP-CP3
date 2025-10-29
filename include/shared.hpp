@@ -7,13 +7,10 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 
-inline double WEIGHTED_ASTAR_WEIGHT = 1.0;
-
 // Singleton metrics.
 struct Metrics {
     // General search metrics.
     int num_skipped_duplicate_node = 0;
-    int num_skipped_task_deadline_passed = 0;
     int num_skipped_task_deadlock = 0;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
@@ -26,7 +23,6 @@ struct Metrics {
 
     void reset() {
         num_skipped_duplicate_node = 0;
-        num_skipped_task_deadline_passed = 0;
         num_skipped_task_deadlock = 0;
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
@@ -39,7 +35,6 @@ struct Metrics {
 
     void add(const Metrics& other) {
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
-        num_skipped_task_deadline_passed += other.num_skipped_task_deadline_passed;
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         neighbor_expansion_time += other.neighbor_expansion_time;
         f_value_calculation_time += other.f_value_calculation_time;
@@ -153,13 +148,12 @@ struct Task {
     int id;
     Position pos;
     int map_idx;
-    int deadline;
     int num_agents_required;
 
-    Task(int id, Position p, int map_idx, int deadline, int num_agents_required) : id(id), pos(p), map_idx(map_idx), deadline(deadline), num_agents_required(num_agents_required) {}
+    Task(int id, Position p, int map_idx, int num_agents_required) : id(id), pos(p), map_idx(map_idx), num_agents_required(num_agents_required) {}
 
     std::string toString() const {
-        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Deadline: " + std::to_string(deadline) + ", Num Agents Required: " + std::to_string(num_agents_required);
+        return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Num Agents Required: " + std::to_string(num_agents_required);
     }
 };
 
@@ -229,10 +223,7 @@ struct Node {
     }
 
     bool operator>(const Node& rhs) const {
-        int weighted_f = (int)(cost + heuristic * WEIGHTED_ASTAR_WEIGHT);
-        int rhs_weighted_f = (int)(rhs.cost + rhs.heuristic * WEIGHTED_ASTAR_WEIGHT);
-        return std::tie(weighted_f, heuristic) > std::tie(rhs_weighted_f, rhs.heuristic);
-        // return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
+        return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
     }
 };
 
@@ -409,7 +400,7 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
 
 struct SolverConfig {
     HeuristicType heuristic_type;
-    CollisionResolution collision_resolution;
+    double focal_weight;
 };
 
 inline void strip(std::string& s) {
@@ -513,16 +504,12 @@ struct ScenarioConfig {
             if(task_position.size() != 2) {
                 throw std::runtime_error("Each task position must have exactly two coordinates.");
             }
-            int deadline = INT_MAX;
             int num_agents_required = 1;
-            if(task.contains("deadline")) {
-                deadline = task["deadline"].get<int>();
-            }
             if(task.contains("num_agents_required")) {
                 num_agents_required = task["num_agents_required"].get<int>();
             }
             Position task_pos = Position{task_position[0], task_position[1]};
-            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), deadline, num_agents_required));
+            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), num_agents_required));
         }
 
         // Validate agent and task positions.

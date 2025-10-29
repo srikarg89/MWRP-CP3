@@ -30,21 +30,16 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }
 
-    std::string collision_resolution_str = argv[3];
-    CollisionResolution collision_resolution;
-    if(collision_resolution_str == "NONE") {
-        collision_resolution = CollisionResolution::NONE;
-    } else if(collision_resolution_str == "POSTPROCESS") {
-        collision_resolution = CollisionResolution::POSTPROCESS;
-    } else if(collision_resolution_str == "NODE_EXPANSION") {
-        collision_resolution = CollisionResolution::NODE_EXPANSION;
-    } else {
-        throw std::runtime_error("Invalid collision resolution: " + collision_resolution_str);
+    double focal_weight;
+    try {
+        focal_weight = std::stod(argv[3]);
+    } catch (const std::invalid_argument& e) {
+        throw std::runtime_error("Invalid focal weight: " + std::string(argv[3]));
     }
 
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
-        .collision_resolution = collision_resolution,
+        .focal_weight = focal_weight,
     };
 
     return {scenario_config, solver_config};
@@ -154,7 +149,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 
 int main(int argc, char** argv) {
     if(argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <collision_resolution>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_weight>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
         return 1;
     }
 

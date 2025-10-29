@@ -26,16 +26,13 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
-- [ ] Cleanup
-  - [ ] Delete task deadlines.
-  - [ ] Delete collision resolution.
-  - [ ] Pass in epsilon as input into solver config.
 - [ ] Implement tasks that take a certain amount of time to complete.
-- [ ] Focal search
+- [ ] Anytime focal search
+- [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
 - [ ] Better direct heuristic for tasks that require multiple robots
-- [ ] Disincentivize time wasting behavior for the lower path-length robot. Could end up causing harm in the future (mc_forest.json).
-  - [ ] Maybe some sort of post-search optimization. Another simple solution is to sum up all the squares you see and then run a single-agent optimal search to see those squares.
+- [ ] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized framework).
+- [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -65,6 +62,10 @@
   - [x] SOC focal heuristic.
   - [x] Num seen focal heuristic.
 - [x] Node dominance check.
+- [x] Cleanup
+  - [x] Delete task deadlines.
+  - [x] Delete collision resolution.
+  - [x] Pass in epsilon as input into solver config.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -79,7 +80,6 @@
 - Used Pathmax to ensure heuristic consistency.
 - Parallelization of heuristic computation.
 - Multi robot tasks
-- Deadline tasks
 - Force multiple robots to reach task in MTSP heuristic.
 - Path dominance.
 - Node dominance (also in original paper).

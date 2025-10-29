@@ -12,8 +12,6 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
-const double ASTAR_EPSILON_FACTOR = 1.25;
-
 std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
     std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
     for (const auto& input : neighbor_heuristic_inputs) {
@@ -242,21 +240,13 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             bool completed = false;
             for(const AgentState& agent : nbr){
                 int agent_map_idx = map.get_map_idx(agent.pos);
-                if(!agent.terminated && (agent.cost + lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] <= t.deadline)){
-                    reachable = true;
-                }
-
-                if(agent_map_idx == task_map_idx && agent.cost <= t.deadline){
+                if(agent_map_idx == task_map_idx){
                     num_reached_by_time[agent.cost] += 1;
                     if(num_reached_by_time[agent.cost] >= t.num_agents_required){
                         completed = true;
                         break;
                     }
                 }
-            }
-            if(!reachable){
-                task_failed = true;
-                break;
             }
             if(completed) {
                 // Free up agents that were waiting at this task.
@@ -269,17 +259,6 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             else {
                 nbr_tasks_left.push_back(t);
             }
-        }
-
-        if(task_failed){
-            // Don't generate neighbors that have failed tasks. That is, have strict deadlines on the deadline.
-            // NOTE: This could possibly create feasibility issues where no solution exists.
-            // TODO: In the future, we can instead model this by adding a penalty to the cost based on how far past the deadline we are.
-            // This could be a small value, so we balance exploration and task completion past deadline, or a large value, to prioritize tasks and then only worry about exploration afterwards.
-            // This could also be configurable on a per-task basis.
-            // printf("Task failure detected, skipping neighbor generation.\n");
-            METRICS.num_skipped_task_deadline_passed += 1;
-            continue;
         }
 
         // Check if we have a deadlock. That is, check if there is at least one task that is reachable by at least one non-terminated agent.
@@ -488,7 +467,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             prev_min_f = min_f_value;
             // Add to focal list.
             auto it = open_set.ordered_begin();
-            int max_f_value = (int)(ASTAR_EPSILON_FACTOR * min_f_value);
+            int max_f_value = (int)(solver_config.focal_weight * min_f_value);
             while(it != open_set.ordered_end() && it->f_value <= max_f_value){
                 if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
                     focal_list.push(*it);
@@ -537,7 +516,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
-            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(ASTAR_EPSILON_FACTOR * prev_min_f));
+            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_weight * prev_min_f));
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -601,7 +580,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
             handle_lookup[nbr.node_id] = open_set.push(nbr);
-            if(nbr.f_value <= (int)(ASTAR_EPSILON_FACTOR * prev_min_f)){
+            if(nbr.f_value <= (int)(solver_config.focal_weight * prev_min_f)){
                 focal_list.push(nbr);
                 added_to_focal_list.insert(nbr.node_id);
             }
@@ -612,9 +591,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("\n\nNO SOLUTION FOUND!!!\n\n");
     }
 
-    if(solver_config.collision_resolution == POSTPROCESS){
-        paths = postprocess_collisions(paths);
-    }
     add_waits_to_end(paths);
 
     printf("Total nodes expanded: %d\n", num_expanded);
@@ -622,7 +598,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total expansions skipped: %d\n", num_skipped);
     // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
     printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
-    printf("Total generations skipped because of task failure: %d\n", METRICS.num_skipped_task_deadline_passed);
     printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
     printf("Total nodes generated: %d\n", num_generated);
     if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){

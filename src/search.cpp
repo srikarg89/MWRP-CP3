@@ -12,9 +12,10 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
-const double ASTAR_EPSILON_FACTOR = 1.5;
+const double ASTAR_EPSILON_FACTOR = 1.0;
 
 using node_hash_key = std::tuple<std::string, std::string, size_t>;
+using node_hash_key2 = std::tuple<std::string, std::string>;
 
 std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
     std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
@@ -206,7 +207,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs, std::vector<Node>& generated_costs_list){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int last_id_assigned, std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>>& generated_costs, std::unordered_map<std::string, std::vector<Node>>& generated_costs_list){
     int agent_to_expand = (node.last_agent_expanded + 1) % node.agents.size();
     while(node.agents[agent_to_expand].terminated){
         agent_to_expand = (agent_to_expand + 1) % node.agents.size();
@@ -310,87 +311,92 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         // TODO: Have to change this if we add in tasks that take a certain amount of time to complete (instead of just task id should also be time remaining on task).
         // node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr) + "_" + std::to_string(agent_to_expand), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
-        node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
-        std::vector<int> agent_costs;
-        for(const AgentState& agent : nbr){
-            agent_costs.push_back(agent.cost);
-        }
+        // node_hash_key nbr_key = std::make_tuple(agent_states_to_string(nbr), task_array_hash_string(nbr_tasks_left), boost::hash_value(nbr_seen));
+        // std::vector<int> agent_costs;
+        // for(const AgentState& agent : nbr){
+        //     agent_costs.push_back(agent.cost);
+        // }
 
-        if(generated_costs.find(nbr_key) == generated_costs.end()){
-            generated_costs[nbr_key] = {agent_costs};
-        }
-        else {
-            // TODO: If this node dominates other, delete other from open list.
-            bool skip_dominated_nbr = false;
-            auto it = generated_costs[nbr_key].begin();
-            while (it != generated_costs[nbr_key].end()) {
-                bool dominated = true;
-                bool dominating = true;
-                for(int i = 0; i < agent_costs.size(); i++){
-                    if(agent_costs[i] < it->at(i)){
-                        // Better cost, so not dominated.
-                        dominated = false;
-                    } else if(agent_costs[i] > it->at(i)){
-                        // Worse cost, so not dominating.
-                        dominating = false;
-                    }
-                }
-                if(dominated){
-                    // Current costs are dominated, skip this neighbor.
-                    skip_dominated_nbr = true;
-                    break;
-                } else if(dominating){
-                    // Current costs dominate existing costs, remove existing costs.
-                    it = generated_costs[nbr_key].erase(it);
-                } else {
-                    ++it;
-                }
-            }
-            if(skip_dominated_nbr){
-                METRICS.num_skipped_duplicate_node += 1;
-                continue;
-            } else {
-                generated_costs[nbr_key].push_back(agent_costs);
-            }
-        }
+        // if(generated_costs.find(nbr_key) == generated_costs.end()){
+        //     generated_costs[nbr_key] = {agent_costs};
+        // }
+        // else {
+        //     // TODO: If this node dominates other, delete other from open list.
+        //     bool skip_dominated_nbr = false;
+        //     auto it = generated_costs[nbr_key].begin();
+        //     while (it != generated_costs[nbr_key].end()) {
+        //         bool dominated = true;
+        //         bool dominating = true;
+        //         for(int i = 0; i < agent_costs.size(); i++){
+        //             if(agent_costs[i] < it->at(i)){
+        //                 // Better cost, so not dominated.
+        //                 dominated = false;
+        //             } else if(agent_costs[i] > it->at(i)){
+        //                 // Worse cost, so not dominating.
+        //                 dominating = false;
+        //             }
+        //         }
+        //         if(dominated){
+        //             // Current costs are dominated, skip this neighbor.
+        //             skip_dominated_nbr = true;
+        //             break;
+        //         } else if(dominating){
+        //             // Current costs dominate existing costs, remove existing costs.
+        //             it = generated_costs[nbr_key].erase(it);
+        //         } else {
+        //             ++it;
+        //         }
+        //     }
+        //     if(skip_dominated_nbr){
+        //         METRICS.num_skipped_duplicate_node += 1;
+        //         continue;
+        //     } else {
+        //         generated_costs[nbr_key].push_back(agent_costs);
+        //     }
+        // }
+
+        std::string nbr_key = agent_states_to_string(nbr) + task_array_hash_string(nbr_tasks_left) + std::to_string(agent_to_expand);
+        std::vector<AgentState> nbr_sorted = get_sorted_agents_by_position(nbr);
+
+        // std::string nbr_agent_positions_str = agent_states_to_string(nbr);
 
         // Check for dominance in generated costs.
         // TODO: If this node dominates other, delete other from open list.
         bool dominated = false;
-        for(const Node& other : generated_costs_list){
-            if(other.cost <= agent_costs[0] && nbr[0].pos.equals(other.agents[0].pos) && is_subset(nbr_seen, other.seen)){
-                // printf("Dominated by existing node detected, skipping neighbor generation.\n");
-                // printf("Other pos: %s, nbr pos: %s\n", other.agents[0].pos.toString().c_str(), nbr[0].pos.toString().c_str());
-                // printf("Other cost: %d, nbr cost: %d\n", other.cost, agent_costs[0]);
-                // printf("Other seen count: %ld, nbr seen count: %ld\n", other.seen.count(), nbr_seen.count());
-                // printf("Other unseen: ");
-                // for(int i = 0; i < other.seen.size(); i++){
-                //     if(!other.seen[i]){
-                //         printf("%d ", i);
-                //     }
-                // }
-                // printf("\n");
-                // printf("Nbr unseen: ");
-                // for(int i = 0; i < nbr_seen.size(); i++){
-                //     if(!nbr_seen[i]){
-                //         printf("%d ", i);
-                //     }
-                // }
-                // printf("\n");
-                // exit(0);
-                dominated = true;
-                break;
-                // // Current node is dominated by existing node, skip.
-                // METRICS.num_skipped_dominated_node += 1;
-                // task_deadlocked = true;
-                // break;
+        // Current node is dominated by existing node, skip.
+        if(generated_costs_list.find(nbr_key) != generated_costs_list.end()){
+            auto& visited_node_list = generated_costs_list[nbr_key];
+            auto it = visited_node_list.begin();
+            while (it != visited_node_list.end()) {
+                std::vector<AgentState> other_sorted = get_sorted_agents_by_position(it->agents);
+                bool nbr_cost_better = true;
+                bool visited_cost_better = true;
+                for(int i = 0; i < nbr_sorted.size(); i++){
+                    if(other_sorted[i].cost < nbr_sorted[i].cost){
+                        nbr_cost_better = false;
+                    } else if(nbr_sorted[i].cost < other_sorted[i].cost){
+                        visited_cost_better = false;
+                    }
+                }
+
+                if(visited_cost_better && is_subset(nbr_seen, it->seen) && is_subset(it->seen, nbr_seen)){
+                    // printf("Node %d dominates nbr\n", it->node_id);
+                    // printf("Nbr Agents: %s\n", agent_states_to_string(nbr).c_str());
+                    // printf("Node %d Agents: %s\n", it->node_id, agent_states_to_string(it->agents).c_str());
+                    METRICS.num_skipped_duplicate_node += 1;
+                    dominated = true;
+                    break;
+                } else if(nbr_cost_better && is_subset(it->seen, nbr_seen) && is_subset(nbr_seen, it->seen)){
+                    // Current node dominates existing node, remove existing node.
+                    it = visited_node_list.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if(dominated){
+                continue;
             }
         }
-        if(dominated){
-            continue;
-        }
-
-        generated_costs_list.push_back(node);
 
         neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
     }
@@ -413,6 +419,12 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         last_id_assigned += 1;
         const HeuristicInput& input = neighbor_heuristic_inputs[i];
         neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, agent_to_expand, node.depth + 1));
+
+        std::string nbr_key = agent_states_to_string(input.agents) + task_array_hash_string(input.tasks_left);
+        if(generated_costs_list.find(nbr_key) == generated_costs_list.end()){
+            generated_costs_list[nbr_key] = std::vector<Node>{};
+        }
+        generated_costs_list[nbr_key].push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, agent_to_expand, node.depth + 1));
     }
     return neighbor_nodes;
 }
@@ -465,7 +477,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::unordered_map<int, std::vector<AgentState>> id_lookup;
     std::unordered_set<node_hash_key, boost::hash<node_hash_key>> visited_nodes; // (map_idx, seen bitset hash)
     std::unordered_map<node_hash_key, std::vector<std::vector<int>>, boost::hash<node_hash_key>> generated_costs; // (agent positions, task positions, seen bitset hash)
-    std::vector<Node> generated_costs_list;
+    std::unordered_map<std::string, std::vector<Node>> generated_costs_list;
 
     std::ofstream debug_file;
     debug_file.open("search_debug.csv");

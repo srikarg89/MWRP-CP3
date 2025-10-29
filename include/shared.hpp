@@ -143,7 +143,7 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
 //     return str;
 // }
 
-inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+inline std::vector<AgentState> get_sorted_agents_by_position(const std::vector<AgentState>& agents){
     std::vector<AgentState> sorted_agents = agents;
     std::sort(sorted_agents.begin(), sorted_agents.end(), [](const AgentState& a, const AgentState& b){
         if(a.pos.x != b.pos.x){
@@ -152,12 +152,13 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
         if(a.pos.y != b.pos.y){
             return a.pos.y < b.pos.y;
         }
-        if(a.terminated != b.terminated){
-            return a.terminated < b.terminated;
-        }
         return a.cost < b.cost;
     });
+    return sorted_agents;
+}
 
+inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+    std::vector<AgentState> sorted_agents = get_sorted_agents_by_position(agents);
     std::string str = "[";
     for(const AgentState& agent : sorted_agents){
         str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";

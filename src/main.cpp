@@ -255,4 +255,34 @@ Aggregated Metrics:
 Total time taken: 346.670 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
+
+mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search with 1.5 focal heuristic weight
+Max time: 447
+Total nodes expanded: 1114
+Total nodes fully expanded: 1114
+Total expansions skipped: 112
+Total generations skipped because of inferior cost: 3599
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 3300
+MTSP Setup time: 1.410 seconds
+MTSP Solver time: 21.946 seconds
+Total MTSP calls: 3299
+Total neighbor expansion time: 0.278 seconds
+Total get_f_value time: 8.297 seconds
+Total domination check time: 0.008 seconds
+Max node depth expanded: 70
+Path 0 length: 447
+Total search time taken: 8.777 seconds
+
+Final timestep: 446
+Aggregated Metrics:
+	MTSP Calls: 3299
+	MTSP Setup Time: 1.410 seconds
+	MTSP Solver Time: 21.946 seconds
+	Get f_value Time: 8.297 seconds
+	Neighbor Expansion Time: 0.278 seconds
+	Domination Check Time: 0.008 seconds
+Total time taken: 9.828 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
 */

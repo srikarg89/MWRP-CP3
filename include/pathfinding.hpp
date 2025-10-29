@@ -145,35 +145,5 @@ namespace pathfinding {
         return std::make_tuple((int)optval, tour);
     }
 
-    // TSP Solver function that chooses between brute-force and Concorde based on number of nodes.
-    inline std::tuple<int, std::vector<int>> solve_tsp(const std::vector<std::vector<int>>& dist){
-        auto start = std::chrono::high_resolution_clock::now();
-
-        if(dist.size() <= 4){
-            // printf("Dist size: %ld. Solving brute force\n", dist.size());
-            METRICS.tsp_total_brute_force_calls += 1;
-            auto ret = solve_tsp_brute_force(dist);
-            auto end = std::chrono::high_resolution_clock::now();
-            auto seconds_taken = std::chrono::duration<double>(end - start).count();
-            METRICS.tsp_total_brute_force_time += seconds_taken;
-
-            // if(std::get<0>(ret) != mtsp_solution){
-            //     printf("Brute force TSP solution %d != MTSP solution %d\n", std::get<0>(ret), mtsp_solution);
-            //     exit(1);
-            // }
-            return ret;
-        }
-        else{
-            // printf("Dist size: %ld. Solving Concorde\n", dist.size());
-            METRICS.tsp_total_concorde_calls += 1;
-            auto ret = solve_tsp_concorde(dist);
-            auto end = std::chrono::high_resolution_clock::now();
-            auto seconds_taken = std::chrono::duration<double>(end - start).count();
-            METRICS.tsp_total_concorde_time += seconds_taken;
-            // printf("Concorde TSP Solver. Dist: %d and took %.6f seconds\n", dist.size(), seconds_taken);
-
-            return ret;
-        }
-    }
 
 }

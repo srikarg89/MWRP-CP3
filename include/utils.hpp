@@ -10,32 +10,18 @@ inline static const int MAX_PIVOTS = INT_MAX;
 
 inline bool is_subset(const boost::dynamic_bitset<>& a, const boost::dynamic_bitset<>& b) {
     // Returns true if a is a subset of b.
-    for(size_t i = 0; i < a.size(); i++){
-        if(a[i] && !b[i]){
-            return false;
-        }
-    }
-    return true;
-}
+    // Try 1: Naive for loop.
+    // for(size_t i = 0; i < a.size(); i++){
+    //     if(a[i] && !b[i]){
+    //         return false;
+    //     }
+    // }
+    // return true;
 
-inline bool is_subset_set(const std::unordered_set<int>& a, const std::unordered_set<int>& b) {
-    // Returns true if a is a subset of b.
-    for(const int& elem : a){
-        if(b.find(elem) == b.end()){
-            return false;
-        }
-    }
-    return true;
-}
+    // Try 2: (a ^ b).count() == a.count() - b.count()
 
-inline unordered_set<int> seen_to_unseen_set(const boost::dynamic_bitset<>& seen) {
-    std::unordered_set<int> unseen_set;
-    for(size_t i = 0; i < seen.size(); i++){
-        if(!seen[i]){
-            unseen_set.insert(i);
-        }
-    }
-    return unseen_set;
+    // Try 3: a & ~b should be empty.
+    return (a & (~b)).none();
 }
 
 inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){

@@ -17,19 +17,12 @@ struct Metrics {
     int num_skipped_task_deadlock = 0;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
+    double domination_check_time = 0.0;
 
     // MTSP Metrics.
     double mtsp_setup_time = 0.0;
     double mtsp_solver_runtime = 0.0;
-    double mtsp_solver_runtime_2 = 0.0;
     int mtsp_total_calls = 0;
-
-    // TSP Metrics.
-    double tsp_total_heuristic_time = 0.0;
-    double tsp_total_brute_force_time = 0.0;
-    double tsp_total_concorde_time = 0.0;
-    int tsp_total_brute_force_calls = 0;
-    int tsp_total_concorde_calls = 0;
 
     void reset() {
         num_skipped_duplicate_node = 0;
@@ -37,17 +30,11 @@ struct Metrics {
         num_skipped_task_deadlock = 0;
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
+        domination_check_time = 0.0;
 
         mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
-        mtsp_solver_runtime_2 = 0.0;
         mtsp_total_calls = 0;
-
-        tsp_total_heuristic_time = 0.0;
-        tsp_total_brute_force_time = 0.0;
-        tsp_total_concorde_time = 0.0;
-        tsp_total_brute_force_calls = 0;
-        tsp_total_concorde_calls = 0;
     }
 
     void add(const Metrics& other) {
@@ -56,17 +43,11 @@ struct Metrics {
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         neighbor_expansion_time += other.neighbor_expansion_time;
         f_value_calculation_time += other.f_value_calculation_time;
+        domination_check_time += other.domination_check_time;
 
         mtsp_setup_time += other.mtsp_setup_time;
         mtsp_solver_runtime += other.mtsp_solver_runtime;
-        mtsp_solver_runtime_2 += other.mtsp_solver_runtime_2;
         mtsp_total_calls += other.mtsp_total_calls;
-
-        tsp_total_heuristic_time += other.tsp_total_heuristic_time;
-        tsp_total_brute_force_time += other.tsp_total_brute_force_time;
-        tsp_total_concorde_time += other.tsp_total_concorde_time;
-        tsp_total_brute_force_calls += other.tsp_total_brute_force_calls;
-        tsp_total_concorde_calls += other.tsp_total_concorde_calls;
     }
 };
 
@@ -133,17 +114,7 @@ inline std::vector<Position> agent_states_to_positions(const std::vector<AgentSt
     return positions;
 }
 
-// Used for hashing visited nodes.
-// inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
-//     std::string str = "[";
-//     for(const AgentState& agent : agents){
-//         str += agent.pos.toString() + " / " + (agent.terminated ? " / T" : "") + ", ";
-//     }
-//     str += "]";
-//     return str;
-// }
-
-inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+inline std::vector<AgentState> get_sorted_agents_by_position(const std::vector<AgentState>& agents){
     std::vector<AgentState> sorted_agents = agents;
     std::sort(sorted_agents.begin(), sorted_agents.end(), [](const AgentState& a, const AgentState& b){
         if(a.pos.x != b.pos.x){
@@ -152,12 +123,13 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
         if(a.pos.y != b.pos.y){
             return a.pos.y < b.pos.y;
         }
-        if(a.terminated != b.terminated){
-            return a.terminated < b.terminated;
-        }
         return a.cost < b.cost;
     });
+    return sorted_agents;
+}
 
+inline std::string agent_states_to_string(const std::vector<AgentState>& agents){
+    std::vector<AgentState> sorted_agents = get_sorted_agents_by_position(agents);
     std::string str = "[";
     for(const AgentState& agent : sorted_agents){
         str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
@@ -270,6 +242,11 @@ struct CompareNodeFocal {
     }
 };
 
+struct VisitedNodeInfo {
+    int id;
+    std::vector<AgentState> agents;
+    boost::dynamic_bitset<> seen;
+};
 
 enum HeuristicType {
     BFS,

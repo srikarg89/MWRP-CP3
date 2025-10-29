@@ -27,12 +27,15 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
+- [ ] Node dominance check.
+- [ ] Cleanup
+  - [ ] Delete task deadlines.
+  - [ ] Delete collision resolution.
+  - [ ] Pass in epsilon as input into solver config.
 - [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search
   - [ ] Greedy heuristic (manually construct paths using a greedy algorithm, minimizing makespan each step of the way).
-  - [ ] Deadline-based MTSP heuristic
-  - [ ] Idk do more research for better focal search heuristics.
-- [ ] Better direct heuristic for MTSP with deadline
+  - [ ] Num seen heuristic.
 - [ ] Better direct heuristic for tasks that require multiple robots
 - [ ] Disincentivize time wasting behavior for the lower path-length robot. Could end up causing harm in the future (mc_forest.json).
   - [ ] Maybe some sort of post-search optimization. Another simple solution is to sum up all the squares you see and then run a single-agent optimal search to see those squares.

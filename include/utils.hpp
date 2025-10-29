@@ -47,18 +47,25 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         visited.insert(curr_map_idx);
 
         // Don't wanna do this if agent started at a task, since maybe we don't wanna wait for it.
-        if(curr_cost  > 0){
-            bool at_task = false;
-            for(const Task& task : tasks_left){
-                if(curr_map_idx == task.map_idx){
-                    at_task = true;
-                    break;
-                }
+        bool at_task = false;
+        for(const Task& task : tasks_left){
+            if(curr_map_idx == task.map_idx){
+                at_task = true;
+                break;
             }
-            if(at_task){
-                extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
-                continue; // Don't expand further from a task.
+        }
+
+        bool is_new = false;
+        for(Position visible : lookup.los[curr_map_idx]){
+            if(!seen[map.get_map_idx(visible)]){
+                is_new = true;
+                break;
             }
+        }
+
+        if((is_new || at_task) && curr_cost > 0){
+            extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
+            continue; // Don't expand further from a task or from a cell that can see a new cel.
         }
 
         std::vector<Position> neighbors = map.get_neighbors(curr_pos);
@@ -67,19 +74,7 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             if(visited.find(neighbor_map_idx) != visited.end()){
                 continue;
             }
-
-            bool is_new = false;
-            for(Position visible : lookup.los[neighbor_map_idx]){
-                if(!seen[map.get_map_idx(visible)]){
-                    is_new = true;
-                    break;
-                }
-            }
-            if(is_new){
-                extended_neighbors.push_back(std::make_tuple(neighbor, curr_cost + 1));
-            } else {
-                queue.push(std::make_tuple(neighbor, curr_cost + 1));
-            }
+            queue.push(std::make_tuple(neighbor, curr_cost + 1));
         }
     }
 

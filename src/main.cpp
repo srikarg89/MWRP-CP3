@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <ctime>
 #include "search.hpp"
 #include "environment.hpp"
 
@@ -50,15 +51,17 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
 }
 
 void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_config) {
+    auto now = std::chrono::system_clock::now();
+    std::time_t curr_time = std::chrono::system_clock::to_time_t(now);
+    printf("Starting computation at %s\n", std::ctime(&curr_time));
+
     Environment env(scenario_config);
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type, env.get_agent_positions());
-
     print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
-    // exit(0);
 
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
@@ -138,6 +141,9 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     printf("\tMTSP Calls: %d\n", aggregated.mtsp_total_calls);
     printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
     printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);
+    printf("\tGet f_value Time: %.3f seconds\n", aggregated.f_value_calculation_time);
+    printf("\tNeighbor Expansion Time: %.3f seconds\n", aggregated.neighbor_expansion_time);
+    printf("\tDomination Check Time: %.3f seconds\n", aggregated.domination_check_time);
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
@@ -215,4 +221,36 @@ Aggregated Metrics:
 Total time taken: 24.610 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
+
+mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search
+Max time: 450
+Total nodes expanded: 35721
+Total nodes fully expanded: 35721
+Total expansions skipped: 1136
+Total generations skipped because of inferior cost: 194758
+Total generations skipped because of task failure: 0
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 126943
+MTSP Setup time: 48.247 seconds
+MTSP Solver time: 889.748 seconds
+Total MTSP calls: 126745
+Total neighbor expansion time: 20.980 seconds
+Total get_f_value time: 289.261 seconds
+Total domination check time: 40.916 seconds
+Max node depth expanded: 73
+Path 0 length: 450
+Total search time taken: 359.014 seconds
+
+Final timestep: 449
+Aggregated Metrics:
+	MTSP Calls: 126745
+	MTSP Setup Time: 48.247 seconds
+	MTSP Solver Time: 889.748 seconds
+	Get f_value Time: 289.261 seconds
+	Neighbor Expansion Time: 20.980 seconds
+	Domination Check Time: 40.916 seconds
+Total time taken: 360.270 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+
 */

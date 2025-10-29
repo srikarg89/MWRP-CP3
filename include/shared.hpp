@@ -400,7 +400,8 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
 
 struct SolverConfig {
     HeuristicType heuristic_type;
-    double focal_weight;
+    double focal_epsilon;
+    double focal_heuristic_weight;
 };
 
 inline void strip(std::string& s) {

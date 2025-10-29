@@ -12,7 +12,7 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
-std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
+std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, double focal_heuristic_weight, const Lookup& lookup) {
     std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
     for (const auto& input : neighbor_heuristic_inputs) {
         f_and_focal_values.push_back(std::make_pair(input.cost, 0));
@@ -77,6 +77,11 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
         auto result = futures[i].get();
         f_and_focal_values[tsp_idxs[i]].first = std::max(f_and_focal_values[tsp_idxs[i]].first, result.first); // Ensure that f value is max of singleton and TSP.
         f_and_focal_values[tsp_idxs[i]].second = std::max(f_and_focal_values[tsp_idxs[i]].second, result.second); // Ensure that focal value is max of singleton and TSP.
+    }
+
+    // TODO: Remove experimentation.
+    for(int i = 0; i < f_and_focal_values.size(); i++) {
+        f_and_focal_values[i].second = neighbor_heuristic_inputs[i].cost + focal_heuristic_weight * f_and_focal_values[i].second;
     }
 
     return f_and_focal_values;
@@ -340,7 +345,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     }
 
     start = std::chrono::high_resolution_clock::now();
-    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, map, neighbor_heuristic_inputs, lookup);
+    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, map, neighbor_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
     METRICS.f_value_calculation_time += duration.count();
@@ -435,7 +440,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     for(const Task& task : incomplete_tasks){
         printf("\t%s\n", task.toString().c_str());
     }
-    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, lookup)[0];
+    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d\n", start_f_value, start_focal_value, num_start_seen);
     // exit(0);
 
@@ -467,7 +472,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             prev_min_f = min_f_value;
             // Add to focal list.
             auto it = open_set.ordered_begin();
-            int max_f_value = (int)(solver_config.focal_weight * min_f_value);
+            int max_f_value = (int)(solver_config.focal_epsilon * min_f_value);
             while(it != open_set.ordered_end() && it->f_value <= max_f_value){
                 if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
                     focal_list.push(*it);
@@ -493,7 +498,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         if(solver_config.heuristic_type == LAZY && curr.is_lazy){
             // Recompute f value.
-            auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, lookup)[0];
+            auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
             // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
             new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
             new_focal_value = std::max(new_focal_value, curr.focal_heuristic); // Ensure focal value never decreases.
@@ -516,7 +521,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(num_fully_expanded % 100 == 0){
             printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
             printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
-            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_weight * prev_min_f));
+            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_epsilon * prev_min_f));
         }
 
         // printf("Expanding node %d. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", num_expanded, curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, curr.num_seen);
@@ -580,7 +585,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
             handle_lookup[nbr.node_id] = open_set.push(nbr);
-            if(nbr.f_value <= (int)(solver_config.focal_weight * prev_min_f)){
+            if(nbr.f_value <= (int)(solver_config.focal_epsilon * prev_min_f)){
                 focal_list.push(nbr);
                 added_to_focal_list.insert(nbr.node_id);
             }

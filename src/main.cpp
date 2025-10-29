@@ -30,16 +30,24 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
         throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
     }
 
-    double focal_weight;
+    double focal_epsilon;
     try {
-        focal_weight = std::stod(argv[3]);
+        focal_epsilon = std::stod(argv[3]);
     } catch (const std::invalid_argument& e) {
-        throw std::runtime_error("Invalid focal weight: " + std::string(argv[3]));
+        throw std::runtime_error("Invalid focal epsilon: " + std::string(argv[3]));
+    }
+
+    double focal_heuristic_weight;
+    try {
+        focal_heuristic_weight = std::stod(argv[4]);
+    } catch (const std::invalid_argument& e) {
+        throw std::runtime_error("Invalid focal heuristic weight: " + std::string(argv[4]));
     }
 
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
-        .focal_weight = focal_weight,
+        .focal_epsilon = focal_epsilon,
+        .focal_heuristic_weight = focal_heuristic_weight,
     };
 
     return {scenario_config, solver_config};
@@ -148,8 +156,8 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 }
 
 int main(int argc, char** argv) {
-    if(argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_weight>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
+    if(argc != 5) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_epsilon> <focal_heuristic_weight>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
         return 1;
     }
 

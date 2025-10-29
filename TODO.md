@@ -61,6 +61,7 @@
 - [x] Focal search
   - [x] SOC focal heuristic.
   - [x] Num seen focal heuristic.
+  - [x] Weighted A* for focal heuristic.
 - [x] Node dominance check.
 - [x] Cleanup
   - [x] Delete task deadlines.

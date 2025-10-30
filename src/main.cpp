@@ -44,10 +44,18 @@ std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) 
         throw std::runtime_error("Invalid focal heuristic weight: " + std::string(argv[4]));
     }
 
+    double focal_search_time_limit;
+    try {
+        focal_search_time_limit = std::stod(argv[5]);
+    } catch (const std::invalid_argument& e) {
+        throw std::runtime_error("Invalid focal search time limit: " + std::string(argv[5]));
+    }
+
     SolverConfig solver_config = SolverConfig{
         .heuristic_type = heuristic_type,
         .focal_epsilon = focal_epsilon,
         .focal_heuristic_weight = focal_heuristic_weight,
+        .focal_search_time_limit = focal_search_time_limit
     };
 
     return {scenario_config, solver_config};
@@ -156,8 +164,8 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 }
 
 int main(int argc, char** argv) {
-    if(argc != 5) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_epsilon> <focal_heuristic_weight>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
+    if(argc != 6) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_epsilon> <focal_heuristic_weight> <focal_search_time_limit>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
         return 1;
     }
 
@@ -225,37 +233,6 @@ Total time taken: 24.610 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
 
-mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search
-Max time: 450
-Total nodes expanded: 35721
-Total nodes fully expanded: 35721
-Total expansions skipped: 1136
-Total generations skipped because of inferior cost: 194758
-Total generations skipped because of task failure: 0
-Total generations skipped because of task deadlock: 0
-Total nodes generated: 126943
-MTSP Setup time: 48.892 seconds
-MTSP Solver time: 903.050 seconds
-Total MTSP calls: 126704
-Total neighbor expansion time: 21.571 seconds
-Total get_f_value time: 293.306 seconds
-Total domination check time: 22.316 seconds
-Max node depth expanded: 73
-Path 0 length: 450
-Total search time taken: 345.360 seconds
-
-Final timestep: 449
-Aggregated Metrics:
-	MTSP Calls: 126704
-	MTSP Setup Time: 48.892 seconds
-	MTSP Solver Time: 903.050 seconds
-	Get f_value Time: 293.306 seconds
-	Neighbor Expansion Time: 21.571 seconds
-	Domination Check Time: 22.316 seconds
-Total time taken: 346.670 seconds
-Total tasks completed: 0 / 0
-Total squares seen: 2652 / 2652
-
 mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search with 1.5 focal heuristic weight
 Max time: 447
 Total nodes expanded: 1114
@@ -285,4 +262,34 @@ Aggregated Metrics:
 Total time taken: 9.828 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
+
+mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search with 1.5 focal heuristic weight and 20s time limit
+Total nodes expanded: 2953
+Total nodes fully expanded: 2953
+Total expansions skipped: 266
+Total generations skipped because of inferior cost: 10496
+Total generations skipped because of task deadlock: 0
+Total nodes generated: 8590
+MTSP Setup time: 3.676 seconds
+MTSP Solver time: 45.404 seconds
+Total MTSP calls: 8565
+Total neighbor expansion time: 1.645 seconds
+Total get_f_value time: 17.797 seconds
+Total domination check time: 0.027 seconds
+Max node depth expanded: 74
+Path 0 length: 437
+Total search time taken: 20.003 seconds
+
+Final timestep: 436
+Aggregated Metrics:
+	MTSP Calls: 8565
+	MTSP Setup Time: 3.676 seconds
+	MTSP Solver Time: 45.404 seconds
+	Get f_value Time: 17.797 seconds
+	Neighbor Expansion Time: 1.645 seconds
+	Domination Check Time: 0.027 seconds
+Total time taken: 21.075 seconds
+Total tasks completed: 0 / 0
+Total squares seen: 2652 / 2652
+
 */

@@ -12,6 +12,7 @@ struct Metrics {
     // General search metrics.
     int num_skipped_duplicate_node = 0;
     int num_skipped_task_deadlock = 0;
+    int num_skipped_high_lazy_f_value;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
     double domination_check_time = 0.0;
@@ -36,6 +37,7 @@ struct Metrics {
     void add(const Metrics& other) {
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
+        num_skipped_high_lazy_f_value += other.num_skipped_high_lazy_f_value;
         neighbor_expansion_time += other.neighbor_expansion_time;
         f_value_calculation_time += other.f_value_calculation_time;
         domination_check_time += other.domination_check_time;
@@ -402,6 +404,7 @@ struct SolverConfig {
     HeuristicType heuristic_type;
     double focal_epsilon;
     double focal_heuristic_weight;
+    double focal_search_time_limit;
 };
 
 inline void strip(std::string& s) {

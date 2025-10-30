@@ -339,23 +339,21 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     lookup.sorted_pivot_order = sorted_pivot_order;
 
     // Precompute the Singleton heuristic helper lookup table.
-    if(heuristic_type == HeuristicType::SINGLETON || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
-        for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-            std::vector<int> min_dists(map.num_squares, INT_MAX);
-            lookup.min_dist_to_see.push_back(min_dists);
-        }
+    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+        std::vector<int> min_dists(map.num_squares, INT_MAX);
+        lookup.min_dist_to_see.push_back(min_dists);
+    }
 
-        // For each target position.
-        for(int g_map_idx = 0; g_map_idx < map.num_squares; g_map_idx++){
-            // For each source position.
-            for(int s_map_idx = 0; s_map_idx < map.num_squares; s_map_idx++){
-                // Loop through each watcher.
-                for(Position watcher_pos : lookup.watchers[g_map_idx]){
-                    int watcher_idx = map.get_map_idx(watcher_pos);
+    // For each target position.
+    for(int g_map_idx = 0; g_map_idx < map.num_squares; g_map_idx++){
+        // For each source position.
+        for(int s_map_idx = 0; s_map_idx < map.num_squares; s_map_idx++){
+            // Loop through each watcher.
+            for(Position watcher_pos : lookup.watchers[g_map_idx]){
+                int watcher_idx = map.get_map_idx(watcher_pos);
 
-                    // Calculate min dist to get to any watcher.
-                    lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][watcher_idx]);
-                }
+                // Calculate min dist to get to any watcher.
+                lookup.min_dist_to_see[s_map_idx][g_map_idx] = std::min(lookup.min_dist_to_see[s_map_idx][g_map_idx], lookup.apsp[s_map_idx][watcher_idx]);
             }
         }
     }
@@ -365,31 +363,29 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Singleton precomputation time: %.6f seconds\n", duration.count());
 
     // Precompute the distance between pivots in disjoint graph 
-    if(heuristic_type == HeuristicType::TSP || heuristic_type == HeuristicType::MAX || heuristic_type == HeuristicType::LAZY){
-        for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-            std::vector<int> min_dists(map.num_squares, INT_MAX);
-            lookup.pivot_pivot_dists.push_back(min_dists);
+    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+        std::vector<int> min_dists(map.num_squares, INT_MAX);
+        lookup.pivot_pivot_dists.push_back(min_dists);
+    }
+
+    // Loop through each pivot and compute distances from pivot's watchers to the watchers of any other pivot and to any other cell.
+    for(int pivot_idx = 0; pivot_idx < map.num_squares; pivot_idx++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
+            std::vector<int> infinite_distances(map.num_squares, INT_MAX);
+            lookup.pivot_cell_dists.push_back(infinite_distances);
+            lookup.pivot_pivot_dists.push_back(infinite_distances);
+            continue;
         }
 
-        // Loop through each pivot and compute distances from pivot's watchers to the watchers of any other pivot and to any other cell.
-        for(int pivot_idx = 0; pivot_idx < map.num_squares; pivot_idx++){
-            if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
-                std::vector<int> infinite_distances(map.num_squares, INT_MAX);
-                lookup.pivot_cell_dists.push_back(infinite_distances);
-                lookup.pivot_pivot_dists.push_back(infinite_distances);
-                continue;
-            }
+        // For each pivot, we want to compute the distances from the pivot component to every other location.
+        // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
+        auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.watchers[pivot_idx], map);
+        lookup.pivot_cell_dists.push_back(pivot_cell_dists);
 
-            // For each pivot, we want to compute the distances from the pivot component to every other location.
-            // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
-            auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.watchers[pivot_idx], map);
-            lookup.pivot_cell_dists.push_back(pivot_cell_dists);
-
-            for(int cell_idx = 0; cell_idx < map.num_squares; cell_idx++){
-                for(Position watcher_pos : lookup.watchers[cell_idx]){
-                    int watcher_idx = map.get_map_idx(watcher_pos);
-                    lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[watcher_idx]);
-                }
+        for(int cell_idx = 0; cell_idx < map.num_squares; cell_idx++){
+            for(Position watcher_pos : lookup.watchers[cell_idx]){
+                int watcher_idx = map.get_map_idx(watcher_pos);
+                lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[watcher_idx]);
             }
         }
     }

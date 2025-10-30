@@ -27,12 +27,22 @@
 
 **Docket**
 - [ ] Implement tasks that take a certain amount of time to complete.
-- [ ] Anytime focal search
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
 - [ ] Better direct heuristic for tasks that require multiple robots
 - [ ] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized framework).
+  - [ ] Parallelize this decentralized single-agent search.
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
+
+**Paper Docket**
+- [ ] More experiments on similarly large maps.
+  - [ ] Create maps with randomized task layouts.
+- [ ] Experiments with 5 robots (more if fast).
+- [ ] Experiments testing different focal epsilons and weight values.
+  - [ ] Record optimal solution length, runtime, sum of costs, etc.
+- [ ] Implement frontier-based search baseline.
+- [ ] Implement frontier-based search + greedy task baseline.
+- [ ] Implement our search + greedy task baseline.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -67,6 +77,8 @@
   - [x] Delete task deadlines.
   - [x] Delete collision resolution.
   - [x] Pass in epsilon as input into solver config.
+- [x] Anytime focal search
+  - [x] Lazy removal of nodes using singleton heuristic.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -86,6 +98,9 @@
 - Node dominance (also in original paper).
 - Focal search.
   - SOC focal heuristic.
+- Anytime focal search
+  - Removal of nodes whose f-value exceeds solution cost.
+  - Lazy removal of nodes using singleton heuristic.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

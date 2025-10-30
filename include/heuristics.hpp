@@ -17,7 +17,6 @@ struct HeuristicInput {
     int num_seen;
 };
 
-// TODO: Speed this up by keeping track of only unseen squares instead of iterating through all squares.
 int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     int f_value = 0;
     std::unordered_map<int, int> min_time_to_complete_task;

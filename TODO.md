@@ -97,7 +97,7 @@
 - Path dominance.
 - Node dominance (also in original paper).
 - Focal search.
-  - SOC focal heuristic.
+  - Weighted SOC focal heuristic.
 - Anytime focal search
   - Removal of nodes whose f-value exceeds solution cost.
   - Lazy removal of nodes using singleton heuristic.

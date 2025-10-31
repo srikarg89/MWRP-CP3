@@ -450,7 +450,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::unordered_map<int, Heap::handle_type> handle_lookup;
 
     boost::heap::fibonacci_heap<Node, boost::heap::compare<CompareNodeFocal>> focal_list;
-    int prev_min_f = 0;
+    int prev_min_f = -1;
     std::unordered_set<int> added_to_focal_list;
 
     std::unordered_map<int, int> pred_lookup;
@@ -481,7 +481,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("\t%s\n", task.toString().c_str());
     }
     auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
-    printf("Start f value: %d, Start focal value: %d, Num start seen: %d\n", start_f_value, start_focal_value, num_start_seen);
+    printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
     // exit(0);
 
     handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*last_agent_expanded = */ 0, /*depth = */ 0));
@@ -516,7 +516,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             prev_min_f = min_f_value;
             // Add to focal list.
             auto it = open_set.ordered_begin();
-            int max_f_value = (int)(solver_config.focal_epsilon * min_f_value);
+            int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)min_f_value);
             while(it != open_set.ordered_end() && it->f_value <= max_f_value){
                 if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
                     focal_list.push(*it);
@@ -594,6 +594,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, best_solution_cost, last_id_assigned, generated_costs, avoid_expansion_list);
+
         num_generated += neighbors.size();
         if(neighbors.size() > 0){
             last_id_assigned = neighbors.back().node_id;

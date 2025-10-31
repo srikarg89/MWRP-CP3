@@ -78,7 +78,7 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
     }
 
-    // Should result in less node generation, but may require more node expansion.
+    // Should result in significantly less node generation, but may require more node expansion.
     for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
         int curr_map_idx = map.get_map_idx(std::get<0>(*it));
         int curr_cost = std::get<1>(*it);

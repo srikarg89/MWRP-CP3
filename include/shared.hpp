@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <boost/dynamic_bitset.hpp>
 
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -399,6 +400,60 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
     printf("Max Edge Cost: %d\n", graph.max_edge_cost);
     printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
 }
+
+struct ProblemInput {
+    HeuristicType heuristic_type;
+    double centralized_focal_epsilon;
+    double centralized_focal_heuristic_weight;
+    double centralized_focal_search_time_limit;
+    bool run_decentralized_search;
+    double decentralized_focal_epsilon;
+    double decentralized_focal_heuristic_weight;
+    double decentralized_focal_search_time_limit;
+
+    static ProblemInput from_json(const std::string& config_filename) {
+        std::ifstream i(config_filename);
+        nlohmann::json parsed_data = nlohmann::json::parse(i);
+        HeuristicType heuristic_type;
+        std::string heuristic_str = parsed_data["heuristic"].get<std::string>();
+        if(heuristic_str == "BFS") {
+            heuristic_type = HeuristicType::BFS;
+        } else if(heuristic_str == "SINGLETON") {
+            heuristic_type = HeuristicType::SINGLETON;
+        } else if(heuristic_str == "MST") {
+            printf("MST heuristic is no longer supported.\n");
+            exit(1);
+        } else if(heuristic_str == "TSP") {
+            heuristic_type = HeuristicType::TSP;
+        } else if(heuristic_str == "MAX") {
+            heuristic_type = HeuristicType::MAX;
+        } else if(heuristic_str == "LAZY") {
+            heuristic_type = HeuristicType::LAZY;
+        } else {
+            throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
+        }
+
+        double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();
+        double centralized_focal_heuristic_weight = parsed_data["centralized_focal_heuristic_weight"].get<double>();
+        double centralized_focal_search_time_limit = parsed_data["centralized_focal_search_time_limit"].get<double>();
+        bool run_decentralized_search = parsed_data["run_decentralized_search"].get<bool>();
+        double decentralized_focal_epsilon = parsed_data["decentralized_focal_epsilon"].get<double>();
+        double decentralized_focal_heuristic_weight = parsed_data["decentralized_focal_heuristic_weight"].get<double>();
+        double decentralized_focal_search_time_limit = parsed_data["decentralized_focal_search_time_limit"].get<double>();
+
+        return ProblemInput{
+            .heuristic_type = heuristic_type,
+            .centralized_focal_epsilon = centralized_focal_epsilon,
+            .centralized_focal_heuristic_weight = centralized_focal_heuristic_weight,
+            .centralized_focal_search_time_limit = centralized_focal_search_time_limit,
+            .run_decentralized_search = run_decentralized_search,
+            .decentralized_focal_epsilon = decentralized_focal_epsilon,
+            .decentralized_focal_heuristic_weight = decentralized_focal_heuristic_weight,
+            .decentralized_focal_search_time_limit = decentralized_focal_search_time_limit
+        };
+    }
+};
+
 
 struct SolverConfig {
     HeuristicType heuristic_type;

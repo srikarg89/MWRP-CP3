@@ -619,6 +619,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("\n\nNO SOLUTION FOUND!!!\n\n");
     }
 
+    if(open_set.empty()){
+        printf("Open set exhausted!!\n");
+    }
+
     add_waits_to_end(solution_paths);
 
     for(int i = 0; i < solution_paths.size(); i++){

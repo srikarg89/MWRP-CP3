@@ -38,8 +38,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     aggregated.reset();
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup);
-    aggregated.add(METRICS);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -89,8 +88,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
         if(new_task_found) {
             printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
-            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup);
-            aggregated.add(METRICS);
+            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
             s_t = 1;
         }
     }
@@ -101,6 +99,9 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     final_run_file.close();
 
     printf("Aggregated Metrics:\n");
+    printf("\tCentralized Search Time: %.3f seconds\n", aggregated.centralized_search_time);
+    printf("\tDecentralized Search Time: %.3f seconds\n", aggregated.decentralized_search_time);
+    printf("\tNumber of Decentralized Searches: %d\n", aggregated.num_decentralized_searches);
     printf("\tMTSP Calls: %d\n", aggregated.mtsp_total_calls);
     printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
     printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);

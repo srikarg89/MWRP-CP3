@@ -3,7 +3,7 @@
 #include "shared.hpp"
 
 // Copy taken since we alter the paths.
-void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
+inline void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
     int max_time = 0;
     for(const auto& path : paths){
         max_time = std::max(max_time, (int)path.size());
@@ -18,8 +18,7 @@ void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
     }
 }
 
-
-std::vector<std::vector<Position>> postprocess_collisions(std::vector<std::vector<Position>> paths) {
+inline std::vector<std::vector<Position>> postprocess_collisions(std::vector<std::vector<Position>> paths) {
     int max_time = 0;
     std::vector<int> makespans;
     for(const auto& path : paths){

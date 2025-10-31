@@ -10,10 +10,15 @@
 
 // Singleton metrics.
 struct Metrics {
+    // Heirarchical search metrics.
+    double centralized_search_time = 0.0;
+    double decentralized_search_time = 0.0;
+    int num_decentralized_searches = 0;
+
     // General search metrics.
     int num_skipped_duplicate_node = 0;
     int num_skipped_task_deadlock = 0;
-    int num_skipped_high_lazy_f_value;
+    int num_skipped_high_lazy_f_value = 0;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
     double domination_check_time = 0.0;
@@ -24,8 +29,13 @@ struct Metrics {
     int mtsp_total_calls = 0;
 
     void reset() {
+        centralized_search_time = 0.0;
+        decentralized_search_time = 0.0;
+        num_decentralized_searches = 0;
+
         num_skipped_duplicate_node = 0;
         num_skipped_task_deadlock = 0;
+        num_skipped_high_lazy_f_value = 0;
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
         domination_check_time = 0.0;
@@ -36,6 +46,10 @@ struct Metrics {
     }
 
     void add(const Metrics& other) {
+        centralized_search_time += other.centralized_search_time;
+        decentralized_search_time += other.decentralized_search_time;
+        num_decentralized_searches += other.num_decentralized_searches;
+
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         num_skipped_high_lazy_f_value += other.num_skipped_high_lazy_f_value;

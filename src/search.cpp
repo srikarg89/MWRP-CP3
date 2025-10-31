@@ -623,11 +623,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("Open set exhausted!!\n");
     }
 
-    add_waits_to_end(solution_paths);
+    // add_waits_to_end(solution_paths);
 
-    for(int i = 0; i < solution_paths.size(); i++){
-        printf("Path for agent %d (length %ld): %s\n", i, solution_paths[i].size(), pos_array_to_string(solution_paths[i]).c_str());
-    }
+    // for(int i = 0; i < solution_paths.size(); i++){
+    //     printf("Path for agent %d (length %ld): %s\n", i, solution_paths[i].size(), pos_array_to_string(solution_paths[i]).c_str());
+    // }
 
     printf("Total nodes expanded: %d\n", num_expanded);
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);

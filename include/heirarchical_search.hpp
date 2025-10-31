@@ -5,6 +5,7 @@
 
 #include "shared.hpp"
 #include "los.hpp"
+#include "collisions.hpp"
 #include "search.hpp"
 
 boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector<std::vector<Position>> paths, int agent_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
@@ -41,10 +42,9 @@ boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector
     return responsibility;
 }
 
-// TODO: Have separate solver config for multi-agent and single-agent searches.
-// TODO: Figure out task partition.
+// TODO: Add in task partition.
 // TODO: How tf do i do multi-robot partition.
-std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup){
+std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, Metrics& aggregated_metrics){
     // First run a normal search to get the initial partition.
     SolverConfig solver_config = {
         .heuristic_type = problem_input.heuristic_type,
@@ -52,23 +52,46 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         .focal_heuristic_weight = problem_input.centralized_focal_heuristic_weight,
         .focal_search_time_limit = problem_input.centralized_focal_search_time_limit
     };
-    std::vector<std::vector<Position>> centralized_solution = run_search(start_timestep, starts, incomplete_tasks, start_seen, map, solver_config, lookup);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, incomplete_tasks, start_seen, map, solver_config, lookup);
+    aggregated_metrics.add(METRICS);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end_time - start_time;
+    printf("Centralized search time: %.6f seconds\n", duration.count());
+    aggregated_metrics.centralized_search_time += duration.count();
     if(!problem_input.run_decentralized_search){
-        return centralized_solution;
+        add_waits_to_end(multi_agent_solution);
+        return multi_agent_solution;
     }
 
     // Figure out which agent has the highest makespan.
-    std::priority_queue<std::pair<int, int>> agent_to_update; // (makespan, agent_idx)
-    for(int agent_idx = 0; agent_idx < centralized_solution.size(); agent_idx++){
-        agent_to_update.push({centralized_solution[agent_idx].size(), agent_idx});
-    }
+    std::vector<bool> should_retry = std::vector<bool>(starts.size(), true);
 
-    while(!agent_to_update.empty()){
-        auto [makespan, agent_idx] = agent_to_update.top();
-        agent_to_update.pop();
+    start_time = std::chrono::high_resolution_clock::now();
+    int num_decentralized_searches = 0;
+    while(true){
+        int best_agent_idx = -1;
+        int largest_agent_makespan = 0;
+        for(int agent_idx = 0; agent_idx < multi_agent_solution.size(); agent_idx++){
+            if(should_retry[agent_idx]){
+                int agent_makespan = multi_agent_solution[agent_idx].size();
+                if(agent_makespan > largest_agent_makespan){
+                    largest_agent_makespan = agent_makespan;
+                    best_agent_idx = agent_idx;
+                }
+            }
+        }
+
+        if(best_agent_idx == -1){
+            // No more agents to retry.
+            break;
+        }
+
+        printf("Retrying agent %d with makespan %d\n", best_agent_idx, largest_agent_makespan);
+        int agent_idx = best_agent_idx;
 
         // Get partition responsibility for this agent.
-        boost::dynamic_bitset<> responsibility = get_partition_responsibility(map, centralized_solution, agent_idx, start_seen, lookup);
+        boost::dynamic_bitset<> responsibility = get_partition_responsibility(map, multi_agent_solution, agent_idx, start_seen, lookup);
         printf("Responsibility for agent %d: %ld\n", agent_idx, responsibility.count());
 
         // Run single-agent search for this agent with their responsibility.
@@ -80,16 +103,34 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         };
         std::vector<Position> single_agent_start = {starts[agent_idx]};
         boost::dynamic_bitset<> single_agent_seen = responsibility.flip();
-        Lookup single_agent_lookup;
-        precompute_lookup(single_agent_lookup, map, problem_input.heuristic_type, single_agent_start);
+        Lookup single_agent_lookup = lookup;
+        single_agent_lookup.strictly_easier = calculate_path_dominance(single_agent_start, map, lookup.watchers, lookup.watchers_set, lookup.los);
         print_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start);
         std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, incomplete_tasks, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
+        aggregated_metrics.add(METRICS);
 
         // Update centralized solution.
-        if(single_agent_solution[0].size() < centralized_solution[agent_idx].size()){
-            centralized_solution[agent_idx] = single_agent_solution[0];
+        if(single_agent_solution[0].size() < multi_agent_solution[agent_idx].size()){
+            multi_agent_solution[agent_idx] = single_agent_solution[0];
+
+            // TODO: Only do this if the new coverage partition is not a subset of the old coverage partition.
+            // Everyone else can retry
+            for(int other_agent_idx = 0; other_agent_idx < multi_agent_solution.size(); other_agent_idx++){
+                if(other_agent_idx != agent_idx){
+                    should_retry[other_agent_idx] = true;
+                }
+            }
         }
+        should_retry[agent_idx] = false;
+        num_decentralized_searches += 1;
     }
 
-    return centralized_solution;
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+    printf("Decentralized search time: %.6f seconds\n", duration.count());
+    aggregated_metrics.decentralized_search_time += duration.count();
+    aggregated_metrics.num_decentralized_searches += num_decentralized_searches;
+
+    add_waits_to_end(multi_agent_solution);
+    return multi_agent_solution;
 }

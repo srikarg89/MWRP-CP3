@@ -79,8 +79,8 @@ inline void print_map_state(const Lookup& lookup, const Map& map, boost::dynamic
         }
     }
 
-    printf("Map State: %s\n", map_list.c_str());
-    printf("Map width: %d, height: %d\n", map.x_size, map.y_size);
+    // printf("Map State: %s\n", map_list.c_str());
+    // printf("Map width: %d, height: %d\n", map.x_size, map.y_size);
 }
 
 inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, boost::dynamic_bitset<> start_seen, const Map& map, const Lookup& lookup){

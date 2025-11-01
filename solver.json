@@ -7,5 +7,5 @@
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_focal_search_time_limit": 10.0,
-    "max_decentralized_searches": 10
+    "max_decentralized_searches": 2
 }

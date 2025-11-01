@@ -388,6 +388,7 @@ struct Lookup {
 
     // Squares that are strictly easier to see than another square. Can be ignored during the exploration aspect of the search.
     std::vector<bool> strictly_easier;
+    std::vector<std::vector<bool>> strictly_easier_per_agent;
 };
 
 struct DisjointGraph {

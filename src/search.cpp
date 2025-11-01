@@ -478,6 +478,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Incomplete tasks (%ld): \n", incomplete_tasks.size());
     for(const Task& task : incomplete_tasks){
         printf("\t%s\n", task.toString().c_str());
+        if(task.num_agents_required > starts.size()){
+            printf("Task %s requires more agents (%d) than are available (%ld). No solution possible.\n", task.toString().c_str(), task.num_agents_required, starts.size());
+            exit(1);
+        }
     }
     auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
@@ -566,11 +570,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         write_node_to_file(debug_file, curr, lookup, map, pred_lookup[curr.node_id], solver_config.heuristic_type);
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
-        if(num_fully_expanded % 100 == 0){
-            printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
-            printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
-            printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_epsilon * prev_min_f));
-        }
+        // if(num_fully_expanded % 100 == 0){
+        //     printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen);
+        //     printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
+        //     printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_epsilon * prev_min_f));
+        // }
 
         // Goal condition.
         if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
@@ -585,9 +589,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             solution_found = true;
             best_solution_cost = curr.cost;
             solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
-            for(const auto& path : solution_paths){
-                printf("Path length: %ld\n", path.size());
-            }
+            // for(const auto& path : solution_paths){
+            //     printf("Path length: %ld\n", path.size());
+            // }
             continue;
             // break;
         }
@@ -632,16 +636,16 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     // printf("Total expansions skipped by domination check: %d\n", num_skipped_dom);
-    printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
-    printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
-    printf("Total generations skipped for high lazy f value: %d\n", METRICS.num_skipped_high_lazy_f_value);
-    printf("Total generations discarded for high f value: %d\n", num_discarded_high_f);
+    // printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
+    // printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
+    // printf("Total generations skipped for high lazy f value: %d\n", METRICS.num_skipped_high_lazy_f_value);
+    // printf("Total generations discarded for high f value: %d\n", num_discarded_high_f);
     printf("Total nodes generated: %d\n", num_generated);
-    if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
-        printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
-        printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
-        printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
-    }
+    // if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
+    //     printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
+    //     printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
+    //     printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
+    // }
     printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
     printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
     printf("Total domination check time: %.3f seconds\n", METRICS.domination_check_time);
@@ -663,7 +667,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     write_solution_to_file(solution_file, solution_paths, start_seen, map, lookup);
     solution_file.close();
 
-    printf("\n");
     return solution_paths;
 }
 

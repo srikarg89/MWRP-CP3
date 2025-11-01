@@ -245,4 +245,44 @@ Total time taken: 21.075 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
 
+
+
+HEIRARCHICAL SEARCH COMPARISON
+
+mc_forest, 5 tasks, no mrt, two agents, centralized search only.
+Final timestep: 361
+Aggregated Metrics:
+	Centralized Search Time: 148.724 seconds
+	Decentralized Search Time: 0.000 seconds
+	Number of Decentralized Searches: 0
+	MTSP Calls: 139438
+	MTSP Setup Time: 47.395 seconds
+	MTSP Solver Time: 402.236 seconds
+	Get f_value Time: 60.015 seconds
+	Neighbor Expansion Time: 66.963 seconds
+	Domination Check Time: 1.586 seconds
+Total time taken: 170.659 seconds
+Total tasks completed: 5 / 5
+Total squares seen: 2652 / 2652
+
+mc_forest, 5 tasks, no mrt, two agents, heirarchical search only.
+Max time: 102
+Task completed at (45,39)!
+Task completed at (20,31)!
+Final timestep: 275
+Aggregated Metrics:
+	Centralized Search Time: 83.183 seconds
+	Decentralized Search Time: 154.073 seconds
+	Number of Decentralized Searches: 12
+	MTSP Calls: 110624
+	MTSP Setup Time: 36.851 seconds
+	MTSP Solver Time: 365.345 seconds
+	Get f_value Time: 99.799 seconds
+	Neighbor Expansion Time: 102.982 seconds
+	Domination Check Time: 2.157 seconds
+Total time taken: 274.045 seconds
+Total tasks completed: 5 / 5
+Total squares seen: 2652 / 2652
+
+
 */

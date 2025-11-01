@@ -8,10 +8,14 @@
 #include "collisions.hpp"
 #include "search.hpp"
 
-boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector<std::vector<Position>> paths, int agent_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
+struct Partition {
+    boost::dynamic_bitset<> vision;
+    std::vector<Task> tasks;
+};
+
+boost::dynamic_bitset<> get_vision_partition_responsibility(const Map& map, std::vector<std::vector<Position>> paths, int agent_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     boost::dynamic_bitset<> responsibility(map.num_squares);
     responsibility.set();
-    printf("Starting responsibility count: %ld\n", responsibility.count());
 
     // Remove all squares that have already been seen + all obstacles.
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
@@ -20,8 +24,6 @@ boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector
             responsibility[map_idx] = 0;
         }
     }
-
-    printf("After removing start seen and obstacles: %ld\n", responsibility.count());
 
     // Remove all squares that other agents' paths see.
     for(int other_agent_idx = 0; other_agent_idx < paths.size(); other_agent_idx++){
@@ -37,10 +39,47 @@ boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector
         }
     }
 
-    printf("After removing other agents' LOS: %ld\n", responsibility.count());
-
     return responsibility;
 }
+
+std::vector<Task> get_task_partition_responsibility(std::vector<std::vector<Position>> paths, int agent_idx, const std::vector<Task>& tasks_left){
+    std::vector<Task> responsible_tasks;
+    for(const Task& task : tasks_left){
+        bool is_responsible = true;
+        for(int other_agent_idx = 0; other_agent_idx < paths.size(); other_agent_idx++){
+            if(other_agent_idx == agent_idx){
+                continue;
+            }
+            for(Position pos : paths[other_agent_idx]){
+                if(pos.equals(task.pos)){
+                    is_responsible = false;
+                    break;
+                }
+            }
+            if(!is_responsible){
+                break;
+            }
+        }
+        if(is_responsible){
+            responsible_tasks.push_back(task);
+        }
+    }
+    return responsible_tasks;
+}
+
+bool is_task_subset(const std::vector<Task>& subset, const std::vector<Task>& superset){
+    std::unordered_set<int> superset_task_ids;
+    for(const Task& task : superset){
+        superset_task_ids.insert(task.id);
+    }
+    for(const Task& task : subset){
+        if(superset_task_ids.find(task.id) == superset_task_ids.end()){
+            return false;
+        }
+    }
+    return true;
+}
+
 
 std::string bitset_to_string(const boost::dynamic_bitset<>& bs) {
     std::string str;
@@ -74,11 +113,13 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
 
     // Figure out which agent has the highest makespan.
     std::vector<bool> should_retry = std::vector<bool>(starts.size(), true);
-    std::vector<std::vector<boost::dynamic_bitset<>>> partitions_solved_by_agent(starts.size(), std::vector<boost::dynamic_bitset<>>());
+    std::vector<std::vector<Partition>> partitions_solved_by_agent(starts.size(), std::vector<Partition>());
 
+    printf("Starting decentralized search\n");
     start_time = std::chrono::high_resolution_clock::now();
     int num_decentralized_searches = 0;
     while(num_decentralized_searches < problem_input.max_decentralized_searches){
+        printf("\n");
         int best_agent_idx = -1;
         int largest_agent_makespan = 0;
         for(int agent_idx = 0; agent_idx < multi_agent_solution.size(); agent_idx++){
@@ -96,16 +137,21 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             break;
         }
 
-        printf("Retrying agent %d with makespan %d\n", best_agent_idx, largest_agent_makespan);
-        int agent_idx = best_agent_idx;
-
         // Get partition responsibility for this agent.
-        boost::dynamic_bitset<> responsibility = get_partition_responsibility(map, multi_agent_solution, agent_idx, start_seen, lookup);
+        int agent_idx = best_agent_idx;
+        Partition responsibility = {
+            .vision = get_vision_partition_responsibility(map, multi_agent_solution, agent_idx, start_seen, lookup),
+            .tasks = get_task_partition_responsibility(multi_agent_solution, agent_idx, incomplete_tasks)
+        };
+
+        printf("Retrying agent %d with current path length %d\n", best_agent_idx, largest_agent_makespan);
+        printf("\tVision responsibility num squares: %ld\n", responsibility.vision.count());
+        printf("\tTask responsibility num tasks: %ld\n", responsibility.tasks.size());
 
         // Check if we've already solved this partition for this agent.
         bool already_solved = false;
         for(const auto& prev_partition : partitions_solved_by_agent[agent_idx]){
-            if(responsibility.is_subset_of(prev_partition)){
+            if(responsibility.vision.is_subset_of(prev_partition.vision) && is_task_subset(responsibility.tasks, prev_partition.tasks)){
                 printf("Already solved this partition for agent %d, skipping...\n", agent_idx);
                 already_solved = true;
                 break;
@@ -124,11 +170,16 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             .focal_search_time_limit = problem_input.decentralized_focal_search_time_limit
         };
         std::vector<Position> single_agent_start = {starts[agent_idx]};
-        boost::dynamic_bitset<> single_agent_seen = ~responsibility;
+        boost::dynamic_bitset<> single_agent_seen = ~responsibility.vision;
         Lookup single_agent_lookup = lookup;
-        single_agent_lookup.strictly_easier = calculate_path_dominance(single_agent_start, map, lookup.watchers, lookup.watchers_set, lookup.los);
+        single_agent_lookup.strictly_easier = lookup.strictly_easier_per_agent[agent_idx];
         print_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start);
-        std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, incomplete_tasks, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
+
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = end_time - start_time;
+        printf("Time taken before search calculation: %.6f seconds\n", duration.count());
+
+        std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, responsibility.tasks, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
         aggregated_metrics.add(METRICS);
 
         // Update centralized solution.
@@ -145,11 +196,14 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         partitions_solved_by_agent[agent_idx].push_back(responsibility);
         should_retry[agent_idx] = false;
         num_decentralized_searches += 1;
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = end_time - start_time;
+        printf("Time taken after search: %.6f seconds\n", duration.count());
     }
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;
-    printf("Decentralized search time: %.6f seconds\n", duration.count());
+    printf("Decentralized search time: %.6f seconds\n\n", duration.count());
     aggregated_metrics.decentralized_search_time += duration.count();
     aggregated_metrics.num_decentralized_searches += num_decentralized_searches;
 

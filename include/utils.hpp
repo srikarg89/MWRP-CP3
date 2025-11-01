@@ -278,6 +278,9 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
     // Find path dominance
     lookup.strictly_easier = calculate_path_dominance(agent_starts, map, lookup.watchers, lookup.watchers_set, lookup.los);
+    for(int i = 0; i < agent_starts.size(); i++){
+        lookup.strictly_easier_per_agent.push_back(calculate_path_dominance({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los));
+    }
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;

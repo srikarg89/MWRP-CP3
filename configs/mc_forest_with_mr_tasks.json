@@ -19,7 +19,8 @@
         },
         {
             "id": 4,
-            "location": [20, 31]
+            "location": [20, 31],
+            "num_agents_required": 2
         }
     ],
     "map": "mc-forest.map",

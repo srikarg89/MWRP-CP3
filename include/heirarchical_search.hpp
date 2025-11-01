@@ -42,6 +42,14 @@ boost::dynamic_bitset<> get_partition_responsibility(const Map& map, std::vector
     return responsibility;
 }
 
+std::string bitset_to_string(const boost::dynamic_bitset<>& bs) {
+    std::string str;
+    for (size_t i = 0; i < bs.size(); ++i) {
+        str += bs[i] ? '1' : '0';
+    }
+    return str;
+}
+
 // TODO: Add in task partition.
 // TODO: How tf do i do multi-robot partition.
 std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, Metrics& aggregated_metrics){
@@ -66,10 +74,11 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
 
     // Figure out which agent has the highest makespan.
     std::vector<bool> should_retry = std::vector<bool>(starts.size(), true);
+    std::vector<std::vector<boost::dynamic_bitset<>>> partitions_solved_by_agent(starts.size(), std::vector<boost::dynamic_bitset<>>());
 
     start_time = std::chrono::high_resolution_clock::now();
     int num_decentralized_searches = 0;
-    while(true){
+    while(num_decentralized_searches < problem_input.max_decentralized_searches){
         int best_agent_idx = -1;
         int largest_agent_makespan = 0;
         for(int agent_idx = 0; agent_idx < multi_agent_solution.size(); agent_idx++){
@@ -92,7 +101,20 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
 
         // Get partition responsibility for this agent.
         boost::dynamic_bitset<> responsibility = get_partition_responsibility(map, multi_agent_solution, agent_idx, start_seen, lookup);
-        printf("Responsibility for agent %d: %ld\n", agent_idx, responsibility.count());
+
+        // Check if we've already solved this partition for this agent.
+        bool already_solved = false;
+        for(const auto& prev_partition : partitions_solved_by_agent[agent_idx]){
+            if(responsibility.is_subset_of(prev_partition)){
+                printf("Already solved this partition for agent %d, skipping...\n", agent_idx);
+                already_solved = true;
+                break;
+            }
+        }
+        if(already_solved){
+            should_retry[agent_idx] = false;
+            continue;
+        }
 
         // Run single-agent search for this agent with their responsibility.
         SolverConfig single_agent_solver_config = {
@@ -102,7 +124,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             .focal_search_time_limit = problem_input.decentralized_focal_search_time_limit
         };
         std::vector<Position> single_agent_start = {starts[agent_idx]};
-        boost::dynamic_bitset<> single_agent_seen = responsibility.flip();
+        boost::dynamic_bitset<> single_agent_seen = ~responsibility;
         Lookup single_agent_lookup = lookup;
         single_agent_lookup.strictly_easier = calculate_path_dominance(single_agent_start, map, lookup.watchers, lookup.watchers_set, lookup.los);
         print_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start);
@@ -113,14 +135,14 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         if(single_agent_solution[0].size() < multi_agent_solution[agent_idx].size()){
             multi_agent_solution[agent_idx] = single_agent_solution[0];
 
-            // TODO: Only do this if the new coverage partition is not a subset of the old coverage partition.
-            // Everyone else can retry
+            // Now that we've updated this agent's path, all other agents need to retry since their partitions may have changed.
             for(int other_agent_idx = 0; other_agent_idx < multi_agent_solution.size(); other_agent_idx++){
                 if(other_agent_idx != agent_idx){
                     should_retry[other_agent_idx] = true;
                 }
             }
         }
+        partitions_solved_by_agent[agent_idx].push_back(responsibility);
         should_retry[agent_idx] = false;
         num_decentralized_searches += 1;
     }

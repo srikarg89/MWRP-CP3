@@ -26,12 +26,16 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
+- [ ] Heirarchical task partition.
+- [ ] Heirarchical multi-robot task partition.
 - [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
 - [ ] Better direct heuristic for tasks that require multiple robots
-- [ ] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized framework).
-  - [ ] Parallelize this decentralized single-agent search.
+- [ ] Parallelize decentralized single-agent search??
+- [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
+- [ ] Iterative search for the individual decentralized search (can I use the previous expansions?).
+  - [ ] Some sort of lazy A*
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 
 **Paper Docket**
@@ -79,6 +83,7 @@
   - [x] Pass in epsilon as input into solver config.
 - [x] Anytime focal search
   - [x] Lazy removal of nodes using singleton heuristic.
+- [x] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized = heirarchical search framework).
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -101,6 +106,8 @@
 - Anytime focal search
   - Removal of nodes whose f-value exceeds solution cost.
   - Lazy removal of nodes using singleton heuristic.
+- Heirarchical search
+  - Cell partitioning
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

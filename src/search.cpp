@@ -79,7 +79,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
         f_and_focal_values[tsp_idxs[i]].second = std::max(f_and_focal_values[tsp_idxs[i]].second, result.second); // Ensure that focal value is max of singleton and TSP.
     }
 
-    // TODO: Remove experimentation.
+    // Weighted A* for focal heuristic, but with sum of costs instead of makespan.
     for(int i = 0; i < f_and_focal_values.size(); i++) {
         double current_sum = 0.0;
         for(const auto& agent : neighbor_heuristic_inputs[i].agents){
@@ -91,7 +91,6 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
     return f_and_focal_values;
 }
 
-// TODO: There can exist a deadlock where all agents are waiting at different tasks. Need to figure out how to avoid this. Need to ensure that at least one task is solvable at all times. Need to throw out states where no tasks are solvable.
 int get_wait_action_end_time(const Map& map, const Lookup& lookup, const std::vector<AgentState>& agents, Task task, int agent_cost){
     // If we're at a task, clearly it hasn't been completed yet, so I guess more robots need to come. Add a wait action to wait until however long it'll take someone else to come.
     std::vector<int> agent_min_arrival_times;

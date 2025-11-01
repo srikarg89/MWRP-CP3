@@ -424,6 +424,7 @@ struct ProblemInput {
     double decentralized_focal_epsilon;
     double decentralized_focal_heuristic_weight;
     double decentralized_focal_search_time_limit;
+    int max_decentralized_searches;
 
     static ProblemInput from_json(const std::string& config_filename) {
         std::ifstream i(config_filename);
@@ -454,6 +455,7 @@ struct ProblemInput {
         double decentralized_focal_epsilon = parsed_data["decentralized_focal_epsilon"].get<double>();
         double decentralized_focal_heuristic_weight = parsed_data["decentralized_focal_heuristic_weight"].get<double>();
         double decentralized_focal_search_time_limit = parsed_data["decentralized_focal_search_time_limit"].get<double>();
+        int max_decentralized_searches = parsed_data["max_decentralized_searches"].get<int>();
 
         return ProblemInput{
             .heuristic_type = heuristic_type,
@@ -463,7 +465,8 @@ struct ProblemInput {
             .run_decentralized_search = run_decentralized_search,
             .decentralized_focal_epsilon = decentralized_focal_epsilon,
             .decentralized_focal_heuristic_weight = decentralized_focal_heuristic_weight,
-            .decentralized_focal_search_time_limit = decentralized_focal_search_time_limit
+            .decentralized_focal_search_time_limit = decentralized_focal_search_time_limit,
+            .max_decentralized_searches = max_decentralized_searches
         };
     }
 };

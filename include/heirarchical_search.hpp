@@ -115,11 +115,13 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     std::vector<bool> should_retry = std::vector<bool>(starts.size(), true);
     std::vector<std::vector<Partition>> partitions_solved_by_agent(starts.size(), std::vector<Partition>());
 
-    printf("Starting decentralized search\n");
+    printf("\nStarting decentralized search\n");
     start_time = std::chrono::high_resolution_clock::now();
     int num_decentralized_searches = 0;
     while(num_decentralized_searches < problem_input.max_decentralized_searches){
-        printf("\n");
+        if(num_decentralized_searches > 0){
+            printf("\n");
+        }
         int best_agent_idx = -1;
         int largest_agent_makespan = 0;
         for(int agent_idx = 0; agent_idx < multi_agent_solution.size(); agent_idx++){

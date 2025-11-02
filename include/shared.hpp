@@ -19,9 +19,12 @@ struct Metrics {
     int num_skipped_duplicate_node = 0;
     int num_skipped_task_deadlock = 0;
     int num_skipped_high_lazy_f_value = 0;
+    int extended_neighbors_calls = 0;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
     double domination_check_time = 0.0;
+    double neighbor_expansion_bfs_time = 0.0;
+    double neighbor_expansion_pruning_time = 0.0;
 
     // MTSP Metrics.
     double mtsp_setup_time = 0.0;
@@ -36,9 +39,12 @@ struct Metrics {
         num_skipped_duplicate_node = 0;
         num_skipped_task_deadlock = 0;
         num_skipped_high_lazy_f_value = 0;
+        extended_neighbors_calls = 0;
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
         domination_check_time = 0.0;
+        neighbor_expansion_bfs_time = 0.0;
+        neighbor_expansion_pruning_time = 0.0;
 
         mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
@@ -53,7 +59,10 @@ struct Metrics {
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         num_skipped_high_lazy_f_value += other.num_skipped_high_lazy_f_value;
+        extended_neighbors_calls += other.extended_neighbors_calls;
         neighbor_expansion_time += other.neighbor_expansion_time;
+        neighbor_expansion_bfs_time += other.neighbor_expansion_bfs_time;
+        neighbor_expansion_pruning_time += other.neighbor_expansion_pruning_time;
         f_value_calculation_time += other.f_value_calculation_time;
         domination_check_time += other.domination_check_time;
 

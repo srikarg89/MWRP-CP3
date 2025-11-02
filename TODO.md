@@ -93,23 +93,22 @@
 - [x] Num seen heuristic.
 
 **Improvements / Changes to Remember**
-- Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
-- Pivot pruning with shortcut logic.
-- Ignore exploration squares that are strictly easier to visit.
-- Used Pathmax to ensure heuristic consistency.
-- Parallelization of heuristic computation.
-- Multi robot tasks
-- Force multiple robots to reach task in MTSP heuristic.
-- Path dominance.
-- Node dominance (also in original paper).
-- Focal search.
-  - Weighted SOC focal heuristic.
-- Anytime focal search
-  - Removal of nodes whose f-value exceeds solution cost.
-  - Lazy removal of nodes using singleton heuristic.
-- Heirarchical search
-  - Cell partitioning
-  - Task partitioning
+- **Major**
+  - Cell / Path dominance: Ignore exploration squares that are strictly easier to visit.
+  - Focal search.
+    - Weighted SOC focal heuristic.
+    - Anytime focal search
+      - Lazy removal of nodes using singleton heuristic.
+  - Heirarchical search
+    - Cell partitioning
+    - Task partitioning
+  - Multi robot tasks
+    - Force multiple robots to reach task in MTSP heuristic.
+- **Minor**
+  - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
+  - Pivot pruning with shortcut logic.
+  - Used Pathmax to ensure heuristic consistency.
+  - Parallelization of heuristic computation.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

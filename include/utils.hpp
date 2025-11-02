@@ -30,11 +30,14 @@ inline int get_min_time_for_task_completion(const std::vector<AgentState>& agent
 }
 
 inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+    METRICS.extended_neighbors_calls += 1;
+    auto start = std::chrono::high_resolution_clock::now();
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
 
     queue.push(std::make_tuple(pos, 0));
+
 
     while(!queue.empty()){
         auto [curr_pos, curr_cost] = queue.front();
@@ -78,6 +81,12 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
     }
 
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    METRICS.neighbor_expansion_bfs_time += duration.count();
+
+    start = std::chrono::high_resolution_clock::now();
+
     // Should result in significantly less node generation, but may require more node expansion.
     for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
         int curr_map_idx = map.get_map_idx(std::get<0>(*it));
@@ -103,6 +112,10 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             ++it;
         }
     }
+
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    METRICS.neighbor_expansion_pruning_time += duration.count();
 
     return extended_neighbors;
 }

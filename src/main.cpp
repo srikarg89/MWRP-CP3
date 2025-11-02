@@ -106,8 +106,12 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
     printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);
     printf("\tGet f_value Time: %.3f seconds\n", aggregated.f_value_calculation_time);
+    printf("\tExtended Neighbors Calls: %d\n", aggregated.extended_neighbors_calls);
     printf("\tNeighbor Expansion Time: %.3f seconds\n", aggregated.neighbor_expansion_time);
+    printf("\tNeighbor Expansion BFS Time: %.3f seconds\n", aggregated.neighbor_expansion_bfs_time);
+    printf("\tNeighbor Expansion Pruning Time: %.3f seconds\n", aggregated.neighbor_expansion_pruning_time);
     printf("\tDomination Check Time: %.3f seconds\n", aggregated.domination_check_time);
+
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;

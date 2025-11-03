@@ -7,7 +7,6 @@
 - Definitely should do
   - [ ] Tasks that take a certain amount of time to complete.
   - [ ] Provide vision radius **R** to the LOS functions.
-  - [ ] Anytime search
   - [ ] Iterative search using prior experience to improve future searches??
 - Would be dope extensions
   - [ ] Extend algorithm to continuous space.
@@ -34,7 +33,6 @@
 - [ ] Better direct heuristic for tasks that require multiple robots
 - [ ] Parallelize decentralized single-agent search??
 - [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
-- [ ] Iterative search for the individual decentralized search (can I use the previous expansions?).
 - [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 

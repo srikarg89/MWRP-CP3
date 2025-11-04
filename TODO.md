@@ -25,8 +25,6 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
-- [ ] Heirarchical multi-robot task partition.
-  - [ ] Set it up like a "deadline" during the individual, decentralized search.
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
 - [ ] Parallelize decentralized single-agent search??
@@ -81,6 +79,8 @@
   - [x] Lazy removal of nodes using singleton heuristic.
 - [x] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized = heirarchical search framework).
 - [x] Heirarchical task partition.
+- [x] Heirarchical multi-robot task partition.
+  - [x] Set it up like a "deadline" during the individual, decentralized search.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -98,8 +98,10 @@
   - Heirarchical search
     - Cell partitioning
     - Task partitioning
+    - Multi-robot task partitioning
   - Multi robot tasks
     - Force multiple robots to reach task in MTSP heuristic.
+    - Setup MTSP heuristic so that waiting robots have infinite cost to other pivots.
 - **Minor**
   - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
   - Pivot pruning with shortcut logic.

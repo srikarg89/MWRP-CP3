@@ -175,8 +175,13 @@ struct Task {
     Position pos;
     int map_idx;
     int num_agents_required;
+    int release_time;
+    int deadline;
 
-    Task(int id, Position p, int map_idx, int num_agents_required) : id(id), pos(p), map_idx(map_idx), num_agents_required(num_agents_required) {}
+    Task(int id, Position p, int map_idx, int num_agents_required) : id(id), pos(p), map_idx(map_idx), num_agents_required(num_agents_required) {
+        release_time = 0;
+        deadline = std::numeric_limits<int>::max();
+    }
 
     std::string toString() const {
         return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Num Agents Required: " + std::to_string(num_agents_required);

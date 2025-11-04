@@ -135,7 +135,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
             // Figure out how long to wait for.
             int wait_task_idx = (agent.waiting_idx != -1) ? agent.waiting_idx : at_incomplete_task_idx;
             Task task = get_task_by_id(tasks_left, wait_task_idx);
-            int wait_time = get_wait_action_end_time(map, lookup, agents, task, agent.cost);
+            int wait_time = std::max(get_wait_action_end_time(map, lookup, agents, task, agent.cost), task.release_time);
             agent_options.push_back(AgentState(agent.pos, false, wait_task_idx, wait_time));
 
             // If we're currently waiting, we can't move until we complete the task.
@@ -234,7 +234,6 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         }
 
         std::vector<Task> nbr_tasks_left;
-        bool task_failed = false;
         for(Task t : node.tasks_left){
             int task_map_idx = map.get_map_idx(t.pos);
             std::unordered_map<int, int> num_reached_by_time;
@@ -242,7 +241,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             bool completed = false;
             for(const AgentState& agent : nbr){
                 int agent_map_idx = map.get_map_idx(agent.pos);
-                if(agent_map_idx == task_map_idx){
+                if(agent_map_idx == task_map_idx && t.release_time <= agent.cost && agent.cost <= t.deadline){
                     num_reached_by_time[agent.cost] += 1;
                     if(num_reached_by_time[agent.cost] >= t.num_agents_required){
                         completed = true;
@@ -265,9 +264,14 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         // Check if we have a deadlock. That is, check if there is at least one task that is reachable by at least one non-terminated agent.
         bool task_deadlocked = false;
+        bool task_failed = false;
         for(const Task& t : nbr_tasks_left){
             int agents_available = 0;
+            bool can_reach = false;
             for(const AgentState& agent : nbr){
+                if(lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] + agent.cost <= t.deadline){
+                    can_reach = true;
+                }
                 if(agent.waiting_idx == t.id || (!agent.terminated && agent.waiting_idx == -1)){
                     agents_available += 1;
                     continue;
@@ -277,6 +281,15 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 task_deadlocked = true;
                 break;
             }
+            if(!can_reach){
+                task_failed = true;
+                break;
+            }
+        }
+
+        if(task_failed) {
+            // Don't generate neighbors that have failed tasks.
+            continue;
         }
 
         if(task_deadlocked) {

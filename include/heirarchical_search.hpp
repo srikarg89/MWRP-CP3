@@ -42,26 +42,62 @@ boost::dynamic_bitset<> get_vision_partition_responsibility(const Map& map, std:
     return responsibility;
 }
 
-std::vector<Task> get_task_partition_responsibility(std::vector<std::vector<Position>> paths, int agent_idx, const std::vector<Task>& tasks_left){
+std::vector<Task> get_task_partition_responsibility(int start_time, std::vector<std::vector<Position>> paths, int agent_idx, const std::vector<Task>& tasks_left){
     std::vector<Task> responsible_tasks;
     for(const Task& task : tasks_left){
-        bool is_responsible = true;
+        std::unordered_map<int, int> task_count;
         for(int other_agent_idx = 0; other_agent_idx < paths.size(); other_agent_idx++){
             if(other_agent_idx == agent_idx){
                 continue;
             }
-            for(Position pos : paths[other_agent_idx]){
+            for(int t = 0; t < paths[other_agent_idx].size(); t++){
+                Position pos = paths[other_agent_idx][t];
                 if(pos.equals(task.pos)){
-                    is_responsible = false;
-                    break;
+                    task_count[t] += 1;
                 }
             }
-            if(!is_responsible){
+        }
+
+        bool is_responsible = true;
+        for(const auto& [time, count] : task_count){
+            if(count >= task.num_agents_required){
+                is_responsible = false;
                 break;
             }
         }
         if(is_responsible){
-            responsible_tasks.push_back(task);
+            if(task.num_agents_required > 1){
+                // find time range during which we can visit the task.
+                int joint_finish_time = -1;
+                for(int t = 0; t < paths[agent_idx].size(); t++){
+                    Position pos = paths[agent_idx][t];
+                    if(pos.equals(task.pos)){
+                        if(task_count[t] + 1 >= task.num_agents_required && joint_finish_time == -1){
+                            joint_finish_time = t;
+                        }
+                    }
+                }
+
+                // Find time range during which we can complete the task.
+                int earliest_finish_time = joint_finish_time;
+                while(task_count.find(earliest_finish_time) != task_count.end() && task_count[earliest_finish_time] >= task.num_agents_required - 1){
+                    earliest_finish_time -= 1;
+                }
+                earliest_finish_time += 1;
+
+                earliest_finish_time += start_time;
+                joint_finish_time += start_time;
+                
+                Task task_copy = task;
+                task_copy.num_agents_required = 1;
+                task_copy.release_time = earliest_finish_time;
+                task_copy.deadline = joint_finish_time;
+
+                responsible_tasks.push_back(task_copy);
+
+            } else {
+                responsible_tasks.push_back(task);
+            }
         }
     }
     return responsible_tasks;
@@ -106,7 +142,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Centralized search time: %.6f seconds\n", duration.count());
     aggregated_metrics.centralized_search_time += duration.count();
-    if(!problem_input.run_decentralized_search){
+    if(!problem_input.run_decentralized_search || start_timestep == 0){
         add_waits_to_end(multi_agent_solution);
         return multi_agent_solution;
     }
@@ -143,7 +179,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         int agent_idx = best_agent_idx;
         Partition responsibility = {
             .vision = get_vision_partition_responsibility(map, multi_agent_solution, agent_idx, start_seen, lookup),
-            .tasks = get_task_partition_responsibility(multi_agent_solution, agent_idx, incomplete_tasks)
+            .tasks = get_task_partition_responsibility(start_timestep, multi_agent_solution, agent_idx, incomplete_tasks)
         };
 
         printf("Retrying agent %d with current path length %d\n", best_agent_idx, largest_agent_makespan);

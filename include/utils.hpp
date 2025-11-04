@@ -694,7 +694,7 @@ inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const 
         }
 
         Task task = get_task_by_id(tasks_left, agent.waiting_idx);
-        int time_to_complete = get_min_time_for_task_completion(non_terminated_agents, map, task, lookup, false);
+        int time_to_complete = std::max(get_min_time_for_task_completion(non_terminated_agents, map, task, lookup, false), task.release_time - agent.cost);
 
         // Robot is waiting at a task, so set the cost for the robot to directly go to any other location as infinite.
         // Also, set the cost to go to the task itself as however long it would take to complete the task.

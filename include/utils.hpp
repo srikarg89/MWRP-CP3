@@ -8,7 +8,7 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
-inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
+inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup, bool include_agents_curr_cost){
     // Find the closest agent and how long it would take to reach the task.
     std::vector<int> times_to_reach_task;
     for(const AgentState& agent : agents){
@@ -17,7 +17,11 @@ inline int get_min_time_for_task_completion(const std::vector<AgentState>& agent
             continue;
         }
         int agent_map_idx = map.get_map_idx(agent.pos);
-        times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+        if(include_agents_curr_cost){
+            times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+        } else {
+            times_to_reach_task.push_back(lookup.apsp[agent_map_idx][task.map_idx]);
+        }
     }
     std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
 
@@ -30,11 +34,14 @@ inline int get_min_time_for_task_completion(const std::vector<AgentState>& agent
 }
 
 inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+    METRICS.extended_neighbors_calls += 1;
+    auto start = std::chrono::high_resolution_clock::now();
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
     std::unordered_set<int> visited;
     std::vector<std::tuple<Position, int>> extended_neighbors;
 
     queue.push(std::make_tuple(pos, 0));
+
 
     while(!queue.empty()){
         auto [curr_pos, curr_cost] = queue.front();
@@ -78,7 +85,13 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
     }
 
-    // Should result in less node generation, but may require more node expansion.
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+    METRICS.neighbor_expansion_bfs_time += duration.count();
+
+    start = std::chrono::high_resolution_clock::now();
+
+    // Should result in significantly less node generation, but may require more node expansion.
     for(auto it = extended_neighbors.begin(); it != extended_neighbors.end();){
         int curr_map_idx = map.get_map_idx(std::get<0>(*it));
         int curr_cost = std::get<1>(*it);
@@ -103,6 +116,10 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             ++it;
         }
     }
+
+    end = std::chrono::high_resolution_clock::now();
+    duration = end - start;
+    METRICS.neighbor_expansion_pruning_time += duration.count();
 
     return extended_neighbors;
 }
@@ -143,6 +160,94 @@ inline std::vector<bool> calculate_square_dominance(const Map& map, const std::v
 
     return strictly_easier;
 }
+
+// If all paths from A to B require looking at C, then we can say that given starting location A, C is strictly easier than B.
+// NOTE: We want to handle edge cases where B dominates C and C dominates B, thus once we determine that B dominates C, we should remove any dominance relationships where C dominates B.
+// Assumes that every cell is unseen.
+inline std::vector<std::vector<bool>> get_path_dominations_matrix(std::vector<Position> start_positions, const Map& map, const std::vector<std::vector<Position>>& watchers, const std::vector<std::unordered_set<int>>& watchers_set, const std::vector<std::vector<Position>>& los) {
+    // path_dominations[i][j] = true if i is easier to see than j given start_pos.
+    std::vector<std::vector<bool>> path_dominations(map.num_squares, std::vector<bool>(map.num_squares, false));
+    for(int i = 0; i < map.num_squares; i++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+            continue;
+        }
+
+        // Check all squares I can see from start without looking at i.
+        std::vector<bool> seen(map.num_squares, false);
+        std::vector<bool> visited(map.num_squares, false);
+        std::queue<int> queue;
+
+        for(const Position& start_pos : start_positions){
+            queue.push(map.get_map_idx(start_pos));
+            seen[map.get_map_idx(start_pos)] = true;
+        }
+
+        while(!queue.empty()){
+            int curr = queue.front();
+            queue.pop();
+
+            if(visited[curr]){
+                continue;
+            }
+            visited[curr] = true;
+
+            if(watchers_set[i].find(curr) != watchers_set[i].end()){
+                continue; // Can't look at i, so can't go here.
+            }
+
+            for(Position visible : los[curr]){
+                int visible_map_idx = map.get_map_idx(visible);
+                seen[visible_map_idx] = true;
+            }
+
+            for(int neighbor_map_idx : map.neighbors[curr]){
+                if(visited[neighbor_map_idx]){
+                    continue;
+                }
+                queue.push(neighbor_map_idx);
+            }
+        }
+
+        for(int j = 0; j < map.num_squares; j++){
+            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j))){
+                continue;
+            }
+
+            // If j cannot be seen without looking at i, then i is easier to see than j.
+            if(!seen[j]){
+                path_dominations[i][j] = true;
+            }
+        }
+    }
+
+    return path_dominations;
+}
+
+inline std::vector<bool> path_dominations_to_strictly_easier(const Map& map, std::vector<std::vector<bool>> path_dominations) {
+    // Remove duplicate dominations.
+    for(int i = 0; i < map.num_squares; i++){
+        for(int j = i + 1; j < map.num_squares; j++){
+            if(path_dominations[i][j] && path_dominations[j][i]){
+                path_dominations[j][i] = false;
+            }
+        }
+    }
+
+    // Return set of dominated cells.
+    std::vector<bool> strictly_easier(map.num_squares, false);
+    for(int i = 0; i < map.num_squares; i++){
+        for(int j = 0; j < map.num_squares; j++){
+            if(path_dominations[i][j]){
+                // printf("If you never see %s, then you will never be able to see %s\n", map.get_pos_from_map_idx(i).toString().c_str(), map.get_pos_from_map_idx(j).toString().c_str());
+                strictly_easier[i] = true;
+                break;
+            }
+        }
+    }
+
+    return strictly_easier;
+}
+
 
 // If all paths from A to B require looking at C, then we can say that given starting location A, C is strictly easier than B.
 // NOTE: We want to handle edge cases where B dominates C and C dominates B, thus once we determine that B dominates C, we should remove any dominance relationships where C dominates B.
@@ -228,6 +333,14 @@ inline std::vector<bool> calculate_path_dominance(std::vector<Position> start_po
     return strictly_easier;
 }
 
+inline std::vector<bool> vec_and(const std::vector<bool>& a, const std::vector<bool>& b){
+    std::vector<bool> result;
+    for(int i = 0; i < a.size(); i++){
+        result.push_back(a[i] & b[i]);
+    }
+    return result;
+}
+
 inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
@@ -277,7 +390,18 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     // lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
 
     // Find path dominance
-    lookup.strictly_easier = calculate_path_dominance(agent_starts, map, lookup.watchers, lookup.watchers_set, lookup.los);
+    std::vector<std::vector<bool>> combined_path_dominations = std::vector<std::vector<bool>>(map.num_squares, std::vector<bool>(map.num_squares, true));
+    for(int i = 0; i < agent_starts.size(); i++){
+        std::vector<std::vector<bool>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los);
+        lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+        // Merge path dominations.
+        for(int j = 0; j < map.num_squares; j++){
+            for(int k = 0; k < map.num_squares; k++){
+                combined_path_dominations[j][k] = combined_path_dominations[j][k] & agent_path_dominations[j][k];
+            }
+        }
+    }
+    lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;
@@ -307,35 +431,6 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     duration = end_time - start_time;
     printf("Sorting precomputation time: %.6f seconds\n", duration.count());
 
-    // New sorted LOS method based on centrality. Might be better for multi-agent.
-    // boost::dynamic_bitset<> start_seen(map.num_squares, 0);
-    // for(Position agent_start : agent_starts){
-        // Mark all squares visible from the agent start as seen.
-        // for(Position los_pos : lookup.los[map.get_map_idx(agent_start)]){
-            // start_seen[map.get_map_idx(los_pos)] = 1;
-    //     }
-    // }
-
-    // std::vector<std::tuple<int, int>> sorted_order;
-    // for(int i = 0; i < lookup.apsp.size(); i++){
-    //     if(start_seen[i] || lookup.los[i].size() == 0){
-    //         continue;
-    //     }
-    //     int centrality = 0;
-    //     for(int j = 0; j < lookup.apsp.size(); j++){
-    //         if(start_seen[j] || lookup.los[j].size() == 0){
-    //             continue;
-    //         }
-    //         centrality += lookup.apsp[i][j];
-    //     }
-    //     sorted_order.push_back(std::make_tuple(centrality, i));
-    // }
-    // std::sort(sorted_order.begin(), sorted_order.end(), std::greater<>());
-    // std::vector<int> sorted_pivot_order;
-    // for(const auto& [centrality, idx] : sorted_order){
-    //     sorted_pivot_order.push_back(idx);
-    // }
-
     lookup.sorted_pivot_order = sorted_pivot_order;
 
     // Precompute the Singleton heuristic helper lookup table.
@@ -346,8 +441,14 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
     // For each target position.
     for(int g_map_idx = 0; g_map_idx < map.num_squares; g_map_idx++){
+        if(map.check_obstacle(map.get_pos_from_map_idx(g_map_idx)) || lookup.strictly_easier[g_map_idx]){
+            continue;
+        }
         // For each source position.
         for(int s_map_idx = 0; s_map_idx < map.num_squares; s_map_idx++){
+            if(map.check_obstacle(map.get_pos_from_map_idx(s_map_idx))){
+                continue;
+            }
             // Loop through each watcher.
             for(Position watcher_pos : lookup.watchers[g_map_idx]){
                 int watcher_idx = map.get_map_idx(watcher_pos);
@@ -364,25 +465,26 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
     // Precompute the distance between pivots in disjoint graph 
     for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-        std::vector<int> min_dists(map.num_squares, INT_MAX);
-        lookup.pivot_pivot_dists.push_back(min_dists);
+        std::vector<int> infinite_distances(map.num_squares, INT_MAX);
+        lookup.pivot_cell_dists.push_back(infinite_distances);
+        lookup.pivot_pivot_dists.push_back(infinite_distances);
     }
 
     // Loop through each pivot and compute distances from pivot's watchers to the watchers of any other pivot and to any other cell.
     for(int pivot_idx = 0; pivot_idx < map.num_squares; pivot_idx++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx))){
-            std::vector<int> infinite_distances(map.num_squares, INT_MAX);
-            lookup.pivot_cell_dists.push_back(infinite_distances);
-            lookup.pivot_pivot_dists.push_back(infinite_distances);
+        if(map.check_obstacle(map.get_pos_from_map_idx(pivot_idx)) || lookup.strictly_easier[pivot_idx]){
             continue;
         }
 
         // For each pivot, we want to compute the distances from the pivot component to every other location.
         // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
         auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.watchers[pivot_idx], map);
-        lookup.pivot_cell_dists.push_back(pivot_cell_dists);
+        lookup.pivot_cell_dists[pivot_idx] = pivot_cell_dists;
 
         for(int cell_idx = 0; cell_idx < map.num_squares; cell_idx++){
+            if(map.check_obstacle(map.get_pos_from_map_idx(cell_idx)) || lookup.strictly_easier[cell_idx]){
+                continue;
+            }
             for(Position watcher_pos : lookup.watchers[cell_idx]){
                 int watcher_idx = map.get_map_idx(watcher_pos);
                 lookup.pivot_pivot_dists[pivot_idx][cell_idx] = std::min(lookup.pivot_pivot_dists[pivot_idx][cell_idx], pivot_cell_dists[watcher_idx]);
@@ -580,6 +682,8 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
     }
 }
 
+// Disallow waiting robots from going anywhere before completing their current task.
+// This is done by setting the cost to go to any other pivot as infinite, and setting the cost to go to the task itself as the min time it would take to complete the task.
 inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const Map& map, const std::vector<AgentState>& non_terminated_agents, const std::vector<Task>& tasks_left, const Lookup& lookup) {
     int max_apsp = map.num_squares;
     int U = max_apsp * std::accumulate(graph.num_required_visits.begin(), graph.num_required_visits.end(), 0);; // Some large number.
@@ -590,32 +694,26 @@ inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const 
         }
 
         Task task = get_task_by_id(tasks_left, agent.waiting_idx);
-        int time_to_complete = get_min_time_for_task_completion(non_terminated_agents, map, task, lookup);
+        int time_to_complete = std::max(get_min_time_for_task_completion(non_terminated_agents, map, task, lookup, false), task.release_time - agent.cost);
 
-        // Option 1:
         // Robot is waiting at a task, so set the cost for the robot to directly go to any other location as infinite.
         // Also, set the cost to go to the task itself as however long it would take to complete the task.
-        // for(int j = 0; j < graph.pivots.size(); j++){
-        //     if(graph.pivot_task_ids[j] == agent.waiting_idx){
-        //         if(graph.agent_pivot_costs[i][j] != 0){
-        //             printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
-        //             exit(0);
-        //         }
-        //         graph.agent_pivot_costs[i][j] = time_to_complete;
-        //     } else {
-        //         // graph.agent_pivot_costs
-        //         // What to do here?? Set to infinite?? Is this correct behavior??
-        //         graph.agent_pivot_costs[i][j] = U;
-        //     }
-        // }
-
-        // Option 2:
-        // For each robot that visits a multi-robot task, calculate the cost (c) of the path AFTER visiting this task, and set c + ttc <= L.
-        // To calculate the cost (c) of the path AFTER visiting this task, we need to know which nodes are visited after this task (every pivot with higher MTZ than task).
-            // I think you can do this with N - 1 boolean variables, each representing whether or not pivot p comes after the task (t).
-            // Then you can add 2 * (N - 1) constraints to ensure this boolean is represented properly, for example "u[p] - u[t] - N * b <= 0 && u[t] - u[p] - N * b >= 0" -> b = 1 if u[p] > u[t], else b = 0.
-        // Then, we need to sum up the costs of travelling to each of these nodes that come after the task (every pivot with higher MTZ than task).
-
-
+        bool found = false;
+        for(int j = 0; j < graph.pivots.size(); j++){
+            if(graph.pivot_task_ids[j] == agent.waiting_idx){
+                found = true;
+                if(graph.agent_pivot_costs[i][j] != 0){
+                    printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
+                    exit(0);
+                }
+                graph.agent_pivot_costs[i][j] = time_to_complete;
+            } else {
+                graph.agent_pivot_costs[i][j] = U;
+            }
+        }
+        if(!found){
+            printf("Error: Robot waiting at a task but task pivot not found in graph!\n");
+            exit(0);
+        }
     }
 }

@@ -7,7 +7,6 @@
 - Definitely should do
   - [ ] Tasks that take a certain amount of time to complete.
   - [ ] Provide vision radius **R** to the LOS functions.
-  - [ ] Anytime search
   - [ ] Iterative search using prior experience to improve future searches??
 - Would be dope extensions
   - [ ] Extend algorithm to continuous space.
@@ -26,12 +25,11 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
-- [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
-- [ ] Better direct heuristic for tasks that require multiple robots
-- [ ] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized framework).
-  - [ ] Parallelize this decentralized single-agent search.
+- [ ] Parallelize decentralized single-agent search??
+- [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
+- [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 
 **Paper Docket**
@@ -79,6 +77,10 @@
   - [x] Pass in epsilon as input into solver config.
 - [x] Anytime focal search
   - [x] Lazy removal of nodes using singleton heuristic.
+- [x] Use focal search to determine "partition", then run single-agent search on each partition (centralized -> decentralized = heirarchical search framework).
+- [x] Heirarchical task partition.
+- [x] Heirarchical multi-robot task partition.
+  - [x] Set it up like a "deadline" during the individual, decentralized search.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.
@@ -87,20 +89,25 @@
 - [x] Num seen heuristic.
 
 **Improvements / Changes to Remember**
-- Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
-- Pivot pruning with shortcut logic.
-- Ignore exploration squares that are strictly easier to visit.
-- Used Pathmax to ensure heuristic consistency.
-- Parallelization of heuristic computation.
-- Multi robot tasks
-- Force multiple robots to reach task in MTSP heuristic.
-- Path dominance.
-- Node dominance (also in original paper).
-- Focal search.
-  - SOC focal heuristic.
-- Anytime focal search
-  - Removal of nodes whose f-value exceeds solution cost.
-  - Lazy removal of nodes using singleton heuristic.
+- **Major**
+  - Cell / Path dominance: Ignore exploration squares that are strictly easier to visit.
+  - Focal search.
+    - Weighted SOC focal heuristic.
+    - Anytime focal search
+      - Lazy removal of nodes using singleton heuristic.
+  - Heirarchical search
+    - Cell partitioning
+    - Task partitioning
+    - Multi-robot task partitioning
+  - Multi robot tasks
+    - Force multiple robots to reach task in MTSP heuristic.
+    - Setup MTSP heuristic so that waiting robots have infinite cost to other pivots.
+- **Minor**
+  - Change to expanding borders function to avoid neighbor explosion with neighbors that can be reached later on.
+  - Pivot pruning with shortcut logic.
+  - Used Pathmax to ensure heuristic consistency.
+  - Parallelization of heuristic computation.
+  - Dominance needs to check for agent waiting.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

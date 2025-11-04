@@ -21,7 +21,7 @@ int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map,
     int f_value = 0;
     std::unordered_map<int, int> min_time_to_complete_task;
     for(const Task& task : tasks_left){
-        int ttc = get_min_time_for_task_completion(agents, map, task, lookup);
+        int ttc = get_min_time_for_task_completion(agents, map, task, lookup, true);
         min_time_to_complete_task[task.id] = ttc;
         f_value = std::max(f_value, ttc);
     }
@@ -112,10 +112,5 @@ std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoin
         exit(1);
     }
     auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
-    // int mtsp_solution2 = run_mtsp2(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.min_task_times);
-    // if(mtsp_solution != mtsp_solution2){
-    //     printf("MTSP solutions don't match! %d != %d\n", mtsp_solution, mtsp_solution2);
-    //     exit(1);
-    // }
     return mtsp_solution;
 }

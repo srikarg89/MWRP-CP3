@@ -3,7 +3,8 @@
     "tasks": [
         {
             "id": 1,
-            "location": [25, 10]
+            "location": [25, 10],
+            "num_agents_required": 2
         }
     ],
     "map": "maze-32-32-2.map",

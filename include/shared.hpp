@@ -3,19 +3,28 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
+#include <boost/dynamic_bitset.hpp>
 
 #include <nlohmann/json.hpp>
 #include <fstream>
 
 // Singleton metrics.
 struct Metrics {
+    // Heirarchical search metrics.
+    double centralized_search_time = 0.0;
+    double decentralized_search_time = 0.0;
+    int num_decentralized_searches = 0;
+
     // General search metrics.
     int num_skipped_duplicate_node = 0;
     int num_skipped_task_deadlock = 0;
-    int num_skipped_high_lazy_f_value;
+    int num_skipped_high_lazy_f_value = 0;
+    int extended_neighbors_calls = 0;
     double neighbor_expansion_time = 0.0;
     double f_value_calculation_time = 0.0;
     double domination_check_time = 0.0;
+    double neighbor_expansion_bfs_time = 0.0;
+    double neighbor_expansion_pruning_time = 0.0;
 
     // MTSP Metrics.
     double mtsp_setup_time = 0.0;
@@ -23,11 +32,19 @@ struct Metrics {
     int mtsp_total_calls = 0;
 
     void reset() {
+        centralized_search_time = 0.0;
+        decentralized_search_time = 0.0;
+        num_decentralized_searches = 0;
+
         num_skipped_duplicate_node = 0;
         num_skipped_task_deadlock = 0;
+        num_skipped_high_lazy_f_value = 0;
+        extended_neighbors_calls = 0;
         neighbor_expansion_time = 0.0;
         f_value_calculation_time = 0.0;
         domination_check_time = 0.0;
+        neighbor_expansion_bfs_time = 0.0;
+        neighbor_expansion_pruning_time = 0.0;
 
         mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
@@ -35,10 +52,17 @@ struct Metrics {
     }
 
     void add(const Metrics& other) {
+        centralized_search_time += other.centralized_search_time;
+        decentralized_search_time += other.decentralized_search_time;
+        num_decentralized_searches += other.num_decentralized_searches;
+
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
         num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         num_skipped_high_lazy_f_value += other.num_skipped_high_lazy_f_value;
+        extended_neighbors_calls += other.extended_neighbors_calls;
         neighbor_expansion_time += other.neighbor_expansion_time;
+        neighbor_expansion_bfs_time += other.neighbor_expansion_bfs_time;
+        neighbor_expansion_pruning_time += other.neighbor_expansion_pruning_time;
         f_value_calculation_time += other.f_value_calculation_time;
         domination_check_time += other.domination_check_time;
 
@@ -129,7 +153,10 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
     std::vector<AgentState> sorted_agents = get_sorted_agents_by_position(agents);
     std::string str = "[";
     for(const AgentState& agent : sorted_agents){
-        str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
+        // TODO: Change this if we expand individual agents at a time.
+        // Cost matters for distinguishing states when waiting.
+        // str += agent.pos.toString() + (agent.terminated ? " / T" : "") + " / " + std::to_string(agent.waiting_idx) + (agent.waiting_idx != -1 ? " / " + std::to_string(agent.cost) : "") + ", ";
+        str += agent.pos.toString() + ", ";
     }
     str += "]";
     return str;
@@ -151,8 +178,13 @@ struct Task {
     Position pos;
     int map_idx;
     int num_agents_required;
+    int release_time;
+    int deadline;
 
-    Task(int id, Position p, int map_idx, int num_agents_required) : id(id), pos(p), map_idx(map_idx), num_agents_required(num_agents_required) {}
+    Task(int id, Position p, int map_idx, int num_agents_required) : id(id), pos(p), map_idx(map_idx), num_agents_required(num_agents_required) {
+        release_time = 0;
+        deadline = std::numeric_limits<int>::max();
+    }
 
     std::string toString() const {
         return "ID: " + std::to_string(id) + ", Pos: " + pos.toString() + ", Map Index: " + std::to_string(map_idx) + ", Num Agents Required: " + std::to_string(num_agents_required);
@@ -373,6 +405,7 @@ struct Lookup {
 
     // Squares that are strictly easier to see than another square. Can be ignored during the exploration aspect of the search.
     std::vector<bool> strictly_easier;
+    std::vector<std::vector<bool>> strictly_easier_per_agent;
 };
 
 struct DisjointGraph {
@@ -399,6 +432,63 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
     printf("Max Edge Cost: %d\n", graph.max_edge_cost);
     printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
 }
+
+struct ProblemInput {
+    HeuristicType heuristic_type;
+    double centralized_focal_epsilon;
+    double centralized_focal_heuristic_weight;
+    double centralized_focal_search_time_limit;
+    bool run_decentralized_search;
+    double decentralized_focal_epsilon;
+    double decentralized_focal_heuristic_weight;
+    double decentralized_focal_search_time_limit;
+    int max_decentralized_searches;
+
+    static ProblemInput from_json(const std::string& config_filename) {
+        std::ifstream i(config_filename);
+        nlohmann::json parsed_data = nlohmann::json::parse(i);
+        HeuristicType heuristic_type;
+        std::string heuristic_str = parsed_data["heuristic"].get<std::string>();
+        if(heuristic_str == "BFS") {
+            heuristic_type = HeuristicType::BFS;
+        } else if(heuristic_str == "SINGLETON") {
+            heuristic_type = HeuristicType::SINGLETON;
+        } else if(heuristic_str == "MST") {
+            printf("MST heuristic is no longer supported.\n");
+            exit(1);
+        } else if(heuristic_str == "TSP") {
+            heuristic_type = HeuristicType::TSP;
+        } else if(heuristic_str == "MAX") {
+            heuristic_type = HeuristicType::MAX;
+        } else if(heuristic_str == "LAZY") {
+            heuristic_type = HeuristicType::LAZY;
+        } else {
+            throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
+        }
+
+        double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();
+        double centralized_focal_heuristic_weight = parsed_data["centralized_focal_heuristic_weight"].get<double>();
+        double centralized_focal_search_time_limit = parsed_data["centralized_focal_search_time_limit"].get<double>();
+        bool run_decentralized_search = parsed_data["run_decentralized_search"].get<bool>();
+        double decentralized_focal_epsilon = parsed_data["decentralized_focal_epsilon"].get<double>();
+        double decentralized_focal_heuristic_weight = parsed_data["decentralized_focal_heuristic_weight"].get<double>();
+        double decentralized_focal_search_time_limit = parsed_data["decentralized_focal_search_time_limit"].get<double>();
+        int max_decentralized_searches = parsed_data["max_decentralized_searches"].get<int>();
+
+        return ProblemInput{
+            .heuristic_type = heuristic_type,
+            .centralized_focal_epsilon = centralized_focal_epsilon,
+            .centralized_focal_heuristic_weight = centralized_focal_heuristic_weight,
+            .centralized_focal_search_time_limit = centralized_focal_search_time_limit,
+            .run_decentralized_search = run_decentralized_search,
+            .decentralized_focal_epsilon = decentralized_focal_epsilon,
+            .decentralized_focal_heuristic_weight = decentralized_focal_heuristic_weight,
+            .decentralized_focal_search_time_limit = decentralized_focal_search_time_limit,
+            .max_decentralized_searches = max_decentralized_searches
+        };
+    }
+};
+
 
 struct SolverConfig {
     HeuristicType heuristic_type;

@@ -4,64 +4,16 @@
 #include <ctime>
 #include "search.hpp"
 #include "environment.hpp"
+#include "heirarchical_search.hpp"
 
-
-std::tuple<ScenarioConfig, SolverConfig> parse_arguments(int argc, char **argv) {
+std::tuple<ScenarioConfig, ProblemInput> parse_arguments(int argc, char **argv) {
     // Setup scenario config.
     ScenarioConfig scenario_config = ScenarioConfig::from_json(argv[1]);
-
-    // Setup solver config.
-    std::string heuristic_str = argv[2];
-    HeuristicType heuristic_type;
-    if(heuristic_str == "BFS") {
-        heuristic_type = HeuristicType::BFS;
-    } else if(heuristic_str == "SINGLETON") {
-        heuristic_type = HeuristicType::SINGLETON;
-    } else if(heuristic_str == "MST") {
-        printf("MST heuristic is no longer supported.\n");
-        exit(1);
-    } else if(heuristic_str == "TSP") {
-        heuristic_type = HeuristicType::TSP;
-    } else if(heuristic_str == "MAX") {
-        heuristic_type = HeuristicType::MAX;
-    } else if(heuristic_str == "LAZY") {
-        heuristic_type = HeuristicType::LAZY;
-    } else {
-        throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
-    }
-
-    double focal_epsilon;
-    try {
-        focal_epsilon = std::stod(argv[3]);
-    } catch (const std::invalid_argument& e) {
-        throw std::runtime_error("Invalid focal epsilon: " + std::string(argv[3]));
-    }
-
-    double focal_heuristic_weight;
-    try {
-        focal_heuristic_weight = std::stod(argv[4]);
-    } catch (const std::invalid_argument& e) {
-        throw std::runtime_error("Invalid focal heuristic weight: " + std::string(argv[4]));
-    }
-
-    double focal_search_time_limit;
-    try {
-        focal_search_time_limit = std::stod(argv[5]);
-    } catch (const std::invalid_argument& e) {
-        throw std::runtime_error("Invalid focal search time limit: " + std::string(argv[5]));
-    }
-
-    SolverConfig solver_config = SolverConfig{
-        .heuristic_type = heuristic_type,
-        .focal_epsilon = focal_epsilon,
-        .focal_heuristic_weight = focal_heuristic_weight,
-        .focal_search_time_limit = focal_search_time_limit
-    };
-
-    return {scenario_config, solver_config};
+    ProblemInput problem_input = ProblemInput::from_json(argv[2]);
+    return {scenario_config, problem_input};
 }
 
-void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_config) {
+void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_input) {
     auto now = std::chrono::system_clock::now();
     std::time_t curr_time = std::chrono::system_clock::to_time_t(now);
     printf("Starting computation at %s\n", std::ctime(&curr_time));
@@ -71,7 +23,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     auto start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
-    precompute_lookup(lookup, scenario_config.map, solver_config.heuristic_type, env.get_agent_positions());
+    precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions());
     print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
 
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
@@ -86,8 +38,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     aggregated.reset();
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
-    aggregated.add(METRICS);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -137,8 +88,7 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
         if(new_task_found) {
             printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
-            solution = run_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, solver_config, lookup);
-            aggregated.add(METRICS);
+            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
             s_t = 1;
         }
     }
@@ -149,12 +99,19 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
     final_run_file.close();
 
     printf("Aggregated Metrics:\n");
+    printf("\tCentralized Search Time: %.3f seconds\n", aggregated.centralized_search_time);
+    printf("\tDecentralized Search Time: %.3f seconds\n", aggregated.decentralized_search_time);
+    printf("\tNumber of Decentralized Searches: %d\n", aggregated.num_decentralized_searches);
     printf("\tMTSP Calls: %d\n", aggregated.mtsp_total_calls);
     printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
     printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);
     printf("\tGet f_value Time: %.3f seconds\n", aggregated.f_value_calculation_time);
+    printf("\tExtended Neighbors Calls: %d\n", aggregated.extended_neighbors_calls);
     printf("\tNeighbor Expansion Time: %.3f seconds\n", aggregated.neighbor_expansion_time);
+    printf("\tNeighbor Expansion BFS Time: %.3f seconds\n", aggregated.neighbor_expansion_bfs_time);
+    printf("\tNeighbor Expansion Pruning Time: %.3f seconds\n", aggregated.neighbor_expansion_pruning_time);
     printf("\tDomination Check Time: %.3f seconds\n", aggregated.domination_check_time);
+
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
@@ -164,13 +121,13 @@ void run(const ScenarioConfig& scenario_config, const SolverConfig& solver_confi
 }
 
 int main(int argc, char** argv) {
-    if(argc != 6) {
-        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <heuristic_type> <focal_epsilon> <focal_heuristic_weight> <focal_search_time_limit>\nExpanding Borders optimization and Makespan cost are used by default." << std::endl;
+    if(argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <scenario_file.json> <solver_config.json>" << std::endl;
         return 1;
     }
 
-    auto [scenario_config, solver_config] = parse_arguments(argc, argv);
-    run(scenario_config, solver_config);
+    auto [scenario_config, problem_input] = parse_arguments(argc, argv);
+    run(scenario_config, problem_input);
     return 0;
 }
 
@@ -291,5 +248,45 @@ Aggregated Metrics:
 Total time taken: 21.075 seconds
 Total tasks completed: 0 / 0
 Total squares seen: 2652 / 2652
+
+
+
+HEIRARCHICAL SEARCH COMPARISON
+
+mc_forest, 5 tasks, no mrt, two agents, centralized search only.
+Final timestep: 361
+Aggregated Metrics:
+	Centralized Search Time: 148.724 seconds
+	Decentralized Search Time: 0.000 seconds
+	Number of Decentralized Searches: 0
+	MTSP Calls: 139438
+	MTSP Setup Time: 47.395 seconds
+	MTSP Solver Time: 402.236 seconds
+	Get f_value Time: 60.015 seconds
+	Neighbor Expansion Time: 66.963 seconds
+	Domination Check Time: 1.586 seconds
+Total time taken: 170.659 seconds
+Total tasks completed: 5 / 5
+Total squares seen: 2652 / 2652
+
+mc_forest, 5 tasks, no mrt, two agents, heirarchical search only.
+Max time: 102
+Task completed at (45,39)!
+Task completed at (20,31)!
+Final timestep: 275
+Aggregated Metrics:
+	Centralized Search Time: 83.183 seconds
+	Decentralized Search Time: 154.073 seconds
+	Number of Decentralized Searches: 12
+	MTSP Calls: 110624
+	MTSP Setup Time: 36.851 seconds
+	MTSP Solver Time: 365.345 seconds
+	Get f_value Time: 99.799 seconds
+	Neighbor Expansion Time: 102.982 seconds
+	Domination Check Time: 2.157 seconds
+Total time taken: 274.045 seconds
+Total tasks completed: 5 / 5
+Total squares seen: 2652 / 2652
+
 
 */

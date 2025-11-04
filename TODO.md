@@ -107,6 +107,7 @@
   - Pivot pruning with shortcut logic.
   - Used Pathmax to ensure heuristic consistency.
   - Parallelization of heuristic computation.
+  - Dominance needs to check for agent waiting.
 
 **Time Breakdown (big_maze_tight.json, no tasks, TSP heuristic):** Total 18 seconds.
 - Lookup precompute: 0.1 seconds

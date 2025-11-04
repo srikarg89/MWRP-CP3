@@ -153,7 +153,10 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
     std::vector<AgentState> sorted_agents = get_sorted_agents_by_position(agents);
     std::string str = "[";
     for(const AgentState& agent : sorted_agents){
-        str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
+        // TODO: Change this if we expand individual agents at a time.
+        // Cost matters for distinguishing states when waiting.
+        // str += agent.pos.toString() + (agent.terminated ? " / T" : "") + " / " + std::to_string(agent.waiting_idx) + (agent.waiting_idx != -1 ? " / " + std::to_string(agent.cost) : "") + ", ";
+        str += agent.pos.toString() + ", ";
     }
     str += "]";
     return str;

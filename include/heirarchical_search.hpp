@@ -128,6 +128,7 @@ std::string bitset_to_string(const boost::dynamic_bitset<>& bs) {
 // TODO: Add in task partition.
 // TODO: How tf do i do multi-robot partition.
 std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, Metrics& aggregated_metrics){
+    printf("\n\n\n\n");
     // First run a normal search to get the initial partition.
     SolverConfig solver_config = {
         .heuristic_type = problem_input.heuristic_type,
@@ -142,7 +143,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Centralized search time: %.6f seconds\n", duration.count());
     aggregated_metrics.centralized_search_time += duration.count();
-    if(!problem_input.run_decentralized_search || start_timestep == 0){
+    if(!problem_input.run_decentralized_search){
         add_waits_to_end(multi_agent_solution);
         return multi_agent_solution;
     }

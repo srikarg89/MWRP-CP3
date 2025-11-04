@@ -43,7 +43,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
             // DisjointGraph disjoint_graph = compute_disjoint_graph(lookup, non_terminated_agent_map_idxs, input.seen, input.tasks_left);
             DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, input.tasks_left, lookup);
             prune_graph(disjoint_graph, lookup);
-            // alter_disjoint_graph_for_waiting_robots(disjoint_graph, non_terminated_agents, lookup);
+            alter_disjoint_graph_for_waiting_robots(disjoint_graph, map, non_terminated_agents, input.tasks_left, lookup);
 
             // If there's no pivots, just return the singleton heuristic.
             if(disjoint_graph.pivots.size() == 0){

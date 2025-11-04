@@ -27,10 +27,8 @@
 **Docket**
 - [ ] Heirarchical multi-robot task partition.
   - [ ] Set it up like a "deadline" during the individual, decentralized search.
-- [ ] Implement tasks that take a certain amount of time to complete.
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
-- [ ] Better direct heuristic for tasks that require multiple robots
 - [ ] Parallelize decentralized single-agent search??
 - [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
 - [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).

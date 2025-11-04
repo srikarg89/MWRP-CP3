@@ -21,7 +21,7 @@ int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map,
     int f_value = 0;
     std::unordered_map<int, int> min_time_to_complete_task;
     for(const Task& task : tasks_left){
-        int ttc = get_min_time_for_task_completion(agents, map, task, lookup);
+        int ttc = get_min_time_for_task_completion(agents, map, task, lookup, true);
         min_time_to_complete_task[task.id] = ttc;
         f_value = std::max(f_value, ttc);
     }

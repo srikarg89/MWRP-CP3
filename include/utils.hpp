@@ -8,7 +8,7 @@
 
 inline static const int MAX_PIVOTS = INT_MAX;
 
-inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup){
+inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup, bool include_agents_curr_cost){
     // Find the closest agent and how long it would take to reach the task.
     std::vector<int> times_to_reach_task;
     for(const AgentState& agent : agents){
@@ -17,7 +17,11 @@ inline int get_min_time_for_task_completion(const std::vector<AgentState>& agent
             continue;
         }
         int agent_map_idx = map.get_map_idx(agent.pos);
-        times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+        if(include_agents_curr_cost){
+            times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
+        } else {
+            times_to_reach_task.push_back(lookup.apsp[agent_map_idx][task.map_idx]);
+        }
     }
     std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
 
@@ -678,6 +682,8 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
     }
 }
 
+// Disallow waiting robots from going anywhere before completing their current task.
+// This is done by setting the cost to go to any other pivot as infinite, and setting the cost to go to the task itself as the min time it would take to complete the task.
 inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const Map& map, const std::vector<AgentState>& non_terminated_agents, const std::vector<Task>& tasks_left, const Lookup& lookup) {
     int max_apsp = map.num_squares;
     int U = max_apsp * std::accumulate(graph.num_required_visits.begin(), graph.num_required_visits.end(), 0);; // Some large number.
@@ -688,32 +694,26 @@ inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const 
         }
 
         Task task = get_task_by_id(tasks_left, agent.waiting_idx);
-        int time_to_complete = get_min_time_for_task_completion(non_terminated_agents, map, task, lookup);
+        int time_to_complete = get_min_time_for_task_completion(non_terminated_agents, map, task, lookup, false);
 
-        // Option 1:
         // Robot is waiting at a task, so set the cost for the robot to directly go to any other location as infinite.
         // Also, set the cost to go to the task itself as however long it would take to complete the task.
-        // for(int j = 0; j < graph.pivots.size(); j++){
-        //     if(graph.pivot_task_ids[j] == agent.waiting_idx){
-        //         if(graph.agent_pivot_costs[i][j] != 0){
-        //             printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
-        //             exit(0);
-        //         }
-        //         graph.agent_pivot_costs[i][j] = time_to_complete;
-        //     } else {
-        //         // graph.agent_pivot_costs
-        //         // What to do here?? Set to infinite?? Is this correct behavior??
-        //         graph.agent_pivot_costs[i][j] = U;
-        //     }
-        // }
-
-        // Option 2:
-        // For each robot that visits a multi-robot task, calculate the cost (c) of the path AFTER visiting this task, and set c + ttc <= L.
-        // To calculate the cost (c) of the path AFTER visiting this task, we need to know which nodes are visited after this task (every pivot with higher MTZ than task).
-            // I think you can do this with N - 1 boolean variables, each representing whether or not pivot p comes after the task (t).
-            // Then you can add 2 * (N - 1) constraints to ensure this boolean is represented properly, for example "u[p] - u[t] - N * b <= 0 && u[t] - u[p] - N * b >= 0" -> b = 1 if u[p] > u[t], else b = 0.
-        // Then, we need to sum up the costs of travelling to each of these nodes that come after the task (every pivot with higher MTZ than task).
-
-
+        bool found = false;
+        for(int j = 0; j < graph.pivots.size(); j++){
+            if(graph.pivot_task_ids[j] == agent.waiting_idx){
+                found = true;
+                if(graph.agent_pivot_costs[i][j] != 0){
+                    printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
+                    exit(0);
+                }
+                graph.agent_pivot_costs[i][j] = time_to_complete;
+            } else {
+                graph.agent_pivot_costs[i][j] = U;
+            }
+        }
+        if(!found){
+            printf("Error: Robot waiting at a task but task pivot not found in graph!\n");
+            exit(0);
+        }
     }
 }

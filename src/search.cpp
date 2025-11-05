@@ -315,9 +315,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 bool nbr_cost_better = true;
                 bool visited_cost_better = true;
                 for(int i = 0; i < nbr_sorted.size(); i++){
-                    if(it->agents[i].cost < nbr_sorted[i].cost && (nbr_sorted[i].terminated || !it->agents[i].terminated)){
+                    if((it->agents[i].cost < nbr_sorted[i].cost) || (nbr_sorted[i].terminated && !it->agents[i].terminated)){
                         nbr_cost_better = false;
-                    } else if(nbr_sorted[i].cost < it->agents[i].cost && (it->agents[i].terminated || !nbr_sorted[i].terminated)){
+                    } else if((nbr_sorted[i].cost < it->agents[i].cost) || (it->agents[i].terminated && !nbr_sorted[i].terminated)){
                         visited_cost_better = false;
                     }
                 }

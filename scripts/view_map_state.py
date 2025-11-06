@@ -14,7 +14,8 @@ for i in range(0, len(map_state), map_width):
 
 fig, ax = plt.subplots()
 
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","darkcyan","orange","gray","black"])
+# cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","darkcyan","orange","gray","black"])
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","gray","gray","black"])
 im = ax.imshow(map, cmap=cmap)
 
 ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=1.5)

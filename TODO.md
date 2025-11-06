@@ -31,6 +31,7 @@
 - [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
 - [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
+- [ ] Cases for iterative searching.
 
 **Paper Docket**
 - [ ] More experiments on similarly large maps.

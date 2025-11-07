@@ -507,6 +507,29 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     printf("Lookup precomputation time: %.6f seconds\n", duration.count());
 }
 
+inline void add_dominance_and_task_visibility_to_seen(boost::dynamic_bitset<>& seen, const std::vector<Task>& incomplete_tasks, const Map& map, const Lookup& lookup){
+    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+        if(seen[map_idx]){
+            continue;
+        }
+        // Mark squares that are within los of a task as "seen" since they will be explored when completing the task.
+        // Don't include squares that are the task themselves.
+        bool is_within_los_of_task = false;
+        for(const Task& task : incomplete_tasks){
+            if(map_idx == task.map_idx){
+                is_within_los_of_task = false;
+                continue;
+            }
+            if(lookup.watchers_set[map_idx].find(task.map_idx) != lookup.watchers_set[map_idx].end()){
+                is_within_los_of_task = true;
+            }
+        }
+        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx)) || is_within_los_of_task){
+            seen[map_idx] = 1;
+        }
+    }
+}
+
 inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;

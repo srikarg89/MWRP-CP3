@@ -197,6 +197,14 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     return str;
 }
 
+inline std::string bit_set_to_string(const boost::dynamic_bitset<>& bitset){
+    std::string str = "";
+    for(size_t i = 0; i < bitset.size(); i++){
+        str += bitset[i] ? "1" : "0";
+    }
+    return str;
+}
+
 struct AgentState {
     Position pos;
     bool terminated;
@@ -459,7 +467,6 @@ struct Map {
     }
 };
 
-
 struct Lookup {
     // LOS lookup table. Indexed by map index, gives list of positions visible from that map index.
     std::vector<std::vector<Position>> los;
@@ -511,6 +518,11 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
     printf("Max Edge Cost: %d\n", graph.max_edge_cost);
     printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
 }
+
+struct PastSolution {
+    std::vector<Position> path;
+    boost::dynamic_bitset<> seen;
+};
 
 struct ProblemInput {
     HeuristicType heuristic_type;

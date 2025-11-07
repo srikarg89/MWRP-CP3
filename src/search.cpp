@@ -205,7 +205,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
     return all_moves;
 }
 
-std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, double best_solution_cost, int last_id_assigned, std::unordered_map<std::string, std::vector<VisitedNodeInfo>>& generated_costs, std::unordered_set<int>& avoid_expansion_list){
+std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int best_solution_cost, int last_id_assigned, std::unordered_map<std::string, std::vector<VisitedNodeInfo>>& generated_costs, std::unordered_set<int>& avoid_expansion_list){
     int agent_to_expand = (node.last_agent_expanded + 1) % node.agents.size();
     while(node.agents[agent_to_expand].terminated){
         agent_to_expand = (agent_to_expand + 1) % node.agents.size();
@@ -420,35 +420,17 @@ std::vector<std::vector<Position>> reconstruct_path(int goal_node_id, const std:
     return paths;
 }
 
+
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup){
+std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup, const std::unordered_map<std::string, std::vector<PastSolution>>& solution_history) {
     // Reset metrics for every search run.
     METRICS.reset();
 
     // Create initial seen bitset.
+    add_dominance_and_task_visibility_to_seen(start_seen, incomplete_tasks, map, lookup);
     int num_start_seen = start_seen.count();
-    for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
-        if(start_seen[map_idx]){
-            continue;
-        }
-        // Mark squares that are within los of a task as "seen" since they will be explored when completing the task.
-        // Don't include squares that are the task themselves.
-        bool is_within_los_of_task = false;
-        for(const Task& task : incomplete_tasks){
-            if(map_idx == task.map_idx){
-                is_within_los_of_task = false;
-                continue;
-            }
-            if(lookup.watchers_set[map_idx].find(task.map_idx) != lookup.watchers_set[map_idx].end()){
-                is_within_los_of_task = true;
-            }
-        }
-        if(lookup.strictly_easier[map_idx] || map.check_obstacle(map.get_pos_from_map_idx(map_idx)) || is_within_los_of_task){
-            start_seen[map_idx] = 1;
-            num_start_seen += 1;
-        }
-    }
+    
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
@@ -515,7 +497,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::vector<std::vector<Position>> solution_paths(starts.size(), std::vector<Position>());
     bool solution_found = false;
     int max_node_depth_expanded = 0;
-    double best_solution_cost = std::numeric_limits<double>::infinity();
+    int best_solution_cost = INT_MAX;
 
     while(!open_set.empty()){
         if(solution_found && (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count() > solver_config.focal_search_time_limit)){
@@ -604,6 +586,52 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             // }
             continue;
             // break;
+        }
+
+        std::string key = agent_states_to_string(curr.agents) + task_array_hash_string(curr.tasks_left);
+        if(solution_history.find(key) != solution_history.end()){
+            // printf("Found key! Checking past solutions for pruning...\n");
+            bool skip_expansion = false;
+            bool found_optimal = false;
+            // Check past solutions for possible pruning.
+            for(const PastSolution& past_solution : solution_history.at(key)){
+                if(past_solution.seen == curr.seen) {
+                    // Return this solution.
+                    printf("Found matching past solution!\n");
+                    printf("Current cost: %d. Solution cost minus start: %d\n", curr.cost, curr.cost - start_timestep);
+                    for(AgentState agent : curr.agents){
+                        printf("\tAgent final time: %d\n", agent.cost);
+                    }
+
+                    solution_found = true;
+                    solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+                    for(int i = 1; i < past_solution.path.size(); i++){
+                        solution_paths[0].push_back(past_solution.path[i]);
+                    }
+                    best_solution_cost = solution_paths[0].size();
+                    printf("Solution cost from past solution: %d\n", best_solution_cost);
+                    skip_expansion = true;
+
+                    // If searching for optimal solution, we can stop here (assuming the previous solution was also searching for optimal)
+                    if(curr.f_value <= open_set.top().f_value) {
+                        found_optimal = true;
+                        break;
+                    }
+                } 
+                // else {
+                //     printf("\tComparing seen bitsets for dominance: %s, %s\n", agent_states_to_string(curr.agents).c_str(), task_array_hash_string(curr.tasks_left).c_str());
+                //     printf("\tCurrent seen count: %ld. Past solution seen count: %ld\n", curr.seen.count(), past_solution.seen.count());
+                //     printf("\tCurrent       seen: %s\n", get_map_state(lookup, map, curr.seen, agent_states_to_positions(curr.agents)).c_str());
+                //     printf("\tPast solution seen: %s\n", get_map_state(lookup, map, past_solution.seen, agent_states_to_positions(curr.agents)).c_str());
+                // }
+                // TODO: Check for dominance in both ways, either to use as a heuristic or to use as a suboptimal solution.
+            }
+            if(found_optimal) {
+                break;
+            }
+            if(skip_expansion) {
+                continue;
+            }
         }
 
         std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, best_solution_cost, last_id_assigned, generated_costs, avoid_expansion_list);

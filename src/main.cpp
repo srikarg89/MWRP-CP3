@@ -24,7 +24,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
 
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions());
-    print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
+    printf("Initial map state: %s\n", get_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions()).c_str());
     std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
 
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();

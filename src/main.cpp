@@ -25,6 +25,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions());
     print_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
+    std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
 
     std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
     printf("Total number of tasks in problem: %lu\n", known_tasks.size());
@@ -34,11 +35,10 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     }
     printf("Number of strictly easier points: %d\n", num_strictly_easier);
 
-    Metrics aggregated;
-    aggregated.reset();
+    MetricsList aggregated;
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -88,30 +88,44 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
         if(new_task_found) {
             printf("New tasks found on timestep %d, recalculating...\n", timestep);
             printf("New task found! Replanning...\n");
-            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
+            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
             s_t = 1;
         }
     }
 
-    printf("Final timestep: %d\n", timestep);
+    printf("\n\n\nFinal timestep: %d\n", timestep);
     write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
 
     final_run_file.close();
 
+    Metrics aggregated_sum = aggregated.sum_metrics();
     printf("Aggregated Metrics:\n");
-    printf("\tCentralized Search Time: %.3f seconds\n", aggregated.centralized_search_time);
-    printf("\tDecentralized Search Time: %.3f seconds\n", aggregated.decentralized_search_time);
-    printf("\tNumber of Decentralized Searches: %d\n", aggregated.num_decentralized_searches);
-    printf("\tMTSP Calls: %d\n", aggregated.mtsp_total_calls);
-    printf("\tMTSP Setup Time: %.3f seconds\n", aggregated.mtsp_setup_time);
-    printf("\tMTSP Solver Time: %.3f seconds\n", aggregated.mtsp_solver_runtime);
-    printf("\tGet f_value Time: %.3f seconds\n", aggregated.f_value_calculation_time);
-    printf("\tExtended Neighbors Calls: %d\n", aggregated.extended_neighbors_calls);
-    printf("\tNeighbor Expansion Time: %.3f seconds\n", aggregated.neighbor_expansion_time);
-    printf("\tNeighbor Expansion BFS Time: %.3f seconds\n", aggregated.neighbor_expansion_bfs_time);
-    printf("\tNeighbor Expansion Pruning Time: %.3f seconds\n", aggregated.neighbor_expansion_pruning_time);
-    printf("\tDomination Check Time: %.3f seconds\n", aggregated.domination_check_time);
+    printf("\tCentralized Search Time: %.3f seconds\n", aggregated_sum.centralized_search_time);
+    printf("\tDecentralized Search Time: %.3f seconds\n", aggregated_sum.decentralized_search_time);
+    printf("\tNumber of Decentralized Searches: %d\n", aggregated_sum.num_decentralized_searches);
+    printf("\tMTSP Calls: %d\n", aggregated_sum.mtsp_total_calls);
+    printf("\tMTSP Setup Time: %.3f seconds\n", aggregated_sum.mtsp_setup_time);
+    printf("\tMTSP Solver Time: %.3f seconds\n", aggregated_sum.mtsp_solver_runtime);
+    printf("\tGet f_value Time: %.3f seconds\n", aggregated_sum.f_value_calculation_time);
+    printf("\tExtended Neighbors Calls: %d\n", aggregated_sum.extended_neighbors_calls);
+    printf("\tNeighbor Expansion Time: %.3f seconds\n", aggregated_sum.neighbor_expansion_time);
+    printf("\tNeighbor Expansion BFS Time: %.3f seconds\n", aggregated_sum.neighbor_expansion_bfs_time);
+    printf("\tNeighbor Expansion Pruning Time: %.3f seconds\n", aggregated_sum.neighbor_expansion_pruning_time);
+    printf("\tDomination Check Time: %.3f seconds\n", aggregated_sum.domination_check_time);
 
+    printf("Metrics per search call:\n");
+    printf("\tCentralized Search Time: %s seconds\n", double_array_to_string(aggregated.centralized_search_time).c_str());
+    printf("\tDecentralized Search Time: %s seconds\n", double_array_to_string(aggregated.decentralized_search_time).c_str());
+    printf("\tNumber of Decentralized Searches: %s\n", int_array_to_string(aggregated.num_decentralized_searches).c_str());
+    printf("\tMTSP Calls: %s\n", int_array_to_string(aggregated.mtsp_total_calls).c_str());
+    printf("\tMTSP Setup Time: %s seconds\n", double_array_to_string(aggregated.mtsp_setup_time).c_str());
+    printf("\tMTSP Solver Time: %s seconds\n", double_array_to_string(aggregated.mtsp_solver_runtime).c_str());
+    printf("\tGet f_value Time: %s seconds\n", double_array_to_string(aggregated.f_value_calculation_time).c_str());
+    printf("\tExtended Neighbors Calls: %s\n", int_array_to_string(aggregated.extended_neighbors_calls).c_str());
+    printf("\tNeighbor Expansion Time: %s seconds\n", double_array_to_string(aggregated.neighbor_expansion_time).c_str());
+    printf("\tNeighbor Expansion BFS Time: %s seconds\n", double_array_to_string(aggregated.neighbor_expansion_bfs_time).c_str());
+    printf("\tNeighbor Expansion Pruning Time: %s seconds\n", double_array_to_string(aggregated.neighbor_expansion_pruning_time).c_str());
+    printf("\tDomination Check Time: %s seconds\n", double_array_to_string(aggregated.domination_check_time).c_str());
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;

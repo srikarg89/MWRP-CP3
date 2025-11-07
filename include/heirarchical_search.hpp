@@ -13,6 +13,11 @@ struct Partition {
     std::vector<Task> tasks;
 };
 
+struct PastSolution {
+    std::vector<Position> path;
+    boost::dynamic_bitset<> seen;
+};
+
 boost::dynamic_bitset<> get_vision_partition_responsibility(const Map& map, std::vector<std::vector<Position>> paths, int agent_idx, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     boost::dynamic_bitset<> responsibility(map.num_squares);
     responsibility.set();
@@ -125,9 +130,35 @@ std::string bitset_to_string(const boost::dynamic_bitset<>& bs) {
     return str;
 }
 
-// TODO: Add in task partition.
-// TODO: How tf do i do multi-robot partition.
-std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, Metrics& aggregated_metrics){
+void add_decentralized_solution_to_history(std::unordered_map<std::string, std::vector<PastSolution>>& solution_history, std::vector<Position> solution, boost::dynamic_bitset<> seen, std::vector<Task> tasks_left, const Map& map, const Lookup& lookup, int start_time) {
+    for(int i = 0; i < solution.size(); i++){
+        // TODO: This doesn't consider the waiting state!!!
+        add_los_to_seen(seen, lookup.los[map.get_map_idx(solution[i])], map);
+
+        // Remove tasks that are completed.
+        std::vector<Task> remaining_tasks;
+        for(const Task& task : tasks_left){
+            bool completed = false;
+            if(solution[i].equals(task.pos) && start_time + i >= task.release_time && start_time + i <= task.deadline){
+                completed = true;
+            }
+            if(!completed){
+                remaining_tasks.push_back(task);
+            }
+        }
+        tasks_left = remaining_tasks;
+
+        std::string key = solution[i].toString() + "_" + task_array_hash_string(tasks_left);
+        if(solution_history.find(key) == solution_history.end()){
+            solution_history[key] = std::vector<PastSolution>();
+        }
+        std::vector<Position> remaining_solution(solution.begin() + i, solution.end());
+        solution_history[key].push_back({.path = remaining_solution, .seen = seen});
+    }
+}
+
+
+std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, std::unordered_map<std::string, std::vector<PastSolution>>& solution_history, MetricsList& aggregated){
     printf("\n\n\n\n");
     // First run a normal search to get the initial partition.
     SolverConfig solver_config = {
@@ -138,11 +169,11 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     };
     auto start_time = std::chrono::high_resolution_clock::now();
     std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, incomplete_tasks, start_seen, map, solver_config, lookup);
-    aggregated_metrics.add(METRICS);
+    aggregated.add_metrics(METRICS);
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Centralized search time: %.6f seconds\n", duration.count());
-    aggregated_metrics.centralized_search_time += duration.count();
+    aggregated.centralized_search_time.push_back(duration.count());
     if(!problem_input.run_decentralized_search){
         add_waits_to_end(multi_agent_solution);
         return multi_agent_solution;
@@ -153,9 +184,9 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     std::vector<std::vector<Partition>> partitions_solved_by_agent(starts.size(), std::vector<Partition>());
 
     printf("\nStarting decentralized search\n");
-    start_time = std::chrono::high_resolution_clock::now();
     int num_decentralized_searches = 0;
     while(num_decentralized_searches < problem_input.max_decentralized_searches){
+        start_time = std::chrono::high_resolution_clock::now();
         if(num_decentralized_searches > 0){
             printf("\n");
         }
@@ -219,7 +250,8 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         printf("Time taken before search calculation: %.6f seconds\n", duration.count());
 
         std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, responsibility.tasks, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
-        aggregated_metrics.add(METRICS);
+        aggregated.add_metrics(METRICS);
+        add_decentralized_solution_to_history(solution_history, single_agent_solution[0], single_agent_seen, responsibility.tasks, map, single_agent_lookup, start_timestep);
 
         // Update centralized solution.
         if(single_agent_solution[0].size() < multi_agent_solution[agent_idx].size()){
@@ -238,13 +270,10 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         end_time = std::chrono::high_resolution_clock::now();
         duration = end_time - start_time;
         printf("Time taken after search: %.6f seconds\n", duration.count());
+        aggregated.decentralized_search_time.push_back(duration.count());
     }
 
-    end_time = std::chrono::high_resolution_clock::now();
-    duration = end_time - start_time;
-    printf("Decentralized search time: %.6f seconds\n\n", duration.count());
-    aggregated_metrics.decentralized_search_time += duration.count();
-    aggregated_metrics.num_decentralized_searches += num_decentralized_searches;
+    aggregated.num_decentralized_searches.push_back(num_decentralized_searches);
 
     add_waits_to_end(multi_agent_solution);
     return multi_agent_solution;

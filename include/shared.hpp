@@ -9,6 +9,31 @@
 #include <fstream>
 
 // Singleton metrics.
+
+inline std::string int_array_to_string(const std::vector<int>& arr) {
+    std::string result = "[";
+    for(int i = 0; i < arr.size(); i++){
+        result += std::to_string(arr[i]);
+        if(i != arr.size() - 1){
+            result += ", ";
+        }
+    }
+    result += "]";
+    return result;
+}
+
+inline std::string double_array_to_string(const std::vector<double>& arr) {
+    std::string result = "[";
+    for(int i = 0; i < arr.size(); i++){
+        result += std::to_string(arr[i]);
+        if(i != arr.size() - 1){
+            result += ", ";
+        }
+    }
+    result += "]";
+    return result;
+}
+
 struct Metrics {
     // Heirarchical search metrics.
     double centralized_search_time = 0.0;
@@ -72,6 +97,69 @@ struct Metrics {
     }
 };
 
+struct MetricsList {
+    // Heirarchical search metrics.
+    std::vector<double> centralized_search_time;
+    std::vector<double> decentralized_search_time;
+    std::vector<int> num_decentralized_searches;
+
+    // General search metrics.
+    std::vector<int> num_skipped_duplicate_node;
+    std::vector<int> num_skipped_task_deadlock;
+    std::vector<int> num_skipped_high_lazy_f_value;
+    std::vector<int> extended_neighbors_calls;
+    std::vector<double> neighbor_expansion_time;
+    std::vector<double> f_value_calculation_time;
+    std::vector<double> domination_check_time;
+    std::vector<double> neighbor_expansion_bfs_time;
+    std::vector<double> neighbor_expansion_pruning_time;
+
+    // MTSP Metrics.
+    std::vector<double> mtsp_setup_time;
+    std::vector<double> mtsp_solver_runtime;
+    std::vector<int> mtsp_total_calls;
+
+    void add_metrics(const Metrics& metrics) {
+        num_skipped_duplicate_node.push_back(metrics.num_skipped_duplicate_node);
+        num_skipped_task_deadlock.push_back(metrics.num_skipped_task_deadlock);
+        num_skipped_high_lazy_f_value.push_back(metrics.num_skipped_high_lazy_f_value);
+        extended_neighbors_calls.push_back(metrics.extended_neighbors_calls);
+        neighbor_expansion_time.push_back(metrics.neighbor_expansion_time);
+        neighbor_expansion_bfs_time.push_back(metrics.neighbor_expansion_bfs_time);
+        neighbor_expansion_pruning_time.push_back(metrics.neighbor_expansion_pruning_time);
+        f_value_calculation_time.push_back(metrics.f_value_calculation_time);
+        domination_check_time.push_back(metrics.domination_check_time);
+
+        mtsp_setup_time.push_back(metrics.mtsp_setup_time);
+        mtsp_solver_runtime.push_back(metrics.mtsp_solver_runtime);
+        mtsp_total_calls.push_back(metrics.mtsp_total_calls);
+    }
+    
+    Metrics sum_metrics() {
+        Metrics metrics;
+        metrics.centralized_search_time = std::accumulate(centralized_search_time.begin(), centralized_search_time.end(), 0.0);
+        metrics.decentralized_search_time = std::accumulate(decentralized_search_time.begin(), decentralized_search_time.end(), 0.0);
+        metrics.num_decentralized_searches = std::accumulate(num_decentralized_searches.begin(), num_decentralized_searches.end(), 0);
+
+        metrics.num_skipped_duplicate_node = std::accumulate(num_skipped_duplicate_node.begin(), num_skipped_duplicate_node.end(), 0);
+        metrics.num_skipped_task_deadlock = std::accumulate(num_skipped_task_deadlock.begin(), num_skipped_task_deadlock.end(), 0);
+        metrics.num_skipped_high_lazy_f_value = std::accumulate(num_skipped_high_lazy_f_value.begin(), num_skipped_high_lazy_f_value.end(), 0);
+        metrics.extended_neighbors_calls = std::accumulate(extended_neighbors_calls.begin(), extended_neighbors_calls.end(), 0);
+        metrics.neighbor_expansion_time = std::accumulate(neighbor_expansion_time.begin(), neighbor_expansion_time.end(), 0.0);
+        metrics.neighbor_expansion_bfs_time = std::accumulate(neighbor_expansion_bfs_time.begin(), neighbor_expansion_bfs_time.end(), 0.0);
+        metrics.neighbor_expansion_pruning_time = std::accumulate(neighbor_expansion_pruning_time.begin(), neighbor_expansion_pruning_time.end(), 0.0);
+        metrics.f_value_calculation_time = std::accumulate(f_value_calculation_time.begin(), f_value_calculation_time.end(), 0.0);
+        metrics.domination_check_time = std::accumulate(domination_check_time.begin(), domination_check_time.end(), 0.0);
+
+        metrics.mtsp_setup_time = std::accumulate(mtsp_setup_time.begin(), mtsp_setup_time.end(), 0.0);
+        metrics.mtsp_solver_runtime = std::accumulate(mtsp_solver_runtime.begin(), mtsp_solver_runtime.end(), 0.0);
+        metrics.mtsp_total_calls = std::accumulate(mtsp_total_calls.begin(), mtsp_total_calls.end(), 0);
+        
+        return metrics;
+    }
+};
+
+
 inline Metrics METRICS;
 
 // General, shared types.
@@ -104,15 +192,6 @@ inline std::string pos_array_to_string(const std::vector<Position>& poses){
     std::string str = "[";
     for(Position pos : poses){
         str += pos.toString() + ", ";
-    }
-    str += "]";
-    return str;
-}
-
-inline std::string int_array_to_string(const std::vector<int>& arr){
-    std::string str = "[";
-    for(int i : arr){
-        str += std::to_string(i) + ", ";
     }
     str += "]";
     return str;

@@ -390,18 +390,19 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     // lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
 
     // Find path dominance
-    std::vector<std::vector<bool>> combined_path_dominations = std::vector<std::vector<bool>>(map.num_squares, std::vector<bool>(map.num_squares, true));
+    // std::vector<std::vector<bool>> combined_path_dominations = std::vector<std::vector<bool>>(map.num_squares, std::vector<bool>(map.num_squares, true));
     for(int i = 0; i < agent_starts.size(); i++){
-        std::vector<std::vector<bool>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los);
-        lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
-        // Merge path dominations.
-        for(int j = 0; j < map.num_squares; j++){
-            for(int k = 0; k < map.num_squares; k++){
-                combined_path_dominations[j][k] = combined_path_dominations[j][k] & agent_path_dominations[j][k];
-            }
-        }
+        lookup.strictly_easier_per_agent(calculate_path_dominance({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los));
+        // std::vector<std::vector<bool>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los);
+        // lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+        // // Merge path dominations.
+        // for(int j = 0; j < map.num_squares; j++){
+        //     for(int k = 0; k < map.num_squares; k++){
+        //         combined_path_dominations[j][k] = combined_path_dominations[j][k] & agent_path_dominations[j][k];
+        //     }
+        // }
     }
-    lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
+    // lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;

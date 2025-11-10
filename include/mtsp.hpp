@@ -67,7 +67,6 @@ inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::
 }
 
 // TODO: Equalities are bad, maybe setting this to >=1 is better?
-// TODO: Add in multi robot constraints (has to be visited N times).
 inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, int n, int m, const std::vector<int>& num_required_visits){
     for(int loc = 0; loc < n; loc++) {
         IloExpr expr(env);

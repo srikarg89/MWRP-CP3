@@ -304,6 +304,20 @@ inline Task get_task_by_id(const std::vector<Task>& tasks, int id){
     throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
 }
 
+inline bool task_arrays_equal(std::vector<Task> a, std::vector<Task> b){
+    if(a.size() != b.size()){
+        return false;
+    }
+    std::sort(a.begin(), a.end(), [](const Task& t1, const Task& t2){ return t1.id < t2.id; });
+    std::sort(b.begin(), b.end(), [](const Task& t1, const Task& t2){ return t1.id < t2.id; });
+    for(int i = 0; i < a.size(); i++){
+        if(a[i].id != b[i].id || a[i].release_time != b[i].release_time || a[i].deadline != b[i].deadline || a[i].num_agents_required != b[i].num_agents_required){
+            return false;
+        }
+    }
+    return true;
+}
+
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
@@ -522,6 +536,7 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
 struct PastSolution {
     std::vector<Position> path;
     boost::dynamic_bitset<> seen;
+    std::vector<Task> tasks_left;
 };
 
 struct ProblemInput {

@@ -569,18 +569,23 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         // Goal condition.
-        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
+        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0 && curr.cost < best_solution_cost){
             printf("Goal condition met!\n");
-            printf("Num seen: %d / %d\n", curr.num_seen, map.num_squares);
-            printf("Solution node depth: %d\n", curr.depth);
-            printf("Solution cost: %d. Solution cost minus start: %d\n", curr.cost, curr.cost - start_timestep);
+            printf("\tNum seen: %d / %d\n", curr.num_seen, map.num_squares);
+            printf("\tSolution node depth: %d\n", curr.depth);
+            printf("\tSolution cost: %d. Solution cost minus start: %d\n", curr.cost, curr.cost - start_timestep);
             for(AgentState agent : curr.agents){
-                printf("\tAgent final time: %d\n", agent.cost);
+                printf("\t\tAgent final time: %d\n", agent.cost);
             }
 
             solution_found = true;
             best_solution_cost = curr.cost;
             solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+
+            // for(int i = 0; i < solution_paths.size(); i++){
+            //     printf("\tPath for agent %d (length %ld): %s\n", i, solution_paths[i].size(), pos_array_to_string(solution_paths[i]).c_str());
+            // }
+
             // for(const auto& path : solution_paths){
             //     printf("Path length: %ld\n", path.size());
             // }
@@ -588,36 +593,40 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             // break;
         }
 
-        std::string key = agent_states_to_string(curr.agents) + task_array_hash_string(curr.tasks_left);
+        // TODO: Add task release / deadline into task array hash string
+        std::string key = agent_states_to_string(curr.agents);
         if(solution_history.find(key) != solution_history.end()){
             // printf("Found key! Checking past solutions for pruning...\n");
             bool skip_expansion = false;
             bool found_optimal = false;
             // Check past solutions for possible pruning.
             for(const PastSolution& past_solution : solution_history.at(key)){
-                if(past_solution.seen == curr.seen) {
+                if(past_solution.seen == curr.seen && task_arrays_equal(past_solution.tasks_left, curr.tasks_left)){
                     // Return this solution.
                     printf("Found matching past solution!\n");
-                    printf("Current cost: %d. Solution cost minus start: %d\n", curr.cost, curr.cost - start_timestep);
-                    for(AgentState agent : curr.agents){
-                        printf("\tAgent final time: %d\n", agent.cost);
-                    }
+                    printf("\tCurrent cost: %d. Current cost minus start: %d\n", curr.cost, curr.cost - start_timestep);
 
-                    solution_found = true;
-                    solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+                    auto paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+                    // TODO: Change this to be for every agent.
                     for(int i = 1; i < past_solution.path.size(); i++){
-                        solution_paths[0].push_back(past_solution.path[i]);
+                        paths[0].push_back(past_solution.path[i]);
                     }
-                    best_solution_cost = solution_paths[0].size();
-                    printf("Solution cost from past solution: %d\n", best_solution_cost);
+                    int solution_cost = start_timestep + paths[0].size();
                     skip_expansion = true;
 
-                    // If searching for optimal solution, we can stop here (assuming the previous solution was also searching for optimal)
-                    if(curr.f_value <= open_set.top().f_value) {
-                        found_optimal = true;
-                        break;
+                    if(solution_cost < best_solution_cost){
+                        solution_found = true;
+                        solution_paths = paths;
+                        best_solution_cost = solution_cost;
+                        printf("\tSolution cost from past solution: %d\n", best_solution_cost);
+
+                        // If searching for optimal solution, we can stop here (assuming the previous solution was also searching for optimal)
+                        if(open_set.empty() || curr.f_value <= open_set.top().f_value) {
+                            found_optimal = true;
+                        }
                     }
-                } 
+                    break;
+                }
                 // else {
                 //     printf("\tComparing seen bitsets for dominance: %s, %s\n", agent_states_to_string(curr.agents).c_str(), task_array_hash_string(curr.tasks_left).c_str());
                 //     printf("\tCurrent seen count: %ld. Past solution seen count: %ld\n", curr.seen.count(), past_solution.seen.count());
@@ -626,12 +635,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 // }
                 // TODO: Check for dominance in both ways, either to use as a heuristic or to use as a suboptimal solution.
             }
-            if(found_optimal) {
-                break;
-            }
-            if(skip_expansion) {
-                continue;
-            }
+           if(skip_expansion) {
+               continue;
+           }
         }
 
         std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, best_solution_cost, last_id_assigned, generated_costs, avoid_expansion_list);

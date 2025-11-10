@@ -143,14 +143,13 @@ void add_decentralized_solution_to_history(std::unordered_map<std::string, std::
         }
         tasks_left = remaining_tasks;
 
-        // TODO: This doesn't consider deadlines!!!
         AgentState curr_agent_state(solution[i], false, -1, start_time + i);
-        std::string key = agent_states_to_string({curr_agent_state}) + task_array_hash_string(tasks_left);
+        std::string key = agent_states_to_string({curr_agent_state});
         if(solution_history.find(key) == solution_history.end()){
             solution_history[key] = std::vector<PastSolution>();
         }
         std::vector<Position> remaining_solution(solution.begin() + i, solution.end());
-        solution_history[key].push_back({.path = remaining_solution, .seen = seen});
+        solution_history[key].push_back({.path = remaining_solution, .seen = seen, .tasks_left = tasks_left});
     }
 }
 

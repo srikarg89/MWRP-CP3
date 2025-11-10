@@ -1,11 +1,11 @@
 {
     "heuristic": "TSP",
-    "centralized_focal_epsilon": 1.5,
+    "centralized_focal_epsilon": 2.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_focal_search_time_limit": 1.0,
     "run_decentralized_search": true,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_focal_search_time_limit": 10.0,
-    "max_decentralized_searches": 2
+    "max_decentralized_searches": 3
 }

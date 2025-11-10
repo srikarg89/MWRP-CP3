@@ -326,6 +326,7 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
             double makespan_double = cplex.getObjValue();
             int makespan = static_cast<int>(std::round(makespan_double));
             int sum_of_costs = 0;
+            int max_of_costs = 0;
             for(int agent = 0; agent < m; agent++) {
                 int agent_cost = 0;
                 for(int from = 0; from < n + 1; from++) {
@@ -337,9 +338,11 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
                     }
                 }
                 sum_of_costs += agent_cost;
+                max_of_costs = std::max(max_of_costs, agent_cost);
             }
             env.end();
-            return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
+            // return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
+            return std::make_pair(makespan, max_of_costs); // makespan, MOC.
 
         } else {
             cout << "No solution found." << endl;

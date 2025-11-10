@@ -27,11 +27,12 @@
 **Docket**
 - [ ] Focal search heuristics
   - [ ] Max of costs (as opposed to sum of costs).
-- [ ] Iterative search (find a way to utilize prior search expansions) for the multi-agent search.
+- [ ] Iterative search (find a way to utilize prior solutions) for the multi-agent search.
 - [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).
 - [ ] Case-by-case for iterative search
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 - [ ] Cases for iterative searching.
+- [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
 
 **Paper Docket**
 - [ ] More experiments on similarly large maps.
@@ -82,6 +83,7 @@
 - [x] Heirarchical task partition.
 - [x] Heirarchical multi-robot task partition.
   - [x] Set it up like a "deadline" during the individual, decentralized search.
+- [x] Speedup lookup precomputation time.
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.

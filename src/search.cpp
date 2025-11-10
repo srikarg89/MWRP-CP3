@@ -157,7 +157,6 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
 
     // Now, take the sum of the options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
-    // for(int i = 0; i < agents.size(); i++){
 
     // agent_to_expand = -1;
     // for(int i = 0; i < agents.size(); i++){
@@ -202,6 +201,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
         }
     };
     backtrack(0, {}, false);
+
     return all_moves;
 }
 

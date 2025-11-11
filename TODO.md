@@ -1,7 +1,7 @@
-**Things to fix / test**
+**Things to fix / potential optimizations**
 - [ ] Test old vs new pivot sorting order (new could work better with multi-agent).
-- [ ] Duplicate / Dominance Detection.
-  - [ ] Also need to fix current duplicate checking (doesn't check agent order).
+- [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
+- [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 
 **Extensions**
 - Definitely should do
@@ -19,13 +19,10 @@
   - [ ] Tasks with inter-dependent time constraints (need to implement waiting at tasks??).
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 
-**Optimizations**
-- [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
-
 **Docket**
-- [ ] Iterative search utilizing previous expansions as a minimum heuristic.
-- [ ] Case-by-case for iterative search
-- [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
+- [ ] Iterative search solution check dominance in both ways (either for suboptimal solution or for admissible heuristic)
+- [ ] Iterative search utilizing previous expansions as a admissible heuristic.
+- [ ] Iterative search for multi-agent??
 - [ ] Cases for iterative searching.
 - [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
 - [ ] Greedy centralized TSP-based search to scale for many agents??
@@ -34,16 +31,16 @@
 - [ ] More experiments on similarly large maps.
   - [ ] Create maps with randomized task layouts.
 - [ ] Experiments with 5 robots (more if fast).
-- [ ] Experiments testing different focal epsilons and weight values.
-  - [ ] Record optimal solution length, runtime, sum of costs, etc.
 - [ ] Implement frontier-based search baseline.
 - [ ] Implement frontier-based search + greedy task baseline.
 - [ ] Implement our search + greedy task baseline.
-- [ ] Experiments on suboptimal methods
+- [ ] Experiments on suboptimal methods for centralized search with large number of agents.
   - [ ] Focal search with SOC.
   - [ ] Focal search with MOC.
   - [ ] Weighted A* w/ weights on graph.
   - [ ] Greedy TSP-based solution.
+- [ ] Experiments testing different focal epsilons and weight values.
+  - [ ] Record optimal solution length, runtime, sum of costs, etc.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.

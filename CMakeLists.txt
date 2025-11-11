@@ -3,9 +3,8 @@ project(STAPF LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# TODO: Use release instead of Debug
-# set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Debug)
 
 set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/cplex/)
 

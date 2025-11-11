@@ -373,11 +373,15 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     METRICS.f_value_calculation_time += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
+        const HeuristicInput& input = neighbor_heuristic_inputs[i];
+
+        // Weighted A* for 
+        int nbr_f_value = f_and_focal_values[i].first;
+
         // Apply pathmax to ensure consistency.
-        int nbr_f_value = std::max(f_and_focal_values[i].first, node.f_value);
+        nbr_f_value = std::max(nbr_f_value, node.f_value);
         int nbr_focal_value = f_and_focal_values[i].second;
         last_id_assigned += 1;
-        const HeuristicInput& input = neighbor_heuristic_inputs[i];
 
         std::string nbr_key = agent_states_to_string(input.agents) + task_array_hash_string(input.tasks_left);
         std::vector<AgentState> nbr_sorted = get_sorted_agents_by_position(input.agents);
@@ -388,6 +392,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
 
         neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, agent_to_expand, node.depth + 1));
     }
+
     return neighbor_nodes;
 }
 

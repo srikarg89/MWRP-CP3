@@ -165,6 +165,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         .focal_search_time_limit = problem_input.centralized_focal_search_time_limit
     };
     auto start_time = std::chrono::high_resolution_clock::now();
+    A_STAR_WEIGHT = problem_input.centralized_astar_weight;
     std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, incomplete_tasks, start_seen, map, solver_config, lookup, {});
     aggregated.add_metrics(METRICS);
     auto end_time = std::chrono::high_resolution_clock::now();
@@ -247,6 +248,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         duration = end_time - start_time;
         printf("Time taken before search calculation: %.6f seconds\n", duration.count());
 
+        A_STAR_WEIGHT = problem_input.decentralized_astar_weight;
         std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, responsibility.tasks, single_agent_seen, map, single_agent_solver_config, single_agent_lookup, solution_history);
         aggregated.add_metrics(METRICS);
         add_decentralized_solution_to_history(solution_history, single_agent_solution[0], single_agent_seen, responsibility.tasks, map, single_agent_lookup, start_timestep);

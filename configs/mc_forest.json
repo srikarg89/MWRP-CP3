@@ -1,5 +1,5 @@
 {
-    "agents": [[51, 25], [2, 25]],
+    "agents": [[51, 25], [2, 25], [25, 48]],
     "tasks": [],
     "map": "mc-forest.map",
     "movement": "FOUR_WAY_MOVEMENT",

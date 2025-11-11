@@ -1,11 +1,6 @@
 {
-    "agents": [[25, 25]],
-    "tasks": [
-        {
-            "id": 0,
-            "location": [20, 20]
-        }
-    ],
+    "agents": [[25, 25], [0, 25]],
+    "tasks": [],
     "map": "mc-forest-right.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"

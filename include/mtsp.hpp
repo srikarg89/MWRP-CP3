@@ -268,7 +268,8 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
                     }
                 }
             }
-            model.add(agent_cost + current_costs[agent] <= L);
+            model.add(agent_cost * A_STAR_WEIGHT + current_costs[agent] <= L);
+            // model.add(agent_cost + current_costs[agent] <= L);
             agent_cost.end();
         }
 
@@ -327,6 +328,7 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
             int makespan = static_cast<int>(std::round(makespan_double));
             int sum_of_costs = 0;
             int max_of_costs = 0;
+            int makespan_weighted = 0;
             for(int agent = 0; agent < m; agent++) {
                 int agent_cost = 0;
                 for(int from = 0; from < n + 1; from++) {
@@ -339,14 +341,14 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
                 }
                 sum_of_costs += agent_cost;
                 max_of_costs = std::max(max_of_costs, agent_cost);
+                makespan_weighted = std::max(makespan_weighted, (int)(current_costs[agent] + agent_cost * A_STAR_WEIGHT));
             }
             env.end();
             if(focal_method == FocalMethod::SOC) {
-                return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
+                return std::make_pair(makespan_weighted, sum_of_costs); // makespan, SOC.
             } else {
-                return std::make_pair(makespan, max_of_costs); // makespan, MOC.
+                return std::make_pair(makespan_weighted, max_of_costs); // makespan, MOC.
             }
-
         } else {
             cout << "No solution found." << endl;
             exit(0);

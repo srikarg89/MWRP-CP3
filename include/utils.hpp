@@ -164,48 +164,49 @@ inline std::vector<bool> calculate_square_dominance(const Map& map, const std::v
 // If all paths from A to B require looking at C, then we can say that given starting location A, C is strictly easier than B.
 // NOTE: We want to handle edge cases where B dominates C and C dominates B, thus once we determine that B dominates C, we should remove any dominance relationships where C dominates B.
 // Assumes that every cell is unseen.
-inline std::vector<std::vector<bool>> get_path_dominations_matrix(std::vector<Position> start_positions, const Map& map, const std::vector<std::vector<Position>>& watchers, const std::vector<std::unordered_set<int>>& watchers_set, const std::vector<std::vector<Position>>& los) {
+inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vector<Position> start_positions, const Map& map, const std::vector<boost::dynamic_bitset<>>& watchers_bitsets) {
     // path_dominations[i][j] = true if i is easier to see than j given start_pos.
-    std::vector<std::vector<bool>> path_dominations(map.num_squares, std::vector<bool>(map.num_squares, false));
+    std::vector<boost::dynamic_bitset<>> path_dominations(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
+    auto start_time = std::chrono::high_resolution_clock::now();
+    int count = 0;
     for(int i = 0; i < map.num_squares; i++){
         if(map.check_obstacle(map.get_pos_from_map_idx(i))){
             continue;
         }
 
-        // Check all squares I can see from start without looking at i.
-        std::vector<bool> seen(map.num_squares, false);
-        std::vector<bool> visited(map.num_squares, false);
-        std::queue<int> queue;
+        // Check all squares I can visit from start without looking at i.
+        boost::dynamic_bitset<> visited(map.num_squares, 0);
+        std::vector<int> stack;
+        stack.reserve(map.num_squares);
 
         for(const Position& start_pos : start_positions){
-            queue.push(map.get_map_idx(start_pos));
-            seen[map.get_map_idx(start_pos)] = true;
+            stack.push_back(map.get_map_idx(start_pos));
         }
 
-        while(!queue.empty()){
-            int curr = queue.front();
-            queue.pop();
+        auto bfs_start_time = std::chrono::high_resolution_clock::now();
 
-            if(visited[curr]){
-                continue;
-            }
-            visited[curr] = true;
+        while(!stack.empty()){
+            int curr = stack.back();
+            stack.pop_back();
 
-            if(watchers_set[i].find(curr) != watchers_set[i].end()){
+            if(visited[curr] || watchers_bitsets[i].at(curr)){
                 continue; // Can't look at i, so can't go here.
             }
-
-            for(Position visible : los[curr]){
-                int visible_map_idx = map.get_map_idx(visible);
-                seen[visible_map_idx] = true;
-            }
+            
+            visited[curr] = 1;
 
             for(int neighbor_map_idx : map.neighbors[curr]){
-                if(visited[neighbor_map_idx]){
-                    continue;
+                if(visited[neighbor_map_idx] || watchers_bitsets[i].at(neighbor_map_idx)){
+                    continue; // Can't look at i, so can't go here.
                 }
-                queue.push(neighbor_map_idx);
+                stack.push_back(neighbor_map_idx);
             }
+        }
+
+        // Starting positions are always visited.
+        for(const Position& start_pos : start_positions){
+            stack.push_back(map.get_map_idx(start_pos));
+            visited[map.get_map_idx(start_pos)] = 1;
         }
 
         for(int j = 0; j < map.num_squares; j++){
@@ -214,21 +215,26 @@ inline std::vector<std::vector<bool>> get_path_dominations_matrix(std::vector<Po
             }
 
             // If j cannot be seen without looking at i, then i is easier to see than j.
-            if(!seen[j]){
+            if((watchers_bitsets[j] & visited).none()){
                 path_dominations[i][j] = true;
             }
         }
+
+        count += 1;
     }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end_time - start_time;
+    printf("Path dominance computation time for all squares: %.6f seconds over %d squares\n", duration.count(), count);
 
     return path_dominations;
 }
 
-inline std::vector<bool> path_dominations_to_strictly_easier(const Map& map, std::vector<std::vector<bool>> path_dominations) {
+inline std::vector<bool> path_dominations_to_strictly_easier(const Map& map, std::vector<boost::dynamic_bitset<>> path_dominations) {
     // Remove duplicate dominations.
     for(int i = 0; i < map.num_squares; i++){
         for(int j = i + 1; j < map.num_squares; j++){
             if(path_dominations[i][j] && path_dominations[j][i]){
-                path_dominations[j][i] = false;
+                path_dominations[j][i] = 0;
             }
         }
     }
@@ -236,13 +242,7 @@ inline std::vector<bool> path_dominations_to_strictly_easier(const Map& map, std
     // Return set of dominated cells.
     std::vector<bool> strictly_easier(map.num_squares, false);
     for(int i = 0; i < map.num_squares; i++){
-        for(int j = 0; j < map.num_squares; j++){
-            if(path_dominations[i][j]){
-                // printf("If you never see %s, then you will never be able to see %s\n", map.get_pos_from_map_idx(i).toString().c_str(), map.get_pos_from_map_idx(j).toString().c_str());
-                strictly_easier[i] = true;
-                break;
-            }
-        }
+        strictly_easier[i] = path_dominations[i].any();
     }
 
     return strictly_easier;
@@ -390,19 +390,28 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     // lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
 
     // Find path dominance
-    // std::vector<std::vector<bool>> combined_path_dominations = std::vector<std::vector<bool>>(map.num_squares, std::vector<bool>(map.num_squares, true));
-    for(int i = 0; i < agent_starts.size(); i++){
-        lookup.strictly_easier_per_agent(calculate_path_dominance({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los));
-        // std::vector<std::vector<bool>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, lookup.watchers, lookup.watchers_set, lookup.los);
-        // lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
-        // // Merge path dominations.
-        // for(int j = 0; j < map.num_squares; j++){
-        //     for(int k = 0; k < map.num_squares; k++){
-        //         combined_path_dominations[j][k] = combined_path_dominations[j][k] & agent_path_dominations[j][k];
-        //     }
-        // }
+    std::vector<boost::dynamic_bitset<>> combined_path_dominations = std::vector<boost::dynamic_bitset<>>(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
+    for(int i = 0; i < map.num_squares; i++){
+        combined_path_dominations[i].set(); // Initialize all to 1.
     }
-    // lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
+
+    std::vector<boost::dynamic_bitset<>> watchers_bitsets(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
+    for(int i = 0; i < map.num_squares; i++){
+        for(Position watcher_pos : lookup.watchers[i]){
+            int watcher_map_idx = map.get_map_idx(watcher_pos);
+            watchers_bitsets[i][watcher_map_idx] = 1;
+        }
+        watchers_bitsets[i][i] = 1; // Any cell can see itself.
+    }
+    for(int i = 0; i < agent_starts.size(); i++){
+        std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
+        lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+        // Merge path dominations.
+        for(int j = 0; j < map.num_squares; j++){
+            combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
+        }
+    }
+    lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;

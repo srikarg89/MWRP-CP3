@@ -382,6 +382,11 @@ enum HeuristicType {
     LAZY
 };
 
+enum FocalMethod {
+    SOC,
+    MOC
+};
+
 enum MovementType {
     FOUR_WAY_MOVEMENT,
     EIGHT_WAY_MOVEMENT
@@ -541,6 +546,7 @@ struct PastSolution {
 
 struct ProblemInput {
     HeuristicType heuristic_type;
+    FocalMethod focal_method;
     double centralized_focal_epsilon;
     double centralized_focal_heuristic_weight;
     double centralized_focal_search_time_limit;
@@ -572,6 +578,16 @@ struct ProblemInput {
             throw std::runtime_error("Invalid heuristic type: " + heuristic_str);
         }
 
+        std::string focal_str = parsed_data["focal_method"].get<std::string>();
+        FocalMethod focal_method;
+        if(focal_str == "SOC") {
+            focal_method = FocalMethod::SOC;
+        } else if(focal_str == "MOC") {
+            focal_method = FocalMethod::MOC;
+        } else {
+            throw std::runtime_error("Invalid focal method: " + focal_str);
+        }
+
         double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();
         double centralized_focal_heuristic_weight = parsed_data["centralized_focal_heuristic_weight"].get<double>();
         double centralized_focal_search_time_limit = parsed_data["centralized_focal_search_time_limit"].get<double>();
@@ -583,6 +599,7 @@ struct ProblemInput {
 
         return ProblemInput{
             .heuristic_type = heuristic_type,
+            .focal_method = focal_method,
             .centralized_focal_epsilon = centralized_focal_epsilon,
             .centralized_focal_heuristic_weight = centralized_focal_heuristic_weight,
             .centralized_focal_search_time_limit = centralized_focal_search_time_limit,
@@ -598,6 +615,7 @@ struct ProblemInput {
 
 struct SolverConfig {
     HeuristicType heuristic_type;
+    FocalMethod focal_method;
     double focal_epsilon;
     double focal_heuristic_weight;
     double focal_search_time_limit;

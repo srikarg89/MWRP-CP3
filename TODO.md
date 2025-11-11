@@ -7,10 +7,8 @@
 - Definitely should do
   - [ ] Tasks that take a certain amount of time to complete.
   - [ ] Provide vision radius **R** to the LOS functions.
-  - [ ] Iterative search using prior experience to improve future searches??
 - Would be dope extensions
   - [ ] Extend algorithm to continuous space.
-  - [ ] Use multi-agent focal search to determine "cell partition" and then run individual single-agent searches to get optimal paths to see those squares.
 - Still dope but probably won't get to
   - [ ] Change problem such that you have probabilities of where tasks are, as opposed to the normal free-space assumption.
 - Less important
@@ -25,14 +23,12 @@
 - [ ] Don't need to do the disjoint loop every time to find the biggest shortcut left. We can just find all the shortcuts once and then just go through and delete them in reverse order.
 
 **Docket**
-- [ ] Focal search heuristics
-  - [ ] Max of costs (as opposed to sum of costs).
-- [ ] Iterative search (find a way to utilize prior solutions) for the multi-agent search.
-- [ ] Iterative search for the individual decentralized search (can I use the expansions from the centralized search?).
+- [ ] Iterative search utilizing previous expansions as a minimum heuristic.
 - [ ] Case-by-case for iterative search
 - [ ] After you have a maximum cost bound, you can run path dominance every iteration while pruning out paths that would be above the cost bound.
 - [ ] Cases for iterative searching.
 - [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
+- [ ] Greedy centralized TSP-based search to scale for many agents??
 
 **Paper Docket**
 - [ ] More experiments on similarly large maps.
@@ -43,6 +39,11 @@
 - [ ] Implement frontier-based search baseline.
 - [ ] Implement frontier-based search + greedy task baseline.
 - [ ] Implement our search + greedy task baseline.
+- [ ] Experiments on suboptimal methods
+  - [ ] Focal search with SOC.
+  - [ ] Focal search with MOC.
+  - [ ] Weighted A* w/ weights on graph.
+  - [ ] Greedy TSP-based solution.
 
  **Verified Working**
 - [x] Implement neighbor function for multi-agent.
@@ -84,6 +85,7 @@
 - [x] Heirarchical multi-robot task partition.
   - [x] Set it up like a "deadline" during the individual, decentralized search.
 - [x] Speedup lookup precomputation time.
+- [x] Max of costs focal heuristic (as opposed to sum of costs).
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.

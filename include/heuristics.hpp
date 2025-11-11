@@ -91,7 +91,7 @@ int get_mst_heuristic(const DisjointGraph& disjoint_graph){
     return mst_heuristic;
 }
 
-std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs){
+std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoint_graph, const std::vector<int>& agent_costs, FocalMethod focal_method){
     auto heuristic_start = std::chrono::high_resolution_clock::now();
 
     std::vector<std::vector<int>> cost_map = disjoint_graph.pivot_pivot_costs;
@@ -111,6 +111,6 @@ std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoin
         printf("Pivots size %ld != num required visits size %ld\n", disjoint_graph.pivots.size(), disjoint_graph.num_required_visits.size());
         exit(1);
     }
-    auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits);
+    auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits, focal_method);
     return mtsp_solution;
 }

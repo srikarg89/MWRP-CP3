@@ -12,7 +12,7 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
-std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, double focal_heuristic_weight, const Lookup& lookup) {
+std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, FocalMethod focal_method, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, double focal_heuristic_weight, const Lookup& lookup) {
     std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
     for (const auto& input : neighbor_heuristic_inputs) {
         f_and_focal_values.push_back(std::make_pair(input.cost, 0));
@@ -54,8 +54,8 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
                     non_terminated_agent_costs.push_back(agent.cost);
                 }
                 tsp_idxs.push_back(i);
-                futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs]() {
-                    return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs);
+                futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, focal_method]() {
+                    return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method);
                 }));
             }
         }
@@ -82,8 +82,14 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
     // Weighted A* for focal heuristic, but with sum of costs instead of makespan.
     for(int i = 0; i < f_and_focal_values.size(); i++) {
         double current_sum = 0.0;
-        for(const auto& agent : neighbor_heuristic_inputs[i].agents){
-            current_sum += agent.cost;
+        if(focal_method == FocalMethod::SOC) {
+            for(const auto& agent : neighbor_heuristic_inputs[i].agents){
+                current_sum += agent.cost;
+            }
+        } else {
+            for(const auto& agent : neighbor_heuristic_inputs[i].agents){
+                current_sum = std::max(current_sum, (double)agent.cost);
+            }
         }
         f_and_focal_values[i].second = current_sum + focal_heuristic_weight * f_and_focal_values[i].second;
     }
@@ -361,7 +367,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     }
 
     start = std::chrono::high_resolution_clock::now();
-    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, map, neighbor_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
+    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, solver_config.focal_method, map, neighbor_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
     METRICS.f_value_calculation_time += duration.count();
@@ -477,7 +483,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             exit(1);
         }
     }
-    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
+    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
 
     handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*last_agent_expanded = */ 0, /*depth = */ 0));
@@ -542,7 +548,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         if(solver_config.heuristic_type == LAZY && curr.is_lazy){
             // Recompute f value.
-            auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
+            auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
             // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
             new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
             new_focal_value = std::max(new_focal_value, curr.focal_heuristic); // Ensure focal value never decreases.
@@ -582,13 +588,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             best_solution_cost = curr.cost;
             solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
 
-            // for(int i = 0; i < solution_paths.size(); i++){
-            //     printf("\tPath for agent %d (length %ld): %s\n", i, solution_paths[i].size(), pos_array_to_string(solution_paths[i]).c_str());
-            // }
-
-            // for(const auto& path : solution_paths){
-            //     printf("Path length: %ld\n", path.size());
-            // }
             continue;
             // break;
         }
@@ -670,12 +669,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("Open set exhausted!!\n");
     }
 
-    // add_waits_to_end(solution_paths);
-
-    // for(int i = 0; i < solution_paths.size(); i++){
-    //     printf("Path for agent %d (length %ld): %s\n", i, solution_paths[i].size(), pos_array_to_string(solution_paths[i]).c_str());
-    // }
-
     printf("Total nodes expanded: %d\n", num_expanded);
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
@@ -684,11 +677,13 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total generations skipped for high lazy f value: %d\n", METRICS.num_skipped_high_lazy_f_value);
     printf("Total generations discarded for high f value: %d\n", num_discarded_high_f);
     printf("Total nodes generated: %d\n", num_generated);
+
     // if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
     //     printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
     //     printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
     //     printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
     // }
+
     printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
     printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
     printf("Total domination check time: %.3f seconds\n", METRICS.domination_check_time);

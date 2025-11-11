@@ -212,7 +212,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 
 
 // NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
-inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits) {
+inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits, FocalMethod focal_method) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -341,8 +341,11 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
                 max_of_costs = std::max(max_of_costs, agent_cost);
             }
             env.end();
-            // return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
-            return std::make_pair(makespan, max_of_costs); // makespan, MOC.
+            if(focal_method == FocalMethod::SOC) {
+                return std::make_pair(makespan, sum_of_costs); // makespan, SOC.
+            } else {
+                return std::make_pair(makespan, max_of_costs); // makespan, MOC.
+            }
 
         } else {
             cout << "No solution found." << endl;

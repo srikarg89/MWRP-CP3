@@ -1,5 +1,6 @@
 {
     "heuristic": "TSP",
+    "focal_method": "SOC",
     "centralized_focal_epsilon": 2.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_focal_search_time_limit": 1.0,

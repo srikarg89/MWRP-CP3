@@ -1,0 +1,7 @@
+{
+    "agents": [[72, 135]],
+    "tasks": [],
+    "map": "huge/ht_chantry.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

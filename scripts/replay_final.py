@@ -30,6 +30,9 @@ with open(MAP_NAME) as f:
 
 fig, ax = plt.subplots()
 
+SCALE = 24 / max(len(map), len(map[0]))
+fig.set_size_inches(int(len(map[0]) * SCALE), int(len(map) * SCALE))
+
 colors = ["white","green","gray","black"]
 cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", colors)
 im = ax.imshow(map, cmap=cmap)

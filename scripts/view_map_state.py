@@ -12,7 +12,10 @@ for i in range(0, len(map_state), map_width):
     row = [int(c) / 4 for c in row_str]
     map.append(row)
 
+SCALE = 24 / max(len(map), len(map[0]))
+
 fig, ax = plt.subplots()
+fig.set_size_inches(int(len(map[0]) * SCALE), int(len(map) * SCALE))
 
 cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","darkcyan","gray","black"])
 im = ax.imshow(map, cmap=cmap)
@@ -23,5 +26,7 @@ ax.set_yticks(np.arange(-.5, len(map), 1))
 
 ax.set_yticklabels([])
 ax.set_xticklabels([])
+
+plt.savefig('animations/map2.png', dpi=500)
 
 plt.show()

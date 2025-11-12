@@ -22,10 +22,13 @@
 **Docket**
 - [ ] Iterative search solution check dominance in both ways (either for suboptimal solution or for admissible heuristic)
 - [ ] Iterative search utilizing previous expansions as a admissible heuristic.
-- [ ] Iterative search for multi-agent??
-- [ ] Cases for iterative searching.
-- [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
+- [ ] Cases for iterative searching??
+
 - [ ] Greedy centralized TSP-based search to scale for many agents??
+- [ ] Hash graph to reuse TSP calculations??
+
+- [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
+- [ ] Iterative search for multi-agent??
 
 **Paper Docket**
 - [ ] More experiments on similarly large maps.
@@ -83,6 +86,7 @@
   - [x] Set it up like a "deadline" during the individual, decentralized search.
 - [x] Speedup lookup precomputation time.
 - [x] Max of costs focal heuristic (as opposed to sum of costs).
+- [x] Download larger maps
 
 **Tested but Worse**
 - [x] Adding in time windows naively into the MTSP formulation.

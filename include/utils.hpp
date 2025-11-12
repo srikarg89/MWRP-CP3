@@ -403,8 +403,16 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
         }
         watchers_bitsets[i][i] = 1; // Any cell can see itself.
     }
+
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = end_time - start_time;
+    printf("Watchers bitset precomputation time: %.6f seconds\n", duration.count());
+
     for(int i = 0; i < agent_starts.size(); i++){
         std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = end_time - start_time;
+        printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
         lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
         // Merge path dominations.
         for(int j = 0; j < map.num_squares; j++){

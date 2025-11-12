@@ -1,7 +1,0 @@
-{
-    "agents": [[0, 0]],
-    "tasks": [],
-    "map": "empty-32-32.map",
-    "movement": "FOUR_WAY_MOVEMENT",
-    "los": "FOUR_WAY_LOS"
-}

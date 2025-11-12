@@ -384,10 +384,38 @@ enum HeuristicType {
     LAZY
 };
 
+inline std::string heuristic_type_to_string(HeuristicType ht){
+    switch(ht){
+        case BFS:
+            return "BFS";
+        case SINGLETON:
+            return "SINGLETON";
+        case TSP:
+            return "TSP";
+        case MAX:
+            return "MAX";
+        case LAZY:
+            return "LAZY";
+        default:
+            return "UNKNOWN_HEURISTIC_TYPE";
+    }
+}
+
 enum FocalMethod {
     SOC,
     MOC
 };
+
+inline std::string focal_method_to_string(FocalMethod fm){
+    switch(fm){
+        case SOC:
+            return "SOC";
+        case MOC:
+            return "MOC";
+        default:
+            return "UNKNOWN_FOCAL_METHOD";
+    }
+}
 
 enum MovementType {
     FOUR_WAY_MOVEMENT,

@@ -22,6 +22,8 @@
 **Docket**
 - [ ] Iterative search solution check dominance in both ways (either for suboptimal solution or for admissible heuristic)
 - [ ] Iterative search utilizing previous expansions as a admissible heuristic.
+- [ ] Instead of future multi-agent searches, try partitioning the task to every individual agent and see which one results in the lowest makespan. Should also be fast because of iterative decentralized search!
+  - [ ] Parallelize this.
 - [ ] Cases for iterative searching??
 
 - [ ] Greedy centralized TSP-based search to scale for many agents??

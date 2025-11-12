@@ -24,6 +24,7 @@ std::tuple<ScenarioConfig, ProblemInput> parse_arguments(int argc, char **argv) 
         printf("Decentralized Focal Heuristic Weight: %.2f\n", problem_input.decentralized_focal_heuristic_weight);
         printf("Decentralized Focal Search Time Limit: %.2f\n", problem_input.decentralized_focal_search_time_limit);
         printf("Decentralized ASTAR Weight: %.2f\n", problem_input.decentralized_astar_weight);
+        printf("Max Decentralized Searches: %d\n", problem_input.max_decentralized_searches);
     }
 
     return {scenario_config, problem_input};
@@ -39,7 +40,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     auto start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
-    precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions());
+    precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions(), problem_input.run_decentralized_search);
     printf("Initial map state: %s\n", get_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions()).c_str());
     std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
 

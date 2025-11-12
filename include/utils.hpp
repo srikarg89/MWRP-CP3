@@ -341,7 +341,7 @@ inline std::vector<bool> vec_and(const std::vector<bool>& a, const std::vector<b
     return result;
 }
 
-inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts){
+inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts, bool run_decentralized_search){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -408,18 +408,23 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     duration = end_time - start_time;
     printf("Watchers bitset precomputation time: %.6f seconds\n", duration.count());
 
-    for(int i = 0; i < agent_starts.size(); i++){
-        std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
-        end_time = std::chrono::high_resolution_clock::now();
-        duration = end_time - start_time;
-        printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
-        lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
-        // Merge path dominations.
-        for(int j = 0; j < map.num_squares; j++){
-            combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
+    if(run_decentralized_search){
+        for(int i = 0; i < agent_starts.size(); i++){
+            std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
+            end_time = std::chrono::high_resolution_clock::now();
+            duration = end_time - start_time;
+            printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
+            lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+            // Merge path dominations.
+            for(int j = 0; j < map.num_squares; j++){
+                combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
+            }
         }
+        lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
+    } else {
+        std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix(agent_starts, map, watchers_bitsets);
+        lookup.strictly_easier = path_dominations_to_strictly_easier(map, agent_path_dominations);
     }
-    lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
 
     end_time = std::chrono::high_resolution_clock::now();
     duration = end_time - start_time;

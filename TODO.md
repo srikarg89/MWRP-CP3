@@ -20,14 +20,19 @@
   - [ ] Group together squares (i.e. consider 3x3 area as one). That is, perform a heirarchical search (first over long distances), and then figure out the details of traversing each square afterwards.
 
 **Docket**
+- [ ] Expand lowest cost agent each time
+- [ ] Try incorporating DF / anytime DF?
+
+
+
 - [ ] Iterative search solution check dominance in both ways (either for suboptimal solution or for admissible heuristic)
 - [ ] Iterative search utilizing previous expansions as a admissible heuristic.
-- [ ] Instead of future multi-agent searches, try partitioning the task to every individual agent and see which one results in the lowest makespan. Should also be fast because of iterative decentralized search!
-  - [ ] Parallelize this.
 - [ ] Cases for iterative searching??
 
 - [ ] Greedy centralized TSP-based search to scale for many agents??
 - [ ] Hash graph to reuse TSP calculations??
+- [ ] Instead of future multi-agent searches, try partitioning the task to every individual agent and see which one results in the lowest makespan. Should also be fast because of iterative decentralized search??
+  - [ ] Parallelize this.
 
 - [ ] Parallelize decentralized single-agent search?? Should decide this after running experiments with many agents.
 - [ ] Iterative search for multi-agent??
@@ -36,8 +41,15 @@
 - [ ] More experiments on similarly large maps.
   - [ ] Create maps with randomized task layouts.
 - [ ] Experiments with 5 robots (more if fast).
-- [ ] Implement frontier-based search baseline.
+- [ ] Implement Search baselines
+  - [ ] Old heuristic-based WRP.
+  - [ ] Traditional WRP / d-WRP
+  - [ ] Frontier-based search.
+  - [ ] LTL (https://danielarus.csail.mit.edu/index.php/2015/10/research-project-adaptive-optimization-for-multi-robot-teams/)
+  - [ ] Multiple Spanning Tree Coverage (Constructing spanning trees for efficient multi-robot coverage)
+  - [ ] Flooding Algorithms
 - [ ] Implement frontier-based search + greedy task baseline.
+- [ ] Look for other baselines.
 - [ ] Implement our search + greedy task baseline.
 - [ ] Experiments on suboptimal methods for centralized search with large number of agents.
   - [ ] Focal search with SOC.

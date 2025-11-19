@@ -205,7 +205,6 @@ inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vec
 
         // Starting positions are always visited.
         for(const Position& start_pos : start_positions){
-            stack.push_back(map.get_map_idx(start_pos));
             visited[map.get_map_idx(start_pos)] = 1;
         }
 

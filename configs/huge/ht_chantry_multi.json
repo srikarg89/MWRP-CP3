@@ -1,5 +1,5 @@
 {
-    "agents": [[72, 135], [157, 60]],
+    "agents": [[72, 135], [157, 60], [74, 4]],
     "tasks": [],
     "map": "huge/ht_chantry.map",
     "movement": "FOUR_WAY_MOVEMENT",

@@ -401,7 +401,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
                 lookup.strictly_easier_per_agent.push_back(lookup.strictly_easier);
             }
         }
-    } if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION || cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
+    } else if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION || cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
         std::vector<bool> cells_to_ignore = std::vector<bool>(map.num_squares, false);
         if(cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
             cells_to_ignore = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);

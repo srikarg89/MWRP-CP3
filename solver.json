@@ -1,7 +1,7 @@
 {
     "heuristic": "TSP",
     "focal_method": "SOC",
-    "cell_pruning_method": "CELL_THEN_PATH",
+    "cell_pruning_method": "PATH",
     "prune_pivots": false,
     "run_parallel": false,
     "expand_lowest_cost_agent_only": false,

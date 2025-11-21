@@ -419,7 +419,8 @@ inline std::string focal_method_to_string(FocalMethod fm){
 enum CellPruningMethod {
     NONE,
     CELL_DOMINATION,
-    PATH_DOMINATION
+    PATH_DOMINATION,
+    CELL_THEN_PATH_DOMINATION
 };
 
 enum MovementType {
@@ -637,6 +638,8 @@ struct ProblemInput {
             cell_pruning_method = CellPruningMethod::CELL_DOMINATION;
         } else if(cell_pruning_str == "PATH") {
             cell_pruning_method = CellPruningMethod::PATH_DOMINATION;
+        } else if(cell_pruning_str == "CELL_THEN_PATH") {
+            cell_pruning_method = CellPruningMethod::CELL_THEN_PATH_DOMINATION;
         } else {
             throw std::runtime_error("Invalid cell pruning method: " + cell_pruning_str);
         }

@@ -162,13 +162,17 @@ inline std::vector<bool> calculate_square_dominance(const Map& map, const std::v
 // If all paths from A to B require looking at C, then we can say that given starting location A, C is strictly easier than B.
 // NOTE: We want to handle edge cases where B dominates C and C dominates B, thus once we determine that B dominates C, we should remove any dominance relationships where C dominates B.
 // Assumes that every cell is unseen.
-inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vector<Position> start_positions, const Map& map, const std::vector<boost::dynamic_bitset<>>& watchers_bitsets) {
+inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vector<Position> start_positions, const Map& map, const std::vector<boost::dynamic_bitset<>>& watchers_bitsets, const std::vector<bool>& cells_to_ignore) {
     // path_dominations[i][j] = true if i is easier to see than j given start_pos.
     std::vector<boost::dynamic_bitset<>> path_dominations(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
     auto start_time = std::chrono::high_resolution_clock::now();
     int count = 0;
+    int ignored = 0;
     for(int i = 0; i < map.num_squares; i++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(i))){
+        if(map.check_obstacle(map.get_pos_from_map_idx(i)) || cells_to_ignore[i]){
+            if(!map.check_obstacle(map.get_pos_from_map_idx(i))){
+                ignored += 1;
+            }
             continue;
         }
 
@@ -207,7 +211,7 @@ inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vec
         }
 
         for(int j = 0; j < map.num_squares; j++){
-            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j))){
+            if(i == j || map.check_obstacle(map.get_pos_from_map_idx(j)) || cells_to_ignore[j]){
                 continue;
             }
 
@@ -222,6 +226,7 @@ inline std::vector<boost::dynamic_bitset<>> get_path_dominations_matrix(std::vec
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Path dominance computation time for all squares: %.6f seconds over %d squares\n", duration.count(), count);
+    printf("Ignored %d squares due to cell dominance\n", ignored);
 
     return path_dominations;
 }
@@ -396,7 +401,12 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
                 lookup.strictly_easier_per_agent.push_back(lookup.strictly_easier);
             }
         }
-    } else if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION){
+    } if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION || cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
+        std::vector<bool> cells_to_ignore = std::vector<bool>(map.num_squares, false);
+        if(cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
+            cells_to_ignore = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
+        };
+
         // Find path dominance
         std::vector<boost::dynamic_bitset<>> combined_path_dominations = std::vector<boost::dynamic_bitset<>>(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
         for(int i = 0; i < map.num_squares; i++){
@@ -418,7 +428,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
         if(run_decentralized_search){
             for(int i = 0; i < agent_starts.size(); i++){
-                std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
+                std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets, cells_to_ignore);
                 end_time = std::chrono::high_resolution_clock::now();
                 duration = end_time - start_time;
                 printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
@@ -430,8 +440,19 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
             }
             lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
         } else {
-            std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix(agent_starts, map, watchers_bitsets);
+            std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix(agent_starts, map, watchers_bitsets, cells_to_ignore);
             lookup.strictly_easier = path_dominations_to_strictly_easier(map, agent_path_dominations);
+        }
+
+        if(cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
+            for(int i = 0; i < map.num_squares; i++){
+                lookup.strictly_easier[i] = lookup.strictly_easier[i] | cells_to_ignore[i];
+                if(run_decentralized_search){
+                    for(int j = 0; j < agent_starts.size(); j++){
+                        lookup.strictly_easier_per_agent[j][i] = lookup.strictly_easier_per_agent[j][i] | cells_to_ignore[i];
+                    }
+                }                
+            }
         }
 
     } else {

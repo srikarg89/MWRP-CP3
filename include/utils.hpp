@@ -6,8 +6,6 @@
 #include "pathfinding.hpp"
 #include "los.hpp"
 
-inline static const int MAX_PIVOTS = INT_MAX;
-
 inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup, bool include_agents_curr_cost){
     // Find the closest agent and how long it would take to reach the task.
     std::vector<int> times_to_reach_task;
@@ -340,7 +338,7 @@ inline std::vector<bool> vec_and(const std::vector<bool>& a, const std::vector<b
     return result;
 }
 
-inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts, bool run_decentralized_search){
+inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts, bool run_decentralized_search, CellPruningMethod cell_pruning_method){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -385,44 +383,59 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
     std::chrono::duration<double> duration = end_time - start_time;
     printf("LOS and APSP precomputation time: %.6f seconds\n", duration.count());
 
-    // Find squares whose watchers are dominated by another square.
-    // lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
-
-    // Find path dominance
-    std::vector<boost::dynamic_bitset<>> combined_path_dominations = std::vector<boost::dynamic_bitset<>>(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
-    for(int i = 0; i < map.num_squares; i++){
-        combined_path_dominations[i].set(); // Initialize all to 1.
-    }
-
-    std::vector<boost::dynamic_bitset<>> watchers_bitsets(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
-    for(int i = 0; i < map.num_squares; i++){
-        for(Position watcher_pos : lookup.watchers[i]){
-            int watcher_map_idx = map.get_map_idx(watcher_pos);
-            watchers_bitsets[i][watcher_map_idx] = 1;
-        }
-        watchers_bitsets[i][i] = 1; // Any cell can see itself.
-    }
-
-    end_time = std::chrono::high_resolution_clock::now();
-    duration = end_time - start_time;
-    printf("Watchers bitset precomputation time: %.6f seconds\n", duration.count());
-
-    if(run_decentralized_search){
+    if(cell_pruning_method == CellPruningMethod::NONE){
+        lookup.strictly_easier = std::vector<bool>(map.num_squares, false);
         for(int i = 0; i < agent_starts.size(); i++){
-            std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
-            end_time = std::chrono::high_resolution_clock::now();
-            duration = end_time - start_time;
-            printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
-            lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
-            // Merge path dominations.
-            for(int j = 0; j < map.num_squares; j++){
-                combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
+            lookup.strictly_easier_per_agent.push_back(std::vector<bool>(map.num_squares, false));
+        }
+    } else if(cell_pruning_method == CellPruningMethod::CELL_DOMINATION){
+        // Find squares whose watchers are dominated by another square.
+        lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
+        if(run_decentralized_search){
+            for(int i = 0; i < agent_starts.size(); i++){
+                lookup.strictly_easier_per_agent.push_back(lookup.strictly_easier);
             }
         }
-        lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
+    } else if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION){
+        // Find path dominance
+        std::vector<boost::dynamic_bitset<>> combined_path_dominations = std::vector<boost::dynamic_bitset<>>(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
+        for(int i = 0; i < map.num_squares; i++){
+            combined_path_dominations[i].set(); // Initialize all to 1.
+        }
+
+        std::vector<boost::dynamic_bitset<>> watchers_bitsets(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
+        for(int i = 0; i < map.num_squares; i++){
+            for(Position watcher_pos : lookup.watchers[i]){
+                int watcher_map_idx = map.get_map_idx(watcher_pos);
+                watchers_bitsets[i][watcher_map_idx] = 1;
+            }
+            watchers_bitsets[i][i] = 1; // Any cell can see itself.
+        }
+
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = end_time - start_time;
+        printf("Watchers bitset precomputation time: %.6f seconds\n", duration.count());
+
+        if(run_decentralized_search){
+            for(int i = 0; i < agent_starts.size(); i++){
+                std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix({agent_starts[i]}, map, watchers_bitsets);
+                end_time = std::chrono::high_resolution_clock::now();
+                duration = end_time - start_time;
+                printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
+                lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+                // Merge path dominations.
+                for(int j = 0; j < map.num_squares; j++){
+                    combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
+                }
+            }
+            lookup.strictly_easier = path_dominations_to_strictly_easier(map, combined_path_dominations);
+        } else {
+            std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix(agent_starts, map, watchers_bitsets);
+            lookup.strictly_easier = path_dominations_to_strictly_easier(map, agent_path_dominations);
+        }
+
     } else {
-        std::vector<boost::dynamic_bitset<>> agent_path_dominations = get_path_dominations_matrix(agent_starts, map, watchers_bitsets);
-        lookup.strictly_easier = path_dominations_to_strictly_easier(map, agent_path_dominations);
+        throw std::runtime_error("Unknown cell pruning method!");
     }
 
     end_time = std::chrono::high_resolution_clock::now();
@@ -542,13 +555,17 @@ inline void add_dominance_and_task_visibility_to_seen(boost::dynamic_bitset<>& s
     }
 }
 
-inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, int max_pivots_generated){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
     std::vector<int> pivot_task_ids;
     std::vector<int> num_required_visits;
 
     for(int potential_pivot : lookup.sorted_pivot_order){
+        if(pivots.size() >= max_pivots_generated){
+            break;
+        }
+
         if(seen[potential_pivot]){
             continue;
         }
@@ -637,7 +654,7 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
     };
 }
 
-inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
+inline void prune_graph(DisjointGraph& graph, const Lookup& lookup, int max_pivots_after_pruning){
     while(true){
         int shortcut_pivot = -1;
         int biggest_shortcut = 0;
@@ -686,7 +703,7 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
 
     // Prune pivots to be under the max allowed using farness centrality.
     // NOTE: Tried using MAX instead of SUM for farness, but MAX performed much worse.
-    while(graph.pivots.size() > MAX_PIVOTS){
+    while(graph.pivots.size() > max_pivots_after_pruning){
         int worst_pivot = -1;
         int worst_farness = INT_MAX;
 

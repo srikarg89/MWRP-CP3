@@ -40,7 +40,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     auto start_time = std::chrono::high_resolution_clock::now();
 
     Lookup lookup;
-    precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions(), problem_input.run_decentralized_search);
+    precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions(), problem_input.run_decentralized_search, problem_input.cell_pruning_method);
     printf("Initial map state: %s\n", get_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions()).c_str());
     std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
 

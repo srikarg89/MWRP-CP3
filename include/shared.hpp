@@ -245,7 +245,8 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
         // TODO: Change this if we expand individual agents at a time.
         // Cost matters for distinguishing states when waiting.
         // str += agent.pos.toString() + (agent.terminated ? " / T" : "") + " / " + std::to_string(agent.waiting_idx) + (agent.waiting_idx != -1 ? " / " + std::to_string(agent.cost) : "") + ", ";
-        str += agent.pos.toString() + ", ";
+        // str += agent.pos.toString() + ", ";
+        str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
     }
     str += "]";
     return str;
@@ -331,10 +332,9 @@ struct Node {
     int f_value;
     int focal_heuristic;
     bool is_lazy;
-    int last_agent_expanded;
     int depth;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int foc, int n, int l, int d){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int foc, int n, int d){
         node_id = id;
         agents = a;
         seen = s;
@@ -344,7 +344,6 @@ struct Node {
         num_seen = n;
         f_value = f;
         focal_heuristic = foc;
-        last_agent_expanded = l;
         depth = d;
         is_lazy = true;
     }
@@ -417,6 +416,12 @@ inline std::string focal_method_to_string(FocalMethod fm){
     }
 }
 
+enum CellPruningMethod {
+    NONE,
+    CELL_DOMINATION,
+    PATH_DOMINATION
+};
+
 enum MovementType {
     FOUR_WAY_MOVEMENT,
     EIGHT_WAY_MOVEMENT
@@ -426,12 +431,6 @@ enum LOSType {
     FOUR_WAY_LOS,
     EIGHT_WAY_LOS,
     BRES_LOS        
-};
-
-enum CollisionResolution {
-    NONE,
-    POSTPROCESS,
-    NODE_EXPANSION
 };
 
 
@@ -574,9 +573,19 @@ struct PastSolution {
     std::vector<Task> tasks_left;
 };
 
+struct Optimizations {
+    bool prune_pivots;
+    bool run_parallel;
+    bool expand_lowest_cost_agent_only;
+    int max_pivots_after_pruning;
+    int max_pivots_generated;
+};
+
 struct ProblemInput {
     HeuristicType heuristic_type;
     FocalMethod focal_method;
+    CellPruningMethod cell_pruning_method;
+    Optimizations optimizations;
     double centralized_focal_epsilon;
     double centralized_focal_heuristic_weight;
     double centralized_focal_search_time_limit;
@@ -620,6 +629,25 @@ struct ProblemInput {
             throw std::runtime_error("Invalid focal method: " + focal_str);
         }
 
+        std::string cell_pruning_str = parsed_data["cell_pruning_method"].get<std::string>();
+        CellPruningMethod cell_pruning_method;
+        if(cell_pruning_str == "NONE") {
+            cell_pruning_method = CellPruningMethod::NONE;
+        } else if(cell_pruning_str == "CELL") {
+            cell_pruning_method = CellPruningMethod::CELL_DOMINATION;
+        } else if(cell_pruning_str == "PATH") {
+            cell_pruning_method = CellPruningMethod::PATH_DOMINATION;
+        } else {
+            throw std::runtime_error("Invalid cell pruning method: " + cell_pruning_str);
+        }
+
+        Optimizations optimizations;
+        optimizations.prune_pivots = parsed_data["prune_pivots"].get<bool>();
+        optimizations.run_parallel = parsed_data["run_parallel"].get<bool>();
+        optimizations.expand_lowest_cost_agent_only = parsed_data["expand_lowest_cost_agent_only"].get<bool>();
+        optimizations.max_pivots_generated = parsed_data["max_pivots_generated"].get<int>();
+        optimizations.max_pivots_after_pruning = parsed_data["max_pivots_after_pruning"].get<int>();
+
         double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();
         double centralized_focal_heuristic_weight = parsed_data["centralized_focal_heuristic_weight"].get<double>();
         double centralized_focal_search_time_limit = parsed_data["centralized_focal_search_time_limit"].get<double>();
@@ -634,6 +662,8 @@ struct ProblemInput {
         return ProblemInput{
             .heuristic_type = heuristic_type,
             .focal_method = focal_method,
+            .cell_pruning_method = cell_pruning_method,
+            .optimizations = optimizations,
             .centralized_focal_epsilon = centralized_focal_epsilon,
             .centralized_focal_heuristic_weight = centralized_focal_heuristic_weight,
             .centralized_focal_search_time_limit = centralized_focal_search_time_limit,
@@ -652,6 +682,7 @@ struct ProblemInput {
 struct SolverConfig {
     HeuristicType heuristic_type;
     FocalMethod focal_method;
+    Optimizations optimizations;
     double focal_epsilon;
     double focal_heuristic_weight;
     double focal_search_time_limit;

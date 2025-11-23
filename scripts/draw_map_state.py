@@ -57,14 +57,33 @@ import matplotlib.patheffects as pe
 # ]
 
 # MWA* example
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","black"])
+# cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","black"])
+# map = [
+#     [2/3, 0, 0, 0, 0, 0, 0],
+#     [2/3, 1, 1, 1, 1, 1, 0],
+#     [2/3, 1, 0, 0, 0, 1, 0],
+#     [1/3, 1, 0, 1, 1, 1, 0],
+#     [1/3, 1, 0, 0, 0, 0, 0],
+# ]
+
+# Pivot pruning
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","black"])
 map = [
-    [2/3, 0, 0, 0, 0, 0, 0],
-    [2/3, 1, 1, 1, 1, 1, 0],
-    [2/3, 1, 0, 0, 0, 1, 0],
-    [1/3, 1, 0, 1, 1, 1, 0],
-    [1/3, 1, 0, 0, 0, 0, 0],
+    [1/5, 2/5, 2/5, 2/5, 2/5, 2/5],
+    [1, 1, 1, 1, 1, 4/5],
+    [1, 4/5, 4/5, 3/5, 1, 4/5],
+    [1, 0, 1, 1, 1, 4/5],
+    [1, 4/5, 4/5, 4/5, 4/5, 3/5],
 ]
+
+map = [
+    [1/5, 2/5, 2/5, 2/5, 2/5, 2/5],
+    [1, 1, 1, 1, 1, 0],
+    [1, 4/5, 4/5, 3/5, 1, 0],
+    [1, 0, 1, 1, 1, 0],
+    [1, 0, 0, 0, 0, 0],
+]
+
 
 fig, ax = plt.subplots()
 

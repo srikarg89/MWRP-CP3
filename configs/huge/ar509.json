@@ -1,0 +1,7 @@
+{
+    "agents": [[41, 12], [49, 14]],
+    "tasks": [],
+    "map": "huge/AR0509SR.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

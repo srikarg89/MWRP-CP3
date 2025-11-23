@@ -35,8 +35,11 @@ add_library(stapf_lib src/search.cpp)
 
 # Add an executable target
 add_executable(run src/main.cpp)
-# add_executable(run src/test.cpp)
+add_executable(pruning_experiment src/pruning_experiment.cpp)
 
 target_link_libraries(run PRIVATE stapf_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
 target_link_libraries(run PRIVATE ${CPLEX_LIBRARIES} ${CONCORDE_DIR}/concorde.a /home/srikar/libraries/qsopt/lib/qsopt.a)
 # target_compile_options(run PRIVATE -Wno-deprecated-declarations) # For GCC/Clang
+
+target_link_libraries(pruning_experiment PRIVATE stapf_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
+target_link_libraries(pruning_experiment PRIVATE ${CPLEX_LIBRARIES} ${CONCORDE_DIR}/concorde.a /home/srikar/libraries/qsopt/lib/qsopt.a)

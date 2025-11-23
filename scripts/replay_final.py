@@ -168,5 +168,6 @@ print("Creating animation...")
 print("Solution length: ", len(data))
 num_frames = len(data)
 interval_ms = 1000 // fps # 50 milliseconds between frames
-anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
+# anim = FuncAnimation(fig, animate_func, frames=num_frames, interval=interval_ms, blit=True)
+anim = FuncAnimation(fig, animate_func, frames=1, interval=interval_ms, blit=True)
 anim.save(f'animations/{name}.mp4', writer='ffmpeg', fps=fps)

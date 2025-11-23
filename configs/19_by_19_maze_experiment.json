@@ -1,0 +1,12 @@
+{
+    "agents": [
+        [
+            6,
+            16
+        ]
+    ],
+    "tasks": [],
+    "map": "custom-19-19.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "FOUR_WAY_LOS"
+}

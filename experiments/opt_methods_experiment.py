@@ -1,0 +1,161 @@
+import subprocess
+import json
+import time
+import random
+
+ASTAR_PD_TEMPLATE = {
+    "heuristic": "TSP",
+    "focal_method": "SOC",
+    "cell_pruning_method": "CELL_THEN_PATH",
+    "prune_pivots": False,
+    "run_parallel": False,
+    "expand_lowest_cost_agent_only": False,
+    "max_pivots_generated": 8,
+    "max_pivots_after_pruning": 10000000,
+    "centralized_focal_epsilon": 1.0,
+    "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_focal_search_time_limit": 1.0,
+    "centralized_astar_weight": 1.0,
+    "run_decentralized_search": False,
+    "decentralized_focal_epsilon": 1.0,
+    "decentralized_focal_heuristic_weight": 1.5,
+    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_astar_weight": 1.0,
+    "max_decentralized_searches": 2
+}
+
+ASTAR_PD_PP_TEMPLATE = {
+    "heuristic": "TSP",
+    "focal_method": "SOC",
+    "cell_pruning_method": "CELL_THEN_PATH",
+    "prune_pivots": True,
+    "run_parallel": False,
+    "expand_lowest_cost_agent_only": False,
+    "max_pivots_generated": 10000000,
+    "max_pivots_after_pruning": 10000000,
+    "centralized_focal_epsilon": 1.0,
+    "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_focal_search_time_limit": 1.0,
+    "centralized_astar_weight": 1.0,
+    "run_decentralized_search": False,
+    "decentralized_focal_epsilon": 1.0,
+    "decentralized_focal_heuristic_weight": 1.5,
+    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_astar_weight": 1.0,
+    "max_decentralized_searches": 2
+}
+
+ASTAR_PD_PC_TEMPLATE = {
+    "heuristic": "TSP",
+    "focal_method": "SOC",
+    "cell_pruning_method": "CELL_THEN_PATH",
+    "prune_pivots": False,
+    "run_parallel": True,
+    "expand_lowest_cost_agent_only": False,
+    "max_pivots_generated": 8,
+    "max_pivots_after_pruning": 10000000,
+    "centralized_focal_epsilon": 1.0,
+    "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_focal_search_time_limit": 1.0,
+    "centralized_astar_weight": 1.0,
+    "run_decentralized_search": False,
+    "decentralized_focal_epsilon": 1.0,
+    "decentralized_focal_heuristic_weight": 1.5,
+    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_astar_weight": 1.0,
+    "max_decentralized_searches": 2
+}
+
+FINAL_MWRP_TEMPLATE = {
+    "heuristic": "TSP",
+    "focal_method": "SOC",
+    "cell_pruning_method": "PATH",
+    "prune_pivots": True,
+    "run_parallel": True,
+    "expand_lowest_cost_agent_only": False,
+    "max_pivots_generated": 10000000,
+    "max_pivots_after_pruning": 10000000,
+    "centralized_focal_epsilon": 1.0,
+    "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_focal_search_time_limit": 1.0,
+    "centralized_astar_weight": 1.0,
+    "run_decentralized_search": False,
+    "decentralized_focal_epsilon": 1.0,
+    "decentralized_focal_heuristic_weight": 1.5,
+    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_astar_weight": 1.0,
+    "max_decentralized_searches": 2
+}
+
+method_names = ["CR", "CR_PP", "CR_PC", "FINAL_MWRP"]
+methods = [ASTAR_PD_TEMPLATE, ASTAR_PD_PP_TEMPLATE, ASTAR_PD_PC_TEMPLATE, FINAL_MWRP_TEMPLATE]
+num_experiments = 20
+
+
+# method_names = ["OG_MWRP"]
+# methods = [OG_MWRP_TEMPLATE]
+# num_experiments = 1
+
+
+# MAP_NAME = "../maps/custom-19-19.map"
+# SCEN_CONFIG = "../configs/19_by_19_maze_experiment.json"
+
+# MAP_NAME = "../maps/custom-13-13.map"
+# SCEN_CONFIG = "../configs/13_by_13_maze_experiment.json"
+
+MAP_NAME = "../maps/den101d.map"
+SCEN_CONFIG = "../configs/opt_better_experiment.json"
+
+def get_random_agent_starts(map_name, num_agents):
+    with open(map_name) as f:
+        lines = f.readlines()
+        map_lines = lines[4:] # Skip the first four header lines
+        map_lines = [line.strip() for line in map_lines if line.strip()]  # Remove any empty lines
+        map = [[0 if c == '.' else 1 for c in line.strip()] for line in map_lines]
+    
+    free_cells = []
+    for y in range(len(map)):
+        for x in range(len(map[0])):
+            if map[y][x] == 0:
+                free_cells.append([x, y])
+
+    return random.sample(free_cells, num_agents)
+
+
+for num_agent_starts in range(1, 6):
+    for experiment_id in range(num_experiments):
+        agent_locs = get_random_agent_starts(MAP_NAME, num_agent_starts)
+
+        scenario_config = {
+            "agents": agent_locs,
+            "tasks": [],
+            "map": MAP_NAME.split("/")[-1],
+            "movement": "FOUR_WAY_MOVEMENT",
+            "los": "FOUR_WAY_LOS"
+        }
+        with open(SCEN_CONFIG, "w") as f:
+            json.dump(scenario_config, f, indent=4)
+
+        for method_name, method in zip(method_names, methods):
+            input_config = method.copy()
+            with open("../solver.json", "w") as f:
+                json.dump(input_config, f, indent=4)
+
+            print(f"Running experiment with {num_agent_starts} agent starts, experiment id {experiment_id}, method {method_name}")
+            start_time = time.time()
+            result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True, capture_output=True, text=True)
+            # result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True)
+            time_taken = time.time() - start_time
+            time_ms = int(time_taken * 1000)
+
+            num_expanded = -1
+            lines = result.stdout.strip().split("\n")
+            for line in lines:
+                line = line.strip()
+                if line.startswith("Total nodes expanded:"):
+                    num_expanded = int(line.split()[-1].strip())
+                    break
+            
+            print("\tMethod", method_name, "expanded", num_expanded, " nodes and took", time_ms, "ms to run")
+            results = open("opt_experiment_results.csv", "a+")
+            results.write(f"{MAP_NAME},{method_name},{num_agent_starts},{experiment_id},{num_expanded},{time_ms}\n")

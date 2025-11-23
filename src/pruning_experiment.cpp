@@ -161,6 +161,26 @@ int get_num_free_cells_initially(const Map& map) {
     return count;
 }
 
+int get_num_free_cells_starting_config(const Map& map, Lookup& lookup, std::vector<Position> agent_starts) {
+    int count = 0;
+    for(int i = 0; i < map.num_squares; i++) {
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))) {
+            continue;
+        }
+        bool is_watcher = false;
+        for(Position pos : agent_starts) {
+            if(lookup.watchers_set[i].find(map.get_map_idx(pos)) != lookup.watchers_set[i].end()) {
+                is_watcher = true;
+                break;
+            }
+        }
+        if(is_watcher) {
+            continue;
+        }
+        count += 1;
+    }
+    return count;
+}
 
 int get_num_free_cells_left(const std::vector<bool>& strictly_easier, const Map& map, Lookup& lookup, std::vector<Position> agent_starts) {
     int count = 0;
@@ -186,6 +206,42 @@ int get_num_free_cells_left(const std::vector<bool>& strictly_easier, const Map&
     return count;
 }
 
+int get_w(const std::vector<bool>& strictly_easier, const Map& map, Lookup& lookup, std::vector<Position> agent_starts) {
+    std::vector<bool> valid_watchers(map.num_squares, false);
+    for(int i = 0; i < map.num_squares; i++) {
+        if(map.check_obstacle(map.get_pos_from_map_idx(i))) {
+            continue;
+        }
+        if(strictly_easier[i]) {
+            continue;
+        }
+        bool is_watcher = false;
+        for(Position pos : agent_starts) {
+            if(lookup.watchers_set[i].find(map.get_map_idx(pos)) != lookup.watchers_set[i].end()) {
+                is_watcher = true;
+                break;
+            }
+        }
+        if(is_watcher) {
+            continue;
+        }
+
+        // Unseen cell
+        for(Position watcher_pos : lookup.watchers[i]) {
+            int watcher_map_idx = map.get_map_idx(watcher_pos);
+            valid_watchers[watcher_map_idx] = true;
+        }
+    }
+
+    int count = 0;
+    for(bool valid : valid_watchers) {
+        if(valid) {
+            count += 1;
+        }
+    }
+    return count;
+}
+
 void write_to_file(std::ofstream& file, std::string map_name, int num_agents, CellPruningMethod method, int num_free_cells, int num_free_cells_left, double runtime) {
     std::string method_string = "";
     if(method == CellPruningMethod::CELL_DOMINATION) {
@@ -204,52 +260,116 @@ void write_to_file(std::ofstream& file, std::string map_name, int num_agents, Ce
 
 
 int main() {
-    std::ofstream temp;
-    temp.open("pruning_experiment.csv");
-    temp.close();
+    // for(std::string map_filename : map_filenames) {
+    //     Map map = get_map(map_filename);
+    //     Lookup lookup;
+    //     compute_lookup_los_and_apsp(lookup, map);
 
-    for(int i = 0; i < 50; i++){
-        std::ofstream file;
-        file.open("pruning_experiment.csv", std::ios::app);
+    //     printf("Number of nominal free cells on map %s: %d\n", map_filename.c_str(), get_num_free_cells_initially(map));
 
-        for(std::string map_filename : map_filenames) {
-            Map map = get_map(map_filename);
-            std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
-            Lookup lookup;
-            compute_lookup_los_and_apsp(lookup, map);
+    //     int total = 0;
+    //     for(int i = 0; i < 50; i++){
+    //         std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
+    //         int num_free_cells_starting_config = get_num_free_cells_starting_config(map, lookup, agent_starts);
+    //         total += num_free_cells_starting_config;
+    //     }
+    //     double average = (double)total / 50.0;
+    //     printf("Average free cells in starting config on map %s with one agent: %.2f\n", map_filename.c_str(), average);
+    // }        
 
-            printf("\n\nRunning Cell Domination on map %s\n", map_filename.c_str());
-            auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
-            write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+    // std::string map_filename = "../maps/huge/ht_chantry.map";
+    // Map map = get_map(map_filename);
+    // Lookup lookup;
+    // compute_lookup_los_and_apsp(lookup, map);
 
-            printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
-            result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
-            write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+    // for(int num_agents : {2, 3, 4, 5, 6, 7, 8}) {
+    //     int total = 0;
+    //     for(int i = 0; i < 50; i++){
+    //         std::vector<Position> agent_starts = get_random_agent_starts(map, num_agents);
+    //         int num_free_cells_starting_config = get_num_free_cells_starting_config(map, lookup, agent_starts);
+    //         total += num_free_cells_starting_config;
+    //     }
+    //     double average = (double)total / 50.0;
+    //     printf("Average free cells in starting config on map %s with %d agents: %.2f\n", map_filename.c_str(), num_agents, average);
+    // }
 
-            printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
-            result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
-            write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_THEN_PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
-        }        
-
-        std::string map_filename = "../maps/huge/ht_chantry.map";
+    for(std::string map_filename : map_filenames) {
         Map map = get_map(map_filename);
         Lookup lookup;
         compute_lookup_los_and_apsp(lookup, map);
 
-        for(int num_agents : {2, 3, 4, 5, 6, 7, 8}) {
-            std::vector<Position> agent_starts = get_random_agent_starts(map, num_agents);
+        std::vector<int> ws = {0, 0, 0};
+        for(int i = 0; i < 10; i++){
+            std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
+            printf("\n\nRunning Cell Domination on map %s\n", map_filename.c_str());
+            auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
+            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+            ws[0] += get_w(result.first, map, lookup, agent_starts);
 
             printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
-            auto result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
-            write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+            result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
+            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+            ws[1] += get_w(result.first, map, lookup, agent_starts);
 
             printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
             result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
-            write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_THEN_PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+            ws[2] += get_w(result.first, map, lookup, agent_starts);
         }
-
-        file.close();
+        printf("Average W for Cell Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[0] / 10.0);
+        printf("Average W for Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[1] / 10.0);
+        printf("Average W for Cell Then Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[2] / 10.0);
     }
+
+    // std::ofstream temp;
+    // temp.open("pruning_experiment.csv");
+    // temp.close();
+
+    // for(int i = 0; i < 50; i++){
+    //     // std::ofstream file;
+    //     // file.open("pruning_experiment.csv", std::ios::app);
+
+    //     for(std::string map_filename : map_filenames) {
+    //         Map map = get_map(map_filename);
+    //         std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
+    //         Lookup lookup;
+    //         compute_lookup_los_and_apsp(lookup, map);
+
+    //         printf("\n\nRunning Cell Domination on map %s\n", map_filename.c_str());
+    //         auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
+    //         printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+    //         // write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+
+    //         printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
+    //         result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
+    //         printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+    //         // write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+
+    //         printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
+    //         result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
+    //         printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
+    //         // write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_THEN_PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+    //     }        
+
+    //     // std::string map_filename = "../maps/huge/ht_chantry.map";
+    //     // Map map = get_map(map_filename);
+    //     // Lookup lookup;
+    //     // compute_lookup_los_and_apsp(lookup, map);
+
+    //     // for(int num_agents : {2, 3, 4, 5, 6, 7, 8}) {
+    //     //     std::vector<Position> agent_starts = get_random_agent_starts(map, num_agents);
+
+    //     //     printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
+    //     //     auto result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
+    //     //     // write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+
+    //     //     printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
+    //     //     result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
+    //     //     // write_to_file(file, map_filename, agent_starts.size(), CellPruningMethod::CELL_THEN_PATH_DOMINATION, get_num_free_cells_initially(map), get_num_free_cells_left(result.first, map, lookup, agent_starts), result.second);
+    //     // }
+
+    //     // file.close();
+    // }
 
     return 0;
 }

@@ -30,7 +30,7 @@ ax.set_xticklabels([])
 # plt.savefig('../images/Path Domination Comparison 11x11 Maze.png', dpi=500)
 # plt.savefig('../images/Cell Domination Comparison 32x32 Maze.png', dpi=500)
 # plt.savefig('../images/Cell Domination Comparison MC Map.png', dpi=500)
-plt.savefig('../images/Cell Domination Comparison HT Chantry 1.png', dpi=500)
+# plt.savefig('../images/Cell Domination Comparison HT Chantry 1.png', dpi=500)
 # plt.savefig('../images/Path Domination Comparison Den101d 2.png', dpi=500)
 # plt.savefig('../images/32x32 Map Example.png', dpi=500)
 

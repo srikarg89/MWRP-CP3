@@ -52,6 +52,15 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     }
     printf("Number of strictly easier points: %d\n", num_strictly_easier);
 
+    int num_unseen_cells = 0;
+    std::string map_state = get_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions());
+    for(int i = 0; i < map_state.size(); i++){
+        if(map_state[i] == '0'){
+            num_unseen_cells += 1;
+        }
+    }
+    printf("Number of unseen cells at start: %d\n", num_unseen_cells);
+
     MetricsList aggregated;
 
     int timestep = 0;

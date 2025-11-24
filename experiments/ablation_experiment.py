@@ -87,8 +87,10 @@ FINAL_MWRP_TEMPLATE = {
     "max_decentralized_searches": 2
 }
 
-method_names = ["CR", "CR_PP", "CR_PC", "FINAL_MWRP"]
-methods = [ASTAR_PD_TEMPLATE, ASTAR_PD_PP_TEMPLATE, ASTAR_PD_PC_TEMPLATE, FINAL_MWRP_TEMPLATE]
+# method_names = ["CR", "CR_PP", "CR_PC", "FINAL_MWRP"]
+# methods = [ASTAR_PD_TEMPLATE, ASTAR_PD_PP_TEMPLATE, ASTAR_PD_PC_TEMPLATE, FINAL_MWRP_TEMPLATE]
+method_names = ["CR_PP", "CR_PC", "FINAL_MWRP"]
+methods = [ASTAR_PD_PP_TEMPLATE, ASTAR_PD_PC_TEMPLATE, FINAL_MWRP_TEMPLATE]
 method_names = method_names[::-1]
 methods = methods[::-1]
 
@@ -118,9 +120,14 @@ num_experiments = 1
 # PREMOVED_AGENT_LOCS = [[[1, 1], [1, 31], [31, 31]], [[41, 2], [12, 40]], [[22, 2]]]
 # NUM_AGENT_LOCS = [3, 2, 1]
 
-MAP_NAMES = ["../maps/huge/AR0308SR.map"]
-PREMOVED_AGENT_LOCS = [[[44, 108]]]
-NUM_AGENT_LOCS = [1]
+# MAP_NAMES = ["../maps/huge/AR0308SR.map"]
+# PREMOVED_AGENT_LOCS = [[[44, 108]]]
+# NUM_AGENT_LOCS = [1]
+
+MAP_NAMES = ["../maps/maze-32-32-2.map"]
+PREMOVED_AGENT_LOCS = [[[1, 1]], [[1, 1], [1, 31]], [[1, 1], [1, 31], [31, 31]], [[1, 1], [1, 31], [31, 31], [31, 1]], [[1, 1], [1, 31], [31, 31], [31, 1], [16,13]]]
+NUM_AGENT_LOCS = [1, 2, 3, 4, 5]
+
 
 SCEN_CONFIG = "../configs/opt_better_experiment.json"
 
@@ -190,6 +197,6 @@ for RANDOM, RANDOM_INSTANCES in [(False, 1)]:
                 if RANDOM:
                     results = open("opt_better_experiment_results_random.csv", "a+")
                 else:
-                    results = open("opt_better_experiment_results_nonrandom.csv", "a+")
+                    results = open("opt_better_experiment_results_nonrandom2.csv", "a+")
                 results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_time_ms},{total_time_ms},{measured_time_ms}\n")
                 results.close()

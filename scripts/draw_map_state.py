@@ -67,7 +67,7 @@ import matplotlib.patheffects as pe
 # ]
 
 # Pivot pruning
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","red","yellow","black"])
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","gray","firebrick","yellow","black"])
 map = [
     [1/5, 2/5, 2/5, 2/5, 2/5, 2/5],
     [1, 1, 1, 1, 1, 4/5],
@@ -76,13 +76,13 @@ map = [
     [1, 4/5, 4/5, 4/5, 4/5, 3/5],
 ]
 
-map = [
-    [1/5, 2/5, 2/5, 2/5, 2/5, 2/5],
-    [1, 1, 1, 1, 1, 0],
-    [1, 4/5, 4/5, 3/5, 1, 0],
-    [1, 0, 1, 1, 1, 0],
-    [1, 0, 0, 0, 0, 0],
-]
+# map = [
+#     [1/5, 2/5, 2/5, 2/5, 2/5, 2/5],
+#     [1, 1, 1, 1, 1, 0],
+#     [1, 4/5, 4/5, 3/5, 1, 0],
+#     [1, 0, 1, 1, 1, 0],
+#     [1, 0, 0, 0, 0, 0],
+# ]
 
 
 fig, ax = plt.subplots()

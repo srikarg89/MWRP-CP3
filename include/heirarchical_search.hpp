@@ -244,7 +244,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         boost::dynamic_bitset<> single_agent_seen = ~responsibility.vision;
         Lookup single_agent_lookup = lookup;
         single_agent_lookup.strictly_easier = lookup.strictly_easier_per_agent[agent_idx];
-        // printf("Map state before search: %s\n", get_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start).c_str());
+        printf("Map state before decentralized search: %s\n", get_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start).c_str());
 
         end_time = std::chrono::high_resolution_clock::now();
         duration = end_time - start_time;

@@ -1,0 +1,24 @@
+{
+    "agents": [
+        [
+            10,
+            6
+        ],
+        [
+            8,
+            10
+        ],
+        [
+            8,
+            9
+        ],
+        [
+            5,
+            6
+        ]
+    ],
+    "tasks": [],
+    "map": "custom-13-13.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

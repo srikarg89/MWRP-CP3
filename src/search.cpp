@@ -704,6 +704,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Max node depth expanded: %d\n", max_node_depth_expanded);
     for(int i = 0; i < solution_paths.size(); i++){
         printf("Path %d length: %ld\n", i, solution_paths[i].size());
+        printf("\t[");
+        for(Position pos : solution_paths[i]){
+            printf("(%d,%d) ", pos.x, pos.y);
+        }
+        printf("]\n");
     }
     
     auto end_time = std::chrono::high_resolution_clock::now();

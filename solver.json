@@ -3,7 +3,7 @@
     "focal_method": "SOC",
     "cell_pruning_method": "CELL_THEN_PATH",
     "prune_pivots": false,
-    "run_parallel": false,
+    "run_parallel": true,
     "expand_lowest_cost_agent_only": false,
     "max_pivots_generated": 8,
     "max_pivots_after_pruning": 10000000,

@@ -9,7 +9,7 @@
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
-    "centralized_search_time_limit": 50.0,
+    "centralized_search_time_limit": 60.0,
     "centralized_astar_weight": 5.0,
     "run_decentralized_search": false,
     "decentralized_focal_epsilon": 1.0,

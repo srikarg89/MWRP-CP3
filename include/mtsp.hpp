@@ -212,7 +212,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 
 
 // NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
-inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits, FocalMethod focal_method) {
+inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits, FocalMethod focal_method, bool optimize_focal) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -257,23 +257,56 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
 
         // Objective function.
         // For makespan we want to minimize the maximum cost of any agent.
-        IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
-        for(int agent = 0; agent < m; agent++) {
-            IloExpr agent_cost(env);
-            for(int from = 0; from < n + 1; from++) {
-                for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
-                    if(from != to) {
-                        int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
-                        agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
+        if(!optimize_focal || A_STAR_WEIGHT != 1.0) {
+            IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
+            for(int agent = 0; agent < m; agent++) {
+                IloExpr agent_cost(env);
+                for(int from = 0; from < n + 1; from++) {
+                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
+                        if(from != to) {
+                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                            agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
+                        }
+                    }
+                }
+                model.add(agent_cost * A_STAR_WEIGHT + current_costs[agent] <= L);
+                agent_cost.end();
+            }
+            model.add(IloMinimize(env, L));
+
+        } else if(focal_method == FocalMethod::SOC) {
+            IloExpr total_cost(env);
+            for(int agent = 0; agent < m; agent++) {
+                for(int from = 0; from < n + 1; from++) {
+                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
+                        if(from != to) {
+                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                            total_cost += cost_matrix[c_from][to] * x[agent][from][to];
+                        }
                     }
                 }
             }
-            model.add(agent_cost * A_STAR_WEIGHT + current_costs[agent] <= L);
-            // model.add(agent_cost + current_costs[agent] <= L);
-            agent_cost.end();
-        }
 
-        model.add(IloMinimize(env, L));
+            model.add(IloMinimize(env, total_cost));
+            total_cost.end();
+
+        } else if(focal_method == FocalMethod::MOC) {
+            IloNumVar L(env, 0.0, IloInfinity, ILOFLOAT, "L");
+            for(int agent = 0; agent < m; agent++) {
+                IloExpr agent_cost(env);
+                for(int from = 0; from < n + 1; from++) {
+                    for(int to = 0; to < n; to++) { // Don't add in the "return to depot" cost.
+                        if(from != to) {
+                            int c_from = (from == n) ? (n + agent) : from; // If from is depot, map to n (dummy depot index in cost matrix)
+                            agent_cost += cost_matrix[c_from][to] * x[agent][from][to];
+                        }
+                    }
+                }
+                model.add(agent_cost <= L);
+                agent_cost.end();
+            }
+            model.add(IloMinimize(env, L));
+        }
 
         // Attach the MIP start to the model
         IloNumVarArray vars(env);

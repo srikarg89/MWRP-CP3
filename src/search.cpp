@@ -58,11 +58,23 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
                 }
                 tsp_idxs.push_back(i);
                 if(optimizations.run_parallel){
-                    futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, focal_method]() {
-                        return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method);
+                    futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, focal_method, focal_heuristic_weight]() {
+                        // if(focal_heuristic_weight == 1.0) {
+                        //     return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
+                        // }
+                        // auto a = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
+                        // auto b = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, true);
+                        // return std::make_pair(a.first, b.second);
+                        return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
                     }));
                 } else {
-                    non_parallel_results.push_back(get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method));
+                    // if(focal_heuristic_weight == 1.0) {
+                    //     non_parallel_results.push_back(get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false));
+                    // }
+                    // auto a = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
+                    // auto b = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, true);
+                    // non_parallel_results.push_back(std::make_pair(a.first, b.second));
+                    non_parallel_results.push_back(get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false));
                 }
             }
         }
@@ -519,6 +531,25 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     int max_node_depth_expanded = 0;
     int best_solution_cost = INT_MAX;
 
+    std::ofstream sol_found_file;
+    auto map_split = split(map.map_name, "/");
+    std::string map_name = map_split.back();
+    std::string method = "";
+    if(A_STAR_WEIGHT > 1.0){
+        method = "mwastar_" + std::to_string(A_STAR_WEIGHT);
+    } else if(solver_config.focal_epsilon > 1.0){
+        if(solver_config.focal_method == FocalMethod::SOC){
+            method = "soc_" + std::to_string(solver_config.focal_epsilon);
+        } else {
+            method = "moc_" + std::to_string(solver_config.focal_epsilon);
+        }
+    } else {
+        method = "astar";
+    }
+    std::string filename = "../solutions_found_" + map_name + "_" + std::to_string(starts.size()) + "_" + std::to_string(solver_config.search_time_limit) + "_" + method + ".csv";
+    sol_found_file.open(filename);
+    // sol_found_file.open("solutions_found.csv");
+
     while(!open_set.empty()){
         if(solution_found && (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count() > solver_config.search_time_limit)){
             printf("Search time limit reached, ending search.\n");
@@ -602,6 +633,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             solution_found = true;
 
             if(curr.cost < best_solution_cost) {
+                printf("Writing solution to file. Previous best cost: %d, New best cost: %d\n", best_solution_cost, curr.cost);
+                double time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
+                sol_found_file << time << "," << curr.cost << "\n";
                 best_solution_cost = curr.cost;
                 solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
             }
@@ -723,6 +757,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total search time taken: %.3f seconds\n", seconds_taken);
 
     debug_file.close();
+    sol_found_file.close();
 
     std::ofstream solution_file;
     solution_file.open("search_solution.csv");

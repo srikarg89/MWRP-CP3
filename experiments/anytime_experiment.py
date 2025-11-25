@@ -3,7 +3,7 @@ import json
 import time
 import random
 
-SEARCH_TIME = 120.0
+SEARCH_TIME = 100.0
 
 def get_template(method, weight):
     if method == "AMWAstar":
@@ -45,23 +45,26 @@ def get_template(method, weight):
 methods = [
     get_template("AMWAstar", 10.0),
     get_template("SOC", 10.0),
-    get_template("MOC", 10.0),
+    # get_template("MOC", 10.0),
     get_template("AMWAstar", 5.0),
     get_template("SOC", 5.0),
-    get_template("MOC", 5.0),
+    # get_template("MOC", 5.0),
     get_template("AMWAstar", 3.0),
     get_template("SOC", 3.0),
-    get_template("MOC", 3.0),
+    # get_template("MOC", 3.0),
     get_template("AMWAstar", 2.0),
     get_template("SOC", 2.0),
-    get_template("MOC", 2.0),
+    # get_template("MOC", 2.0),
 ]
 
 
 num_experiments = 1
 
-CONFIGS = ["../configs/mc_forest_3_robots.json", "../configs/mc_forest_4_robots.json", "../configs/huge/ht_chantry_duo.json", "../configs/huge/ht_chantry_multi.json"]
+# CONFIGS = ["../configs/mc_forest_3_robots.json", "../configs/huge/ht_chantry_duo.json", "../configs/mc_forest_4_robots.json", "../configs/huge/ht_chantry_multi.json"]
+# CONFIGS = ["../configs/mc_forest_3_robots.json", "../configs/huge/ht_chantry_duo.json"]
+CONFIGS = ["../configs/mc_forest.json"]
 
+count = 0
 for template in methods:
     for config in CONFIGS:
         if template["centralized_astar_weight"] > 1.0:

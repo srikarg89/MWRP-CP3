@@ -16,14 +16,14 @@ std::tuple<ScenarioConfig, ProblemInput> parse_arguments(int argc, char **argv) 
     printf("Focal Method: %s\n", focal_method_to_string(problem_input.focal_method).c_str());
     printf("Centralized Focal Epsilon: %.2f\n", problem_input.centralized_focal_epsilon);
     printf("Centralized Focal Heuristic Weight: %.2f\n", problem_input.centralized_focal_heuristic_weight);
-    printf("Centralized Focal Search Time Limit: %.2f\n", problem_input.centralized_focal_search_time_limit);
     printf("Centralized ASTAR Weight: %.2f\n", problem_input.centralized_astar_weight);
+    printf("Centralized Search Time Limit: %.2f\n", problem_input.centralized_search_time_limit);
     printf("Run Decentralized Search: %s\n", problem_input.run_decentralized_search ? "True" : "False");
     if(problem_input.run_decentralized_search) {
         printf("Decentralized Focal Epsilon: %.2f\n", problem_input.decentralized_focal_epsilon);
         printf("Decentralized Focal Heuristic Weight: %.2f\n", problem_input.decentralized_focal_heuristic_weight);
-        printf("Decentralized Focal Search Time Limit: %.2f\n", problem_input.decentralized_focal_search_time_limit);
         printf("Decentralized ASTAR Weight: %.2f\n", problem_input.decentralized_astar_weight);
+        printf("Decentralized Search Time Limit: %.2f\n", problem_input.decentralized_search_time_limit);
         printf("Max Decentralized Searches: %d\n", problem_input.max_decentralized_searches);
     }
 

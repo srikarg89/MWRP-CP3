@@ -1,12 +1,20 @@
 {
     "agents": [
         [
-            1,
-            1
+            41,
+            2
+        ],
+        [
+            12,
+            40
+        ],
+        [
+            46,
+            38
         ]
     ],
     "tasks": [],
-    "map": "maze-32-32-2.map",
+    "map": "den101d.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

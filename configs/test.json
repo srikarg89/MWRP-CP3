@@ -1,16 +1,12 @@
 {
     "agents": [
         [
-            0,
-            0
-        ],
-        [
-            0,
-            0
+            18,
+            18
         ]
     ],
     "tasks": [],
-    "map": "custom-13-13.map",
+    "map": "custom-19-19.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

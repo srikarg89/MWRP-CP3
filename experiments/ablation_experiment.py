@@ -14,12 +14,12 @@ ASTAR_PD_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
-    "centralized_focal_search_time_limit": 1.0,
+    "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
-    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_search_time_limit": 10.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -35,12 +35,12 @@ ASTAR_PD_PP_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
-    "centralized_focal_search_time_limit": 1.0,
+    "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
-    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_search_time_limit": 10.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -56,12 +56,12 @@ ASTAR_PD_PC_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
-    "centralized_focal_search_time_limit": 1.0,
+    "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
-    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_search_time_limit": 10.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -77,12 +77,12 @@ FINAL_MWRP_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
-    "centralized_focal_search_time_limit": 1.0,
+    "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
-    "decentralized_focal_search_time_limit": 10.0,
+    "decentralized_search_time_limit": 10.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -124,9 +124,11 @@ num_experiments = 1
 # PREMOVED_AGENT_LOCS = [[[44, 108]]]
 # NUM_AGENT_LOCS = [1]
 
-MAP_NAMES = ["../maps/maze-32-32-2.map"]
-PREMOVED_AGENT_LOCS = [[[1, 1]], [[1, 1], [1, 31]], [[1, 1], [1, 31], [31, 31]], [[1, 1], [1, 31], [31, 31], [31, 1]], [[1, 1], [1, 31], [31, 31], [31, 1], [16,13]]]
-NUM_AGENT_LOCS = [1, 2, 3, 4, 5]
+# MAP_NAMES = ["../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map"]
+# PREMOVED_AGENT_LOCS = [[[1, 1]], [[1, 1], [1, 31]], [[1, 1], [1, 31], [31, 31]], [[1, 1], [1, 31], [31, 31], [31, 1]], [[1, 1], [1, 31], [31, 31], [31, 1], [16,13]]]
+MAP_NAMES = ["../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map"]
+PREMOVED_AGENT_LOCS = [[[41, 2]], [[41, 2], [12,40]], [[41, 2], [12,40], [46, 38]]]
+NUM_AGENT_LOCS = [1, 2, 3]
 
 
 SCEN_CONFIG = "../configs/opt_better_experiment.json"
@@ -149,13 +151,14 @@ def get_random_agent_starts(map_name, num_agents):
 
 # for RANDOM, RANDOM_INSTANCES in [(False, 1), (True, 20)]:
 for RANDOM, RANDOM_INSTANCES in [(False, 1)]:
-    for map_name, num_agent_starts in zip(MAP_NAMES, NUM_AGENT_LOCS):
+    for i in range(len(MAP_NAMES)):
+        map_name, num_agent_starts = MAP_NAMES[i], NUM_AGENT_LOCS[i]
         num_experiments = RANDOM_INSTANCES if RANDOM else 1
         for experiment_id in range(num_experiments):
             if RANDOM:
                 agent_locs = get_random_agent_starts(map_name, num_agent_starts)
             else:
-                agent_locs = PREMOVED_AGENT_LOCS[MAP_NAMES.index(map_name)]
+                agent_locs = PREMOVED_AGENT_LOCS[i]
 
             scenario_config = {
                 "agents": agent_locs,

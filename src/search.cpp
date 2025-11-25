@@ -520,7 +520,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     int best_solution_cost = INT_MAX;
 
     while(!open_set.empty()){
-        if(solution_found && (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count() > solver_config.focal_search_time_limit)){
+        if(solution_found && (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count() > solver_config.search_time_limit)){
             printf("Search time limit reached, ending search.\n");
             break;
         }
@@ -548,7 +548,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         open_set.erase(handle_lookup[curr.node_id]);
 
         // Skip expansion if we've found a better solution.
-        if(curr.f_value >= best_solution_cost){
+        int admissible_f_value = std::max((int)((double)curr.f_value / A_STAR_WEIGHT), curr.cost);
+        if(admissible_f_value >= best_solution_cost){
             continue;
         }
 
@@ -589,7 +590,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         // Goal condition.
-        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0 && curr.cost < best_solution_cost){
+        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
             printf("Goal condition met!\n");
             printf("\tNum seen: %d / %d\n", curr.num_seen, map.num_squares);
             printf("\tSolution node depth: %d\n", curr.depth);
@@ -599,8 +600,11 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             }
 
             solution_found = true;
-            best_solution_cost = curr.cost;
-            solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+
+            if(curr.cost < best_solution_cost) {
+                best_solution_cost = curr.cost;
+                solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
+            }
 
             continue;
             // break;
@@ -660,7 +664,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             last_id_assigned = neighbors.back().node_id;
         }
         for(Node& nbr : neighbors){
-            if(nbr.f_value >= best_solution_cost){
+            int nbr_admissible_f_value = std::max((int)((double)nbr.f_value / A_STAR_WEIGHT), nbr.cost);
+            if(nbr_admissible_f_value >= best_solution_cost){
                 num_discarded_high_f += 1;
                 continue;
             }
@@ -681,6 +686,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
     if(open_set.empty()){
         printf("Open set exhausted!!\n");
+        printf("Open set size: %ld\n", open_set.size());
+        printf("Focal set size: %ld\n", focal_list.size());
     }
 
     printf("Total nodes expanded: %d\n", num_expanded);

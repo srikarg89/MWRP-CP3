@@ -163,7 +163,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         .optimizations = problem_input.optimizations,
         .focal_epsilon = problem_input.centralized_focal_epsilon,
         .focal_heuristic_weight = problem_input.centralized_focal_heuristic_weight,
-        .focal_search_time_limit = problem_input.centralized_focal_search_time_limit
+        .search_time_limit = problem_input.centralized_search_time_limit
     };
     auto start_time = std::chrono::high_resolution_clock::now();
     A_STAR_WEIGHT = problem_input.centralized_astar_weight;
@@ -238,7 +238,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             .optimizations = problem_input.optimizations,
             .focal_epsilon = problem_input.decentralized_focal_epsilon,
             .focal_heuristic_weight = problem_input.decentralized_focal_heuristic_weight,
-            .focal_search_time_limit = problem_input.decentralized_focal_search_time_limit
+            .search_time_limit = problem_input.decentralized_search_time_limit
         };
         std::vector<Position> single_agent_start = {starts[agent_idx]};
         boost::dynamic_bitset<> single_agent_seen = ~responsibility.vision;

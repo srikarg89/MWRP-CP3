@@ -3,21 +3,19 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.colors
 
-map_width = int(sys.argv[1])
-map_state = sys.argv[2]
-
-map = []
-for i in range(0, len(map_state), map_width):
-    row_str = map_state[i:i+map_width]
-    row = [int(c) / 4 for c in row_str]
-    map.append(row)
+MAP_NAME = "../maps/custom-13-13.map"
+with open(MAP_NAME) as f:
+    lines = f.readlines()
+    map_lines = lines[4:] # Skip the first four header lines
+    map_lines = [line.strip() for line in map_lines if line.strip()]  # Remove any empty lines
+    map = [[0 if c == '.' else 1 for c in line.strip()] for line in map_lines]
 
 SCALE = 24 / max(len(map), len(map[0]))
 
 fig, ax = plt.subplots()
 fig.set_size_inches(int(len(map[0]) * SCALE), int(len(map) * SCALE))
 
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","green","orange","gray","black"])
+cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["white","black"])
 im = ax.imshow(map, cmap=cmap)
 
 ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=1)

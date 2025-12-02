@@ -3,7 +3,7 @@ import json
 import time
 import random
 
-SEARCH_TIME = 100.0
+SEARCH_TIME = 300.0
 
 def get_template(method, weight):
     if method == "AMWAstar":
@@ -45,16 +45,16 @@ def get_template(method, weight):
 methods = [
     get_template("AMWAstar", 10.0),
     get_template("SOC", 10.0),
-    # get_template("MOC", 10.0),
+    get_template("MOC", 10.0),
     get_template("AMWAstar", 5.0),
     get_template("SOC", 5.0),
-    # get_template("MOC", 5.0),
+    get_template("MOC", 5.0),
     get_template("AMWAstar", 3.0),
     get_template("SOC", 3.0),
-    # get_template("MOC", 3.0),
+    get_template("MOC", 3.0),
     get_template("AMWAstar", 2.0),
     get_template("SOC", 2.0),
-    # get_template("MOC", 2.0),
+    get_template("MOC", 2.0),
 ]
 
 
@@ -67,6 +67,8 @@ CONFIGS = ["../configs/mc_forest.json"]
 count = 0
 for template in methods:
     for config in CONFIGS:
+        print(config)
+        print(template)
         if template["centralized_astar_weight"] > 1.0:
             name = f"AMWAstar with weight {template['centralized_astar_weight']}"
         elif template["focal_method"] == "SOC":

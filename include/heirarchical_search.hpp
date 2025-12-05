@@ -155,7 +155,7 @@ void add_decentralized_solution_to_history(std::unordered_map<std::string, std::
 
 
 std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const ProblemInput& problem_input, const Lookup& lookup, std::unordered_map<std::string, std::vector<PastSolution>>& solution_history, MetricsList& aggregated){
-    printf("\n\n\n\n");
+    printf("\n");
     // First run a normal search to get the initial partition.
     SolverConfig solver_config = {
         .heuristic_type = problem_input.heuristic_type,
@@ -163,7 +163,8 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         .optimizations = problem_input.optimizations,
         .focal_epsilon = problem_input.centralized_focal_epsilon,
         .focal_heuristic_weight = problem_input.centralized_focal_heuristic_weight,
-        .search_time_limit = problem_input.centralized_search_time_limit
+        .search_time_limit = problem_input.centralized_search_time_limit,
+        .hard_search_time_limit = problem_input.centralized_hard_search_time_limit
     };
     auto start_time = std::chrono::high_resolution_clock::now();
     A_STAR_WEIGHT = problem_input.centralized_astar_weight;
@@ -238,7 +239,8 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             .optimizations = problem_input.optimizations,
             .focal_epsilon = problem_input.decentralized_focal_epsilon,
             .focal_heuristic_weight = problem_input.decentralized_focal_heuristic_weight,
-            .search_time_limit = problem_input.decentralized_search_time_limit
+            .search_time_limit = problem_input.decentralized_search_time_limit,
+            .hard_search_time_limit = problem_input.decentralized_hard_search_time_limit
         };
         std::vector<Position> single_agent_start = {starts[agent_idx]};
         boost::dynamic_bitset<> single_agent_seen = ~responsibility.vision;

@@ -15,11 +15,13 @@ ASTAR_PD_TEMPLATE = {
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_search_time_limit": 1.0,
+    "centralized_hard_search_time_limit": 10000000000.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_search_time_limit": 10.0,
+    "decentralized_hard_search_time_limit": 10000000000.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -35,12 +37,14 @@ ASTAR_PD_PP_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_hard_search_time_limit": 10000000000.0,
     "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_search_time_limit": 10.0,
+    "decentralized_hard_search_time_limit": 10000000000.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -56,12 +60,14 @@ ASTAR_PD_PC_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_hard_search_time_limit": 10000000000.0,
     "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_search_time_limit": 10.0,
+    "decentralized_hard_search_time_limit": 10000000000.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -77,12 +83,14 @@ FINAL_MWRP_TEMPLATE = {
     "max_pivots_after_pruning": 10000000,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
+    "centralized_hard_search_time_limit": 10000000000.0,
     "centralized_search_time_limit": 1.0,
     "centralized_astar_weight": 1.0,
     "run_decentralized_search": False,
     "decentralized_focal_epsilon": 1.0,
     "decentralized_focal_heuristic_weight": 1.5,
     "decentralized_search_time_limit": 10.0,
+    "decentralized_hard_search_time_limit": 10000000000.0,
     "decentralized_astar_weight": 1.0,
     "max_decentralized_searches": 2
 }
@@ -126,9 +134,19 @@ num_experiments = 1
 
 # MAP_NAMES = ["../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map"]
 # PREMOVED_AGENT_LOCS = [[[1, 1]], [[1, 1], [1, 31]], [[1, 1], [1, 31], [31, 31]], [[1, 1], [1, 31], [31, 31], [31, 1]], [[1, 1], [1, 31], [31, 31], [31, 1], [16,13]]]
-MAP_NAMES = ["../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map"]
-PREMOVED_AGENT_LOCS = [[[41, 2]], [[41, 2], [12,40]], [[41, 2], [12,40], [46, 38]]]
-NUM_AGENT_LOCS = [1, 2, 3]
+# MAP_NAMES = ["../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map", "../maps/den101d.map"]
+# PREMOVED_AGENT_LOCS = [[[41, 2]], [[41, 2], [12,40]], [[41, 2], [12,40], [46, 38]]]
+# NUM_AGENT_LOCS = [1, 2, 3]
+
+MAP_NAMES = ["../maps/custom-19-19.map", "../maps/custom-19-19.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map"]
+# PREMOVED_AGENT_LOCS = [[[0, 0]], [[0, 0], [18, 18], [0, 18]], [[1, 1]], [[1, 1], [1, 31], [31, 31]]]
+
+# MAP_NAMES = ["../maps/den101d.map", "../maps/den101d.map", "../maps/maze-32-32-2.map", "../maps/maze-32-32-2.map"]
+# PREMOVED_AGENT_LOCS = [[[0, 0]], [[0, 0], [18, 18], [0, 18]], [[1, 1]], [[1, 1], [1, 31], [31, 31]]]
+# NUM_AGENT_LOCS = [1, 3, 1, 3]
+
+PREMOVED_AGENT_LOCS = [[[0, 0], [18, 18]], [[0, 0], [18, 18], [0, 18], [18, 0]], [[1, 1], [31, 31]], [[1, 1], [1, 31], [31, 31], [31, 1]]]
+NUM_AGENT_LOCS = [2, 4, 2, 4]
 
 
 SCEN_CONFIG = "../configs/opt_better_experiment.json"
@@ -197,9 +215,6 @@ for RANDOM, RANDOM_INSTANCES in [(False, 1)]:
                 total_time_ms = int(total_time * 1000)
 
                 print("\tMethod", method_name, " took", measured_time_ms, "ms to run")
-                if RANDOM:
-                    results = open("opt_better_experiment_results_random.csv", "a+")
-                else:
-                    results = open("opt_better_experiment_results_nonrandom2.csv", "a+")
+                results = open("opt_better_experiment_results_ablation2.csv", "a+")
                 results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_time_ms},{total_time_ms},{measured_time_ms}\n")
                 results.close()

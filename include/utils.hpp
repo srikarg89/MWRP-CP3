@@ -407,6 +407,8 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
             cells_to_ignore = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
         };
 
+        auto pd_start_time = std::chrono::high_resolution_clock::now();
+
         // Find path dominance
         std::vector<boost::dynamic_bitset<>> combined_path_dominations = std::vector<boost::dynamic_bitset<>>(map.num_squares, boost::dynamic_bitset<>(map.num_squares, 0));
         for(int i = 0; i < map.num_squares; i++){
@@ -454,6 +456,10 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
                 }                
             }
         }
+
+        auto pd_end_time = std::chrono::high_resolution_clock::now();
+        duration = pd_end_time - pd_start_time;
+        printf("PD precomputation time: %.6f\n", duration.count());
 
     } else {
         throw std::runtime_error("Unknown cell pruning method!");

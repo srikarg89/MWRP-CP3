@@ -523,6 +523,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     int num_skipped = 0;
     int num_fully_expanded = 0;
     int num_discarded_high_f = 0;
+    int num_lazy_in_a_row = 0;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -531,27 +532,34 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     int max_node_depth_expanded = 0;
     int best_solution_cost = INT_MAX;
 
-    std::ofstream sol_found_file;
-    auto map_split = split(map.map_name, "/");
-    std::string map_name = map_split.back();
-    std::string method = "";
-    if(A_STAR_WEIGHT > 1.0){
-        method = "mwastar_" + std::to_string(A_STAR_WEIGHT);
-    } else if(solver_config.focal_epsilon > 1.0){
-        if(solver_config.focal_method == FocalMethod::SOC){
-            method = "soc_" + std::to_string(solver_config.focal_epsilon);
-        } else {
-            method = "moc_" + std::to_string(solver_config.focal_epsilon);
-        }
-    } else {
-        method = "astar";
-    }
-    std::string filename = "../solutions_found_" + map_name + "_" + std::to_string(starts.size()) + "_" + std::to_string(solver_config.search_time_limit) + "_" + method + ".csv";
-    sol_found_file.open(filename);
+    // std::ofstream sol_found_file;
+    // auto map_split = split(map.map_name, "/");
+    // std::string map_name = map_split.back();
+    // std::string method = "";
+    // if(A_STAR_WEIGHT > 1.0){
+    //     method = "mwastar_" + std::to_string(A_STAR_WEIGHT);
+    // } else if(solver_config.focal_epsilon > 1.0){
+    //     if(solver_config.focal_method == FocalMethod::SOC){
+    //         method = "soc_" + std::to_string(solver_config.focal_epsilon);
+    //     } else {
+    //         method = "moc_" + std::to_string(solver_config.focal_epsilon);
+    //     }
+    // } else {
+    //     method = "astar";
+    // }
+    // std::string filename = "../solutions_found_" + map_name + "_" + std::to_string(starts.size()) + "_" + std::to_string(solver_config.search_time_limit) + "_" + method + ".csv";
+    // sol_found_file.open(filename);
     // sol_found_file.open("solutions_found.csv");
 
     while(!open_set.empty()){
-        if(solution_found && (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count() > solver_config.search_time_limit)){
+        double time_elapsed = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
+
+        if(time_elapsed > solver_config.hard_search_time_limit){
+            printf("Hard time limit reached, exiting!.\n");
+            exit(0);
+        }
+
+        if(solution_found && (time_elapsed > solver_config.search_time_limit)){
             printf("Search time limit reached, ending search.\n");
             break;
         }
@@ -600,7 +608,12 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             new_focal_value = std::max(new_focal_value, curr.focal_heuristic); // Ensure focal value never decreases.
             curr.update_f_value(new_f_value);
             curr.update_focal_heuristic(new_focal_value);
-            open_set.update(handle_lookup[curr.node_id], curr);
+            handle_lookup[curr.node_id] = open_set.push(curr);
+            added_to_focal_list.erase(curr.node_id);
+            if(new_f_value <= (int)(solver_config.focal_epsilon * prev_min_f)){
+                focal_list.push(curr);
+                added_to_focal_list.insert(curr.node_id);
+            }
             continue;
         }
 
@@ -635,7 +648,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             if(curr.cost < best_solution_cost) {
                 printf("Writing solution to file. Previous best cost: %d, New best cost: %d\n", best_solution_cost, curr.cost);
                 double time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
-                sol_found_file << time << "," << curr.cost << "\n";
+                // sol_found_file << time << "," << curr.cost << "\n";
                 best_solution_cost = curr.cost;
                 solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
             }
@@ -714,6 +727,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
     }
 
+    double search_time_elapsed = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
+    printf("Experiment Search Time: %.6f\n", search_time_elapsed);
+
+
     if(!solution_found){
         printf("\n\nNO SOLUTION FOUND!!!\n\n");
     }
@@ -757,7 +774,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total search time taken: %.3f seconds\n", seconds_taken);
 
     debug_file.close();
-    sol_found_file.close();
+    // sol_found_file.close();
 
     std::ofstream solution_file;
     solution_file.open("search_solution.csv");

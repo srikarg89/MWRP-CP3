@@ -40,7 +40,7 @@ int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map,
                 // Agent is waiting at a task, so its "release time" from this task is effectively the time it'll take to complete that task.
                 agent_cost_before_moving = std::max(agent_cost_before_moving, min_time_to_complete_task[agent.waiting_idx]);
             }
-            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, lookup.min_dist_to_see[agent_map_idx][i] + agent_cost_before_moving);
+            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, agent_cost_before_moving + (int)(A_STAR_WEIGHT * lookup.min_dist_to_see[agent_map_idx][i]));
         }
 
         f_value = std::max(f_value, closest_agent_f_value_to_see);

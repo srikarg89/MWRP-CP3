@@ -6,7 +6,7 @@
 #include "environment.hpp"
 #include "heirarchical_search.hpp"
 
-std::vector<std::string> map_filenames = {"../maps/mc-forest.map", "../maps/den101d.map", "../maps/huge/ht_chantry.map"};
+std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
 
 Map get_map(std::string map_filename) {
     std::ifstream inputFile(map_filename);
@@ -293,32 +293,53 @@ int main() {
     //     printf("Average free cells in starting config on map %s with %d agents: %.2f\n", map_filename.c_str(), num_agents, average);
     // }
 
+    std::ofstream temp;
+    temp.open("pruning_experiment.csv");
+    temp.close();
+
     for(std::string map_filename : map_filenames) {
         Map map = get_map(map_filename);
         Lookup lookup;
         compute_lookup_los_and_apsp(lookup, map);
 
-        std::vector<int> ws = {0, 0, 0};
+        std::vector<int> us = {0, 0, 0};
+        std::vector<double> times = {0.0, 0.0, 0.0};
         for(int i = 0; i < 10; i++){
             std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
             printf("\n\nRunning Cell Domination on map %s\n", map_filename.c_str());
             auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
-            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
-            ws[0] += get_w(result.first, map, lookup, agent_starts);
+            double u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+            printf("New unseen cells: %d\n", u);
+            us[0] += u;
+            times[0] += result.second;
 
             printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
             result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
-            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
-            ws[1] += get_w(result.first, map, lookup, agent_starts);
+            u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+            printf("New unseen cells: %d\n", u);
+            us[1] += u;
+            times[1] += result.second;
 
             printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
             result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
-            printf("New unseen cells: %d, new W: %d\n", get_num_free_cells_left(result.first, map, lookup, agent_starts), get_w(result.first, map, lookup, agent_starts));
-            ws[2] += get_w(result.first, map, lookup, agent_starts);
+            u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+            printf("New unseen cells: %d\n", u);
+            us[2] += u;
+            times[2] += result.second;
         }
-        printf("Average W for Cell Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[0] / 10.0);
-        printf("Average W for Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[1] / 10.0);
-        printf("Average W for Cell Then Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)ws[2] / 10.0);
+        printf("Average U for Cell Domination on map %s: %.2f\n", map_filename.c_str(), (double)us[0] / 10.0);
+        printf("Average U for Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)us[1] / 10.0);
+        printf("Average U for Cell Then Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)us[2] / 10.0);
+        printf("Average time for Cell Domination on map %s: %.2f\n", map_filename.c_str(), times[0] / 10.0);
+        printf("Average time for Path Domination on map %s: %.2f\n", map_filename.c_str(), times[1] / 10.0);
+        printf("Average time for Cell Then Path Domination on map %s: %.2f\n", map_filename.c_str(), times[2] / 10.0);
+
+        std::ofstream file;
+        file.open("pruning_experiment.csv", std::ios::app);
+        file << map_filename << ", CELL, " << ((double)us[0] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[0] / 10.0) * 1000.0 << "\n";
+        file << map_filename << ", PATH, " << ((double)us[1] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[1] / 10.0) * 1000.0 << "\n";
+        file << map_filename << ", CELL_THEN_PATH, " << ((double)us[2] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[2] / 10.0) * 1000.0 << "\n";
+        file.close();
     }
 
     // std::ofstream temp;

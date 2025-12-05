@@ -1,12 +1,16 @@
 {
     "agents": [
         [
-            18,
-            18
+            22,
+            29
+        ],
+        [
+            9,
+            16
         ]
     ],
     "tasks": [],
-    "map": "custom-19-19.map",
+    "map": "maze-32-32-2.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

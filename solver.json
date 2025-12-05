@@ -7,7 +7,7 @@
     "expand_lowest_cost_agent_only": false,
     "max_pivots_generated": 10000000,
     "max_pivots_after_pruning": 10000000,
-    "centralized_focal_epsilon": 1.0,
+    "centralized_focal_epsilon": 2.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_search_time_limit": 0.0001,
     "centralized_hard_search_time_limit": 200.0,

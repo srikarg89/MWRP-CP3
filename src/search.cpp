@@ -400,7 +400,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_f_value = f_and_focal_values[i].first;
 
         // Apply pathmax to ensure consistency.
-        nbr_f_value = std::max(nbr_f_value, node.f_value);
+        int node_admissible_f_value = std::max((int)((double)node.f_value / A_STAR_WEIGHT), node.cost);
+        // int node_admissible_f_value = node.f_value;
+        nbr_f_value = std::max(node_admissible_f_value, nbr_f_value);
         int nbr_focal_value = f_and_focal_values[i].second;
         last_id_assigned += 1;
 

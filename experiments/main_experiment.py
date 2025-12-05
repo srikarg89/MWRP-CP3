@@ -7,7 +7,7 @@ W_VALUE = 2.0
 TIME_LIMIT = 200.0
 
 MWRCP3_TEMPLATE = {
-    "heuristic": "TSP",
+    "heuristic": "LAZY",
     "focal_method": "SOC",
     "cell_pruning_method": "CELL_THEN_PATH",
     "prune_pivots": True,
@@ -53,15 +53,29 @@ FOCAL_MOC_TEMPLATE = MWRCP3_TEMPLATE.copy()
 FOCAL_MOC_TEMPLATE["focal_method"] = "MOC"
 FOCAL_MOC_TEMPLATE["centralized_focal_epsilon"] = W_VALUE
 
-method_names = ["OG_MWRP", "MWRP_CPD", "MWRCP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC"]
-methods = [OG_MWRP_TEMPLATE, MWRP_CPD_TEMPLATE, MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE]
+# method_names = ["OG_MWRP", "MWRP_CPD", "MWRCP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC"]
+# methods = [OG_MWRP_TEMPLATE, MWRP_CPD_TEMPLATE, MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE]
+# method_names = ["OG_MWRP", "MWRP_CPD", "MxWAstar", "MWRCP3"]
+# methods = [OG_MWRP_TEMPLATE, MWRP_CPD_TEMPLATE, MxWAstar_TEMPLATE, MWRCP3_TEMPLATE]
+
+MWRP_CPD_PP_TEMPLATE = MWRP_CPD_TEMPLATE.copy()
+MWRP_CPD_PP_TEMPLATE["prune_pivots"] = True
+MWRP_CPD_PP_TEMPLATE["max_pivots_generated"] = 10000000
+
+MWRP_CPD_PHC_TEMPLATE = MWRP_CPD_TEMPLATE.copy()
+MWRP_CPD_PHC_TEMPLATE["run_parallel"] = True
+
+method_names = ["MWRCP3", "Only CPD and PP", "Only CPD and PHC", "Only CPD", "MxWAstar", "SOC"]
+methods = [MWRCP3_TEMPLATE, MWRP_CPD_PP_TEMPLATE, MWRP_CPD_PHC_TEMPLATE, MWRP_CPD_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE]
+
+
 num_experiments = 25
 
-method_names = method_names[1:]
-methods = methods[1:]
+# method_names = method_names[1:]
+# methods = methods[1:]
 
-method_names = method_names[::-1]
-methods = methods[::-1]
+# method_names = method_names[::-1]
+# methods = methods[::-1]
 
 # method_names = ["OG_MWRP", "MWRCP3", "MxWAstar"]
 # methods = [OG_MWRP_TEMPLATE, MWRCP3_TEMPLATE, MxWAstar_TEMPLATE]
@@ -72,17 +86,16 @@ methods = methods[::-1]
 # num_experiments = 25
 
 # MAP_NAMES = ["../maps/custom-13-13.map"] * 6
-# MAP_NAMES = ["../maps/custom-11-11.map"] * 6
-# SCEN_CONFIG = "../configs/test.json"
-# NUM_AGENT_LOCS = [1, 2, 3]
-# NUM_AGENT_LOCS = [4, 5]
-
-MAP_NAMES = ["../maps/custom-11-11.map", "../maps/custom-13-13.map", "../maps/custom-19-19.map", "../maps/maze-32-32-2.map"]
+MAP_NAMES = ["../maps/custom-11-11.map"] * 6
 SCEN_CONFIG = "../configs/test.json"
-NUM_AGENT_LOCS = [2, 2, 2, 2]
+NUM_AGENT_LOCS = [6, 5, 4]
 
-MAP_NAMES = MAP_NAMES[3:]
-NUM_AGENT_LOCS = NUM_AGENT_LOCS[3:]
+# MAP_NAMES = ["../maps/custom-11-11.map", "../maps/custom-13-13.map", "../maps/custom-19-19.map", "../maps/maze-32-32-2.map"]
+# SCEN_CONFIG = "../configs/test.json"
+# NUM_AGENT_LOCS = [2, 2, 2, 2]
+
+# MAP_NAMES = MAP_NAMES[3:]
+# NUM_AGENT_LOCS = NUM_AGENT_LOCS[3:]
 
 
 def get_random_agent_starts(map_name, num_agents):
@@ -146,7 +159,7 @@ for i in range(len(NUM_AGENT_LOCS)):
             
             # print("\tMethod", method_name, "expanded", num_expanded, " nodes and took", time_ms, "ms to run")
             print("\tMethod", method_name, " nodes and took", search_time_ms, "ms to run")
-            results = open("maze_map_scaling_results.csv", "a+")
+            results = open("maze_map_scaling_results_lazy_test.csv", "a+")
             results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n")
             # results.write(f"{MAP_NAME},{method_name},{num_agent_starts},{experiment_id},{num_expanded},{time_ms}\n")
             results.close()

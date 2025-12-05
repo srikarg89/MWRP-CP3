@@ -93,30 +93,6 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
         timestep += 1;
         env.run_action(timestep, actions);
         s_t += 1;
-
-        bool new_task_found = false;
-        std::vector<Task> old_known_tasks = known_tasks;
-        known_tasks = env.get_known_incomplete_tasks();        
-        for(Task task : known_tasks){
-            bool found = false;
-            for(Task old_task : old_known_tasks){
-                if(task.id == old_task.id){
-                    found = true;
-                    break;
-                }
-            }
-            if(!found){
-                new_task_found = true;
-                break;
-            }
-        }
-
-        if(new_task_found) {
-            printf("New tasks found on timestep %d, recalculating...\n", timestep);
-            printf("New task found! Replanning...\n");
-            solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
-            s_t = 1;
-        }
     }
 
     printf("\n\n\nFinal timestep: %d\n", timestep);

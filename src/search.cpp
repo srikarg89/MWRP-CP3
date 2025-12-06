@@ -454,6 +454,14 @@ std::vector<std::vector<Position>> reconstruct_path(int goal_node_id, const std:
     return paths;
 }
 
+std::vector<HeuristicInput> get_heuristic_inputs_from_nodes(const std::vector<Node>& nodes){
+    std::vector<HeuristicInput> inputs;
+    for(const Node& node : nodes){
+        inputs.push_back(HeuristicInput{node.agents, node.cost, node.seen, node.tasks_left, node.num_seen});
+    }
+    return inputs;
+}
+
 
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
@@ -533,12 +541,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     bool solution_found = false;
     int max_node_depth_expanded = 0;
     int best_solution_cost = INT_MAX;
+    int num_lazy_batches_run = 0;
 
-    std::vector<HeuristicInput> batch_mtsp_heuristic_inputs;
-    std::vector<Node> batch_mtsp_nodes;
-    int min_f_in_batch = INT_MAX;
-
-    while(!(open_set.empty() && batch_mtsp_heuristic_inputs.empty())){
+    while(!(open_set.empty())){
         double time_elapsed = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
 
         if(time_elapsed > solver_config.hard_search_time_limit){
@@ -551,84 +556,86 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             break;
         }
 
-        int max_batch_size = 100;
-        while(solver_config.heuristic_type == LAZY && open_set.top().is_lazy) {
-            int count = 0;
-            std::vector<Node> batch_nodes;
-            std::vector<HeuristicInput> batch_inputs;
-            auto it = open_set.ordered_begin();
-            while(it != open_set.ordered_end() && count < max_batch_size){
-                if(it->is_lazy){
-                    batch_nodes.push_back(*it);
-                    batch_inputs.push_back(HeuristicInput{it->agents, it->cost, it->seen, it->tasks_left, it->num_seen});
+        // Regular A* vs. Focal A*
+        if(solver_config.focal_epsilon == 1.0) {
+            // Regular A*
+            while(solver_config.heuristic_type == LAZY && open_set.top().is_lazy) {
+                int count = 0;
+                std::vector<Node> batch_nodes;
+                auto it = open_set.ordered_begin();
+                while(it != open_set.ordered_end() && count < solver_config.optimizations.parallel_batch_size){
+                    if(it->is_lazy){
+                        batch_nodes.push_back(*it);
+                    }
+                    count++;
+                    ++it;
                 }
-                count++;
-                ++it;
-            }
 
-            printf("Running batch heuristic on %d nodes!\n", (int)batch_nodes.size());
-            std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
-            for(int i = 0; i < batch_nodes.size(); i++){
-                Node node = batch_nodes[i];
-                int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
-                int new_focal_value = std::max(f_and_focal_values[i].second, node.focal_heuristic); // Ensure focal value never decreases.
-                node.update_f_value(new_f_value);
-                open_set.update(handle_lookup[node.node_id], node);
+                printf("Running MxWA* batch heuristic on %d nodes!\n", (int)batch_nodes.size());
+                num_lazy_batches_run += 1;
+                auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
+                std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                for(int i = 0; i < batch_nodes.size(); i++){
+                    Node node = batch_nodes[i];
+                    int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
+                    node.update_f_value(new_f_value);
+                    open_set.update(handle_lookup[node.node_id], node);
+                }
+            }
+        } else {
+            // Focal A*
+            int min_f_value = open_set.top().f_value;
+            while(min_f_value > prev_min_f){
+                auto it = open_set.ordered_begin();
+                int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)min_f_value);
+                std::vector<Node> nodes_to_recompute;
+                while(it != open_set.ordered_end() && it->f_value <= max_f_value){
+                    if(it->is_lazy) {
+                        nodes_to_recompute.push_back(*it);
+                    } else if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
+                        focal_list.push(*it);
+                        added_to_focal_list.insert(it->node_id);
+                    }
+
+                    ++it;
+                }
+
+                if(nodes_to_recompute.size() > 0){
+                    num_lazy_batches_run += 1;
+                    printf("Running focal batch heuristic on %d nodes!\n", (int)nodes_to_recompute.size());
+                    auto batch_inputs = get_heuristic_inputs_from_nodes(nodes_to_recompute);
+                    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                    for(int i = 0; i < nodes_to_recompute.size(); i++){
+                        // Update the node's attributes.
+                        Node node = nodes_to_recompute[i];
+                        int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
+                        int new_focal_value = std::max(f_and_focal_values[i].second, node.focal_heuristic); // Ensure focal value never decreases.
+                        node.update_f_value(new_f_value);
+                        node.update_focal_heuristic(new_focal_value);
+
+                        // Add node back into open set and focal list if needed.
+                        open_set.update(handle_lookup[node.node_id], node);
+                        if(node.f_value <= max_f_value && added_to_focal_list.find(node.node_id) == added_to_focal_list.end()){
+                            focal_list.push(node);
+                            added_to_focal_list.insert(node.node_id);
+                        }
+                    }
+                }
+                    
+                prev_min_f = min_f_value;
             }
         }
 
-
-        // if(solver_config.heuristic_type == LAZY && (open_set.empty() || focal_list.empty() || min_f_in_batch < open_set.top().f_value)) {
-        // // if(solver_config.heuristic_type == LAZY && (open_set.empty() || focal_list.empty() || min_f_in_batch <= open_set.top().f_value)) {
-        //     // Recompute f values for batched nodes.
-        //     printf("Running batch heuristic on %d nodes!\n", (int)batch_mtsp_nodes.size());
-        //     std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_mtsp_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
-        //     for(int i = 0; i < batch_mtsp_nodes.size(); i++){
-        //         Node node = batch_mtsp_nodes[i];
-        //         int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
-        //         int new_focal_value = std::max(f_and_focal_values[i].second, node.focal_heuristic); // Ensure focal value never decreases.
-        //         node.update_f_value(new_f_value);
-        //         // node.update_focal_heuristic(new_focal_value);
-        //         handle_lookup[node.node_id] = open_set.push(node);
-        //         added_to_focal_list.erase(node.node_id);
-        //         if(new_f_value <= (int)(solver_config.focal_epsilon * prev_min_f)){
-        //             focal_list.push(node);
-        //             added_to_focal_list.insert(node.node_id);
-        //         }
-        //     }
-        //     batch_mtsp_heuristic_inputs.clear();
-        //     batch_mtsp_nodes.clear();
-        //     min_f_in_batch = INT_MAX;
-        // }
-
-        // Check if focal list needs to be updated.
-        int min_f_value = open_set.top().f_value;
-        prev_min_f = open_set.top().f_value;
-
-        // if(min_f_value > prev_min_f){
-        //     printf("F value increased from %d to %d. Updating focal list.\n", prev_min_f, min_f_value);
-        //     prev_min_f = min_f_value;
-        //     // Add to focal list.
-        //     auto it = open_set.ordered_begin();
-        //     int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)min_f_value);
-        //     while(it != open_set.ordered_end() && it->f_value <= max_f_value){
-        //         // printf("Adding node %d to focal list. F value: %d, Focal value: %d\n", it->node_id, it->f_value, it->focal_heuristic);
-        //         if(added_to_focal_list.find(it->node_id) == added_to_focal_list.end()){
-        //             focal_list.push(*it);
-        //             added_to_focal_list.insert(it->node_id);
-        //         }
-        //         ++it;
-        //     }
-        // }
-
-        // Get lowest cost node by focal heuristic.
-        // Node curr = focal_list.top();
-        // focal_list.pop();
-        // Remove from open set as well.
-        // open_set.erase(handle_lookup[curr.node_id]);
-
-        Node curr = open_set.top();
-        open_set.pop();
+        // Regular A* vs. Focal A*
+        Node curr = (solver_config.focal_epsilon == 1.0) ? open_set.top() : focal_list.top();
+        if(solver_config.focal_epsilon == 1.0) {
+            // Regular A* - Get lowest cost node in open set.
+            open_set.pop();
+        } else {
+            // Focal A* - Get lowest cost node by focal heuristic and remove from open set.
+            focal_list.pop();
+            open_set.erase(handle_lookup[curr.node_id]);
+        }
 
         // Skip expansion if we've found a better solution.
         int admissible_f_value = std::max((int)((double)curr.f_value / A_STAR_WEIGHT), curr.cost);
@@ -641,40 +648,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             num_skipped += 1;
             continue;
         }
-
-        num_expanded += 1;
-
-        // if(solver_config.heuristic_type == LAZY){
-        //     if(curr.is_lazy) {
-        //         // // Recompute f value.
-        //         // auto [new_f_value, new_focal_value] = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
-        //         // // int new_f_value = get_f_value(HeuristicType::TSP, map, curr.agents, curr.cost, curr.seen, curr.tasks_left, lookup);
-        //         // new_f_value = std::max(new_f_value, curr.f_value); // Ensure f value never decreases.
-        //         // new_focal_value = std::max(new_focal_value, curr.focal_heuristic); // Ensure focal value never decreases.
-        //         // curr.update_f_value(new_f_value);
-        //         // curr.update_focal_heuristic(new_focal_value);
-        //         // handle_lookup[curr.node_id] = open_set.push(curr);
-        //         // added_to_focal_list.erase(curr.node_id);
-        //         // if(new_f_value <= (int)(solver_config.focal_epsilon * prev_min_f)){
-        //         //     focal_list.push(curr);
-        //         //     added_to_focal_list.insert(curr.node_id);
-        //         // }
-        //         num_lazy_in_a_row += 1;
-        //         batch_mtsp_heuristic_inputs.push_back(HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen});
-        //         batch_mtsp_nodes.push_back(curr);
-        //         min_f_in_batch = std::min(min_f_in_batch, curr.f_value);
-
-        //         // std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{curr.agents, curr.cost, curr.seen, curr.tasks_left, curr.num_seen}}, solver_config.focal_heuristic_weight, lookup);
-        //         // int new_f_value = std::max(f_and_focal_values[0].first, curr.f_value); // Ensure f value never decreases.
-        //         // curr.update_f_value(new_f_value);
-        //         // handle_lookup[curr.node_id] = open_set.push(curr);
-        //         continue;
-        //     } else {
-        //         // printf("Num lazy in a row: %d\n", num_lazy_in_a_row);
-        //         num_lazy_in_a_row = 0;
-        //     }
-        // }
-
 
         num_fully_expanded += 1;
         printf("Fully expanding node %d. Loc: %s, cost: %d, f value: %d, num free seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, (curr.num_seen - num_obstacles), num_free);
@@ -723,6 +696,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(neighbors.size() > 0){
             last_id_assigned = neighbors.back().node_id;
         }
+        std::vector<Node> batch_nodes;
         for(Node& nbr : neighbors){
             int nbr_admissible_f_value = std::max((int)((double)nbr.f_value / A_STAR_WEIGHT), nbr.cost);
             if(nbr_admissible_f_value >= best_solution_cost){
@@ -730,12 +704,41 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 continue;
             }
 
-            // printf("\tGenerated neighbor. Node ID: %d, Loc: %s, cost: %d, heuristic: %d, num seen: %d\n", nbr.node_id, nbr.pos.toString().c_str(), nbr.cost, nbr.heuristic, nbr.num_seen);
             pred_lookup[nbr.node_id] = curr.node_id;
-            handle_lookup[nbr.node_id] = open_set.push(nbr);
-            if(nbr.f_value <= (int)(solver_config.focal_epsilon * prev_min_f)){
-                focal_list.push(nbr);
-                added_to_focal_list.insert(nbr.node_id);
+            // Regular A* vs. Focal A*
+            if(solver_config.focal_epsilon == 1.0){
+                // Regular A*
+                handle_lookup[nbr.node_id] = open_set.push(nbr);
+            } else {
+                // Focal A*
+                int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)prev_min_f);
+                if(nbr.f_value <= max_f_value && nbr.is_lazy){
+                    batch_nodes.push_back(nbr);
+                } else {
+                    // If not within focal threshold or not running Lazy A* add the node to the open set.
+                    handle_lookup[nbr.node_id] = open_set.push(nbr);
+                }
+            }
+        }
+
+        if(batch_nodes.size() > 0){
+            num_lazy_batches_run += 1;
+            printf("Running expansion batch heuristic on %d nodes!\n", (int)batch_nodes.size());
+            auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
+            int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)prev_min_f);
+            std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+            for(int i = 0; i < batch_nodes.size(); i++){
+                // Update the node's attributes.
+                Node nbr = batch_nodes[i];
+                nbr.update_f_value(std::max(f_and_focal_values[i].first, nbr.f_value)); // Ensure f value never decreases.
+                nbr.update_focal_heuristic(std::max(f_and_focal_values[i].second, nbr.focal_heuristic)); // Ensure focal value never decreases.
+
+                // Add node into open set and focal list if needed.
+                handle_lookup[nbr.node_id] = open_set.push(nbr);
+                if(nbr.f_value <= max_f_value){
+                    focal_list.push(nbr);
+                    added_to_focal_list.insert(nbr.node_id);
+                }
             }
         }
     }
@@ -762,6 +765,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total generations skipped for high lazy f value: %d\n", METRICS.num_skipped_high_lazy_f_value);
     printf("Total generations discarded for high f value: %d\n", num_discarded_high_f);
     printf("Total nodes generated: %d\n", num_generated);
+    printf("Total lazy batches run: %d\n", num_lazy_batches_run);
 
     // if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
     //     printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);

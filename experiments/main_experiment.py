@@ -5,6 +5,7 @@ import random
 
 W_VALUE = 2.0
 TIME_LIMIT = 200.0
+PARALLEL_BATCH_SIZE = 100
 
 MWRCP3_TEMPLATE = {
     "heuristic": "LAZY",
@@ -15,6 +16,7 @@ MWRCP3_TEMPLATE = {
     "expand_lowest_cost_agent_only": False,
     "max_pivots_generated": 10000000,
     "max_pivots_after_pruning": 10000000,
+    "parallel_batch_size": PARALLEL_BATCH_SIZE,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_search_time_limit": 0.0001,
@@ -30,17 +32,17 @@ MWRCP3_TEMPLATE = {
 }
 
 OG_MWRP_TEMPLATE = MWRCP3_TEMPLATE.copy()
-OG_MWRP_TEMPLATE["heuristic"] = "LAZY"
 OG_MWRP_TEMPLATE["cell_pruning_method"] = "NONE"
 OG_MWRP_TEMPLATE["prune_pivots"] = False
 OG_MWRP_TEMPLATE["run_parallel"] = False
 OG_MWRP_TEMPLATE["max_pivots_generated"] = 8
+OG_MWRP_TEMPLATE["parallel_batch_size"] = 1
 
 MWRP_CPD_TEMPLATE = MWRCP3_TEMPLATE.copy()
-MWRP_CPD_TEMPLATE["heuristic"] = "LAZY"
 MWRP_CPD_TEMPLATE["prune_pivots"] = False
 MWRP_CPD_TEMPLATE["run_parallel"] = False
 MWRP_CPD_TEMPLATE["max_pivots_generated"] = 8
+MWRP_CPD_TEMPLATE["parallel_batch_size"] = 1
 
 MxWAstar_TEMPLATE = MWRCP3_TEMPLATE.copy()
 MxWAstar_TEMPLATE["centralized_astar_weight"] = W_VALUE
@@ -64,6 +66,7 @@ MWRP_CPD_PP_TEMPLATE["max_pivots_generated"] = 10000000
 
 MWRP_CPD_PHC_TEMPLATE = MWRP_CPD_TEMPLATE.copy()
 MWRP_CPD_PHC_TEMPLATE["run_parallel"] = True
+MWRP_CPD_TEMPLATE["parallel_batch_size"] = PARALLEL_BATCH_SIZE
 
 method_names = ["MWRCP3", "Only CPD and PP", "Only CPD and PHC", "Only CPD", "MxWAstar", "SOC"]
 methods = [MWRCP3_TEMPLATE, MWRP_CPD_PP_TEMPLATE, MWRP_CPD_PHC_TEMPLATE, MWRP_CPD_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE]

@@ -12,6 +12,7 @@ ASTAR_PD_TEMPLATE = {
     "expand_lowest_cost_agent_only": False,
     "max_pivots_generated": 8,
     "max_pivots_after_pruning": 10000000,
+    "parallel_batch_size": 100,
     "centralized_focal_epsilon": 1.0,
     "centralized_focal_heuristic_weight": 10000.0,
     "centralized_search_time_limit": 1.0,

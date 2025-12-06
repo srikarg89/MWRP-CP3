@@ -6,7 +6,8 @@
 #include "environment.hpp"
 #include "heirarchical_search.hpp"
 
-std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
+// std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
+std::vector<std::string> map_filenames = {"../maps/room-64-64-8.map"};
 
 Map get_map(std::string map_filename) {
     std::ifstream inputFile(map_filename);

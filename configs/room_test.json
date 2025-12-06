@@ -1,0 +1,7 @@
+{
+    "agents": [[1, 1]],
+    "tasks": [],
+    "map": "room-32-32-4.map",
+    "movement": "FOUR_WAY_MOVEMENT",
+    "los": "BRES_LOS"
+}

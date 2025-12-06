@@ -197,7 +197,7 @@ for RANDOM, RANDOM_INSTANCES in [(False, 1)]:
                 print(f"Running experiment with {num_agent_starts} agent starts, experiment id {experiment_id}, method {method_name}")
                 start_time = time.time()
                 # result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True, capture_output=True, text=True)
-                result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True)
+                result = subprocess.run(["./run", "../configs/mc_forest.json", "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True)
                 measured_time = time.time() - start_time
 
                 search_time = -1.0

@@ -3,7 +3,7 @@ import json
 import time
 import random
 
-W_VALUE = 2.0
+W_VALUE = 1.5
 TIME_LIMIT = 200.0
 PARALLEL_BATCH_SIZE = 100
 
@@ -55,10 +55,9 @@ FOCAL_MOC_TEMPLATE = MWRCP3_TEMPLATE.copy()
 FOCAL_MOC_TEMPLATE["focal_method"] = "MOC"
 FOCAL_MOC_TEMPLATE["centralized_focal_epsilon"] = W_VALUE
 
-# method_names = ["OG_MWRP", "MWRP_CPD", "MWRCP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC"]
-# methods = [OG_MWRP_TEMPLATE, MWRP_CPD_TEMPLATE, MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE]
-# method_names = ["OG_MWRP", "MWRP_CPD", "MxWAstar", "MWRCP3"]
-# methods = [OG_MWRP_TEMPLATE, MWRP_CPD_TEMPLATE, MxWAstar_TEMPLATE, MWRCP3_TEMPLATE]
+
+MWRCP3_TSP_TEMPLATE = MWRCP3_TEMPLATE.copy()
+MWRCP3_TSP_TEMPLATE["heuristic"] = "TSP"
 
 MWRP_CPD_PP_TEMPLATE = MWRP_CPD_TEMPLATE.copy()
 MWRP_CPD_PP_TEMPLATE["prune_pivots"] = True
@@ -66,32 +65,20 @@ MWRP_CPD_PP_TEMPLATE["max_pivots_generated"] = 10000000
 
 MWRP_CPD_PHC_TEMPLATE = MWRP_CPD_TEMPLATE.copy()
 MWRP_CPD_PHC_TEMPLATE["run_parallel"] = True
-MWRP_CPD_TEMPLATE["parallel_batch_size"] = PARALLEL_BATCH_SIZE
-
-method_names = ["MWRCP3", "Only CPD and PP", "Only CPD and PHC", "Only CPD", "MxWAstar", "SOC"]
-methods = [MWRCP3_TEMPLATE, MWRP_CPD_PP_TEMPLATE, MWRP_CPD_PHC_TEMPLATE, MWRP_CPD_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE]
+MWRP_CPD_PHC_TEMPLATE["parallel_batch_size"] = PARALLEL_BATCH_SIZE
 
 
-num_experiments = 25
+num_experiments = 2
 
-# method_names = method_names[1:]
-# methods = methods[1:]
 
-# method_names = method_names[::-1]
-# methods = methods[::-1]
-
-# method_names = ["OG_MWRP", "MWRCP3", "MxWAstar"]
-# methods = [OG_MWRP_TEMPLATE, MWRCP3_TEMPLATE, MxWAstar_TEMPLATE]
-# num_experiments = 25
-
-# method_names = ["OG_MWRP"]
-# methods = [OG_MWRP_TEMPLATE]
-# num_experiments = 25
-
+####### EXPERIMENT CONFIGURATION ########
+# method_names = ["MWRP_CP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC", "MWRP_CPD", "OG_MWRP"]
+# methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
 # MAP_NAMES = ["../maps/custom-13-13.map"] * 6
-MAP_NAMES = ["../maps/custom-11-11.map"] * 6
-SCEN_CONFIG = "../configs/test.json"
-NUM_AGENT_LOCS = [6, 5, 4]
+# # MAP_NAMES = ["../maps/custom-11-11.map"] * 6
+# SCEN_CONFIG = "../configs/test.json"
+# # NUM_AGENT_LOCS = [6, 5, 4, 3, 2, 1]
+# NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
 
 # MAP_NAMES = ["../maps/custom-11-11.map", "../maps/custom-13-13.map", "../maps/custom-19-19.map", "../maps/maze-32-32-2.map"]
 # SCEN_CONFIG = "../configs/test.json"
@@ -99,6 +86,17 @@ NUM_AGENT_LOCS = [6, 5, 4]
 
 # MAP_NAMES = MAP_NAMES[3:]
 # NUM_AGENT_LOCS = NUM_AGENT_LOCS[3:]
+
+
+# ###### ABLATION EXPERIMENT ######
+method_names = ["MWRP_CP3", "MWRP_CPD_PP", "MWRP_CPD_PHC"]
+methods = [MWRCP3_TEMPLATE, MWRP_CPD_PP_TEMPLATE, MWRP_CPD_PHC_TEMPLATE]
+
+# MAP_NAMES = ["../maps/maze-32-32-2.map", "../maps/den101d.map", "../maps/maze-32-32-2.map", "../maps/custom-19-19.map"]
+# MAP_NAMES = ["../maps/huge/AR0401SR.map"]
+MAP_NAMES = ["../maps/huge/AR0509SR.map", "../maps/huge/AR0607SR.map", "../maps/huge/orz101d.map"]
+SCEN_CONFIG = "../configs/test.json"
+NUM_AGENT_LOCS = [4, 1, 1]
 
 
 def get_random_agent_starts(map_name, num_agents):
@@ -134,6 +132,7 @@ for i in range(len(NUM_AGENT_LOCS)):
         with open(SCEN_CONFIG, "w") as f:
             json.dump(scenario_config, f, indent=4)
 
+        method_failed = False
         for method_name, method in zip(method_names, methods):
             input_config = method.copy()
             with open("../solver.json", "w") as f:
@@ -159,12 +158,24 @@ for i in range(len(NUM_AGENT_LOCS)):
                     search_time = float(line.split()[-1].strip())
 
             search_time_ms = int((pd_time + search_time) * 1000)
+
             
             # print("\tMethod", method_name, "expanded", num_expanded, " nodes and took", time_ms, "ms to run")
             print("\tMethod", method_name, " nodes and took", search_time_ms, "ms to run")
-            results = open("maze_map_scaling_results_lazy_test.csv", "a+")
-            results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n")
-            # results.write(f"{MAP_NAME},{method_name},{num_agent_starts},{experiment_id},{num_expanded},{time_ms}\n")
-            results.close()
+
+            results = open("results/ablation2.csv", "a+")
+            # results = open("results/maze_map_scaling.csv", "a+")
+            # results = open("results/maze_agent_scaling.csv", "a+")
+            # results = open("results/test.csv", "a+")
+
+            if search_time_ms < 0:
+                print("Method failed, breaking and writing a line to results to demonstrate failure.")
+                results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n\n")
+                results.close()
+                break
+            else:
+                results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n")
+                # results.write(f"{MAP_NAME},{method_name},{num_agent_starts},{experiment_id},{num_expanded},{time_ms}\n")
+                results.close()
 
 

@@ -1,3 +1,4 @@
+#define BS_THREAD_POOL_NATIVE_EXTENSIONS
 #include "search.hpp"
 #include "shared.hpp"
 #include "utils.hpp"
@@ -571,7 +572,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     ++it;
                 }
 
-                printf("Running MxWA* batch heuristic on %d nodes!\n", (int)batch_nodes.size());
+                // printf("Running MxWA* batch heuristic on %d nodes!\n", (int)batch_nodes.size());
                 num_lazy_batches_run += 1;
                 auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
                 std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
@@ -602,7 +603,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
                 if(nodes_to_recompute.size() > 0){
                     num_lazy_batches_run += 1;
-                    printf("Running focal batch heuristic on %d nodes!\n", (int)nodes_to_recompute.size());
+                    // printf("Running focal batch heuristic on %d nodes!\n", (int)nodes_to_recompute.size());
                     auto batch_inputs = get_heuristic_inputs_from_nodes(nodes_to_recompute);
                     std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
                     for(int i = 0; i < nodes_to_recompute.size(); i++){
@@ -623,6 +624,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 }
                     
                 prev_min_f = min_f_value;
+                min_f_value = open_set.top().f_value;
             }
         }
 
@@ -650,7 +652,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         num_fully_expanded += 1;
-        printf("Fully expanding node %d. Loc: %s, cost: %d, f value: %d, num free seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, (curr.num_seen - num_obstacles), num_free);
+        // printf("Fully expanding node %d. Loc: %s, cost: %d, f value: %d, num free seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, (curr.num_seen - num_obstacles), num_free);
 
         expanded_nodes.push_back(curr);
         max_node_depth_expanded = std::max(max_node_depth_expanded, curr.depth);
@@ -723,7 +725,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         if(batch_nodes.size() > 0){
             num_lazy_batches_run += 1;
-            printf("Running expansion batch heuristic on %d nodes!\n", (int)batch_nodes.size());
+            // printf("Running expansion batch heuristic on %d nodes!\n", (int)batch_nodes.size());
             auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
             int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)prev_min_f);
             std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);

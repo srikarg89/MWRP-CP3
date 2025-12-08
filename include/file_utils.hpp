@@ -61,13 +61,17 @@ inline std::string get_map_state(const Lookup& lookup, const Map& map, boost::dy
         agent_positions.insert(map.get_map_idx(pos));
     }
 
+    auto cd_strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
+
     for(int i = 0; i < map.num_squares; i++){
         if(map.check_obstacle(map.get_pos_from_map_idx(i))){
-            map_list += "4"; // Obstacle
+            map_list += "5"; // Obstacle
         } else if(agent_positions.find(i) != agent_positions.end()){
             map_list += "1"; // Agent
         } else if(seen[i]){
-            map_list += "3"; // Seen
+            map_list += "4"; // Seen
+        } else if(cd_strictly_easier[i]){
+            map_list += "3"; // Path-dominance Strictly easier
         } else if(lookup.strictly_easier[i]){
             map_list += "2"; // Path-dominance Strictly easier
         } else {

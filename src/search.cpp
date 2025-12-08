@@ -82,13 +82,9 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
 
         // Singleton heuristic.
         if(use_singleton) {
-            f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup));
-            // Make copy of agents, but at 0 cost. Focal value is the singleton heuristic if the search just started (estimate of how much searching there is left to do).
-            std::vector<AgentState> agents_copy = input.agents;
-            for(auto& agent : agents_copy){
-                agent.cost = 0;
-            }
-            f_and_focal_values[i].second = get_singleton_f_value(agents_copy, map, 0, input.seen, input.tasks_left, lookup);
+            int singleton_val = get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup);
+            f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, singleton_val);
+            f_and_focal_values[i].second = singleton_val;
         }
     }
 
@@ -248,6 +244,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         // For each neighbor, loop through path to neighbor.
         int new_squares_seen = 0;
         int nbr_cost = 0;
+        start = std::chrono::high_resolution_clock::now();
         for(const AgentState& agent : nbr){
             new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
             nbr_cost = std::max(nbr_cost, agent.cost);
@@ -255,72 +252,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             // If the agent has reached the task, remove it from the tasks left.
             int agent_map_idx = map.get_map_idx(agent.pos);
         }
+        end = std::chrono::high_resolution_clock::now();
+        duration = end - start;
+        METRICS.adding_los_time += duration.count();
 
         std::vector<Task> nbr_tasks_left;
-        for(Task t : node.tasks_left){
-            int task_map_idx = map.get_map_idx(t.pos);
-            std::unordered_map<int, int> num_reached_by_time;
-            bool reachable = false;
-            bool completed = false;
-            for(const AgentState& agent : nbr){
-                int agent_map_idx = map.get_map_idx(agent.pos);
-                if(agent_map_idx == task_map_idx && t.release_time <= agent.cost && agent.cost <= t.deadline){
-                    num_reached_by_time[agent.cost] += 1;
-                    if(num_reached_by_time[agent.cost] >= t.num_agents_required){
-                        completed = true;
-                        break;
-                    }
-                }
-            }
-            if(completed) {
-                // Free up agents that were waiting at this task.
-                for(AgentState& agent : nbr){
-                    if(agent.waiting_idx == t.id){
-                        agent.waiting_idx = -1;
-                    }
-                }
-            }
-            else {
-                nbr_tasks_left.push_back(t);
-            }
-        }
-
-        // Check if we have a deadlock. That is, check if there is at least one task that is reachable by at least one non-terminated agent.
-        bool task_deadlocked = false;
-        bool task_failed = false;
-        for(const Task& t : nbr_tasks_left){
-            int agents_available = 0;
-            bool can_reach = false;
-            for(const AgentState& agent : nbr){
-                if(lookup.apsp[map.get_map_idx(agent.pos)][t.map_idx] + agent.cost <= t.deadline){
-                    can_reach = true;
-                }
-                if(agent.waiting_idx == t.id || (!agent.terminated && agent.waiting_idx == -1)){
-                    agents_available += 1;
-                    continue;
-                }
-            }
-            if(agents_available < t.num_agents_required){
-                task_deadlocked = true;
-                break;
-            }
-            if(!can_reach){
-                task_failed = true;
-                break;
-            }
-        }
-
-        if(task_failed) {
-            // Don't generate neighbors that have failed tasks.
-            continue;
-        }
-
-        if(task_deadlocked) {
-            // Don't generate neighbors that have deadlocked tasks.
-            // printf("Deadlocked task detected, skipping neighbor generation.\n");
-            METRICS.num_skipped_task_deadlock += 1;
-            continue;
-        }
 
         int nbr_num_seen = node.num_seen + new_squares_seen;
 
@@ -338,11 +274,6 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                 bool nbr_cost_better = true;
                 bool visited_cost_better = true;
                 for(int i = 0; i < nbr_sorted.size(); i++){
-                    // if((it->agents[i].cost < nbr_sorted[i].cost) || (nbr_sorted[i].terminated && !it->agents[i].terminated)){
-                    //     nbr_cost_better = false;
-                    // } else if((nbr_sorted[i].cost < it->agents[i].cost) || (it->agents[i].terminated && !nbr_sorted[i].terminated)){
-                    //     visited_cost_better = false;
-                    // }
                     if((it->agents[i].cost < nbr_sorted[i].cost)){
                         nbr_cost_better = false;
                     } else if((nbr_sorted[i].cost < it->agents[i].cost)){
@@ -373,11 +304,13 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             continue;
         }
 
-        double min_nbr_f_value = get_singleton_f_value(nbr, map, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
-        if(min_nbr_f_value >= best_solution_cost){
-            // Don't generate neighbors that are already worse than the best solution found so far.
-            METRICS.num_skipped_high_lazy_f_value += 1;
-            continue;
+        if(solver_config.heuristic_type == TSP){
+            double min_nbr_f_value = get_singleton_f_value(nbr, map, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+            if(min_nbr_f_value >= best_solution_cost){
+                // Don't generate neighbors that are already worse than the best solution found so far.
+                METRICS.num_skipped_high_lazy_f_value += 1;
+                continue;
+            }
         }
 
         neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
@@ -392,7 +325,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, solver_config.focal_method, solver_config.optimizations, map, neighbor_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
-    METRICS.f_value_calculation_time += duration.count();
+    METRICS.lazy_f_value_calculation_time += duration.count();
 
     for(int i = 0; i < neighbor_heuristic_inputs.size(); i++){
         const HeuristicInput& input = neighbor_heuristic_inputs[i];
@@ -520,6 +453,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             exit(1);
         }
     }
+
     auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
 
@@ -535,6 +469,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     int num_fully_expanded = 0;
     int num_discarded_high_f = 0;
     int num_lazy_in_a_row = 0;
+    double popping_time = 0.0;
+    double update_time = 0.0;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -546,6 +482,13 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
     while(!(open_set.empty())){
         double time_elapsed = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
+        // printf("Time elapsed: %.3f seconds\n", time_elapsed);
+        // printf("\tTime popped from open set: %.3f seconds\n", popping_time);
+        // printf("\tOpen set size: %d, Focal list size: %d\n", (int)open_set.size(), (int)focal_list.size());
+        // printf("\tGeneration time: %.3f seconds\n", METRICS.neighbor_expansion_time);
+        // printf("\tLazy f-value calculation time: %.3f seconds\n", METRICS.lazy_f_value_calculation_time);
+        // printf("\tTSP f-value calculation time: %.3f seconds\n", METRICS.tsp_f_value_calculation_time);
+        // printf("\tUpdate time: %.3f seconds\n", update_time);
 
         if(time_elapsed > solver_config.hard_search_time_limit){
             printf("Hard time limit reached, exiting!.\n");
@@ -561,27 +504,53 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(solver_config.focal_epsilon == 1.0) {
             // Regular A*
             while(solver_config.heuristic_type == LAZY && open_set.top().is_lazy) {
+                printf("WTF BRO??\n");
                 int count = 0;
                 std::vector<Node> batch_nodes;
                 auto it = open_set.ordered_begin();
-                while(it != open_set.ordered_end() && count < solver_config.optimizations.parallel_batch_size){
-                    if(it->is_lazy){
-                        batch_nodes.push_back(*it);
+                int parallel_batch_size = solver_config.optimizations.run_parallel ? solver_config.optimizations.parallel_batch_size : 1;
+                auto pop_start = std::chrono::high_resolution_clock::now();
+                if(parallel_batch_size > 0){
+                    while(it != open_set.ordered_end() && count < parallel_batch_size){
+                        if(it->is_lazy){
+                            batch_nodes.push_back(*it);
+                        }
+                        count++;
+                        ++it;
                     }
-                    count++;
-                    ++it;
+                } else {
+                    double top_f_value = open_set.top().f_value;
+                    while(it != open_set.ordered_end() && it->f_value <= top_f_value){
+                        if(it->is_lazy){
+                            batch_nodes.push_back(*it);
+                        }
+                        count++;
+                        ++it;
+                    }
                 }
+                auto pop_end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> pop_duration = pop_end - pop_start;
+                popping_time += pop_duration.count();
 
                 // printf("Running MxWA* batch heuristic on %d nodes!\n", (int)batch_nodes.size());
                 num_lazy_batches_run += 1;
                 auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
+                auto f_start = std::chrono::high_resolution_clock::now();
                 std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                auto f_end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> f_duration = f_end - f_start;
+                METRICS.tsp_f_value_calculation_time += f_duration.count();
+
+                auto update_start = std::chrono::high_resolution_clock::now();
                 for(int i = 0; i < batch_nodes.size(); i++){
                     Node node = batch_nodes[i];
                     int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
                     node.update_f_value(new_f_value);
                     open_set.update(handle_lookup[node.node_id], node);
                 }
+                auto update_end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> update_duration = update_end - update_start;
+                update_time += update_duration.count();
             }
         } else {
             // Focal A*
@@ -590,6 +559,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 auto it = open_set.ordered_begin();
                 int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)min_f_value);
                 std::vector<Node> nodes_to_recompute;
+                auto pop_start = std::chrono::high_resolution_clock::now();
                 while(it != open_set.ordered_end() && it->f_value <= max_f_value){
                     if(it->is_lazy) {
                         nodes_to_recompute.push_back(*it);
@@ -600,17 +570,24 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
                     ++it;
                 }
+                auto pop_end = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> pop_duration = pop_end - pop_start;
+                popping_time += pop_duration.count();
 
                 if(nodes_to_recompute.size() > 0){
                     num_lazy_batches_run += 1;
                     // printf("Running focal batch heuristic on %d nodes!\n", (int)nodes_to_recompute.size());
                     auto batch_inputs = get_heuristic_inputs_from_nodes(nodes_to_recompute);
+                    auto f_start = std::chrono::high_resolution_clock::now();
                     std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                    auto f_end = std::chrono::high_resolution_clock::now();
+                    std::chrono::duration<double> f_duration = f_end - f_start;
+                    METRICS.tsp_f_value_calculation_time += f_duration.count();
                     for(int i = 0; i < nodes_to_recompute.size(); i++){
                         // Update the node's attributes.
                         Node node = nodes_to_recompute[i];
                         int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
-                        int new_focal_value = std::max(f_and_focal_values[i].second, node.focal_heuristic); // Ensure focal value never decreases.
+                        int new_focal_value = f_and_focal_values[i].second;
                         node.update_f_value(new_f_value);
                         node.update_focal_heuristic(new_focal_value);
 
@@ -652,7 +629,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         num_fully_expanded += 1;
-        // printf("Fully expanding node %d. Loc: %s, cost: %d, f value: %d, num free seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, (curr.num_seen - num_obstacles), num_free);
 
         expanded_nodes.push_back(curr);
         max_node_depth_expanded = std::max(max_node_depth_expanded, curr.depth);
@@ -699,6 +675,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             last_id_assigned = neighbors.back().node_id;
         }
         std::vector<Node> batch_nodes;
+        auto push_start = std::chrono::high_resolution_clock::now();
         for(Node& nbr : neighbors){
             int nbr_admissible_f_value = std::max((int)((double)nbr.f_value / A_STAR_WEIGHT), nbr.cost);
             if(nbr_admissible_f_value >= best_solution_cost){
@@ -722,13 +699,20 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 }
             }
         }
+        auto push_end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> push_duration = push_end - push_start;
+        update_time += push_duration.count();
 
         if(batch_nodes.size() > 0){
             num_lazy_batches_run += 1;
             // printf("Running expansion batch heuristic on %d nodes!\n", (int)batch_nodes.size());
             auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
             int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)prev_min_f);
+            auto f_start = std::chrono::high_resolution_clock::now();
             std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+            auto f_end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> f_duration = f_end - f_start;
+            METRICS.tsp_f_value_calculation_time += f_duration.count();
             for(int i = 0; i < batch_nodes.size(); i++){
                 // Update the node's attributes.
                 Node nbr = batch_nodes[i];
@@ -776,8 +760,12 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     // }
 
     printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
-    printf("Total get_f_value time: %.3f seconds\n", METRICS.f_value_calculation_time);
+    printf("Total lazy f_value time: %.3f seconds\n", METRICS.lazy_f_value_calculation_time);
+    printf("Total TSP f_value time: %.3f seconds\n", METRICS.tsp_f_value_calculation_time);
+    printf("Total update time: %.3f seconds\n", update_time);
+    printf("Total popping time: %.3f seconds\n", popping_time);
     printf("Total domination check time: %.3f seconds\n", METRICS.domination_check_time);
+    printf("Total adding LOS time: %.3f seconds\n", METRICS.adding_los_time);
     printf("Max node depth expanded: %d\n", max_node_depth_expanded);
     for(int i = 0; i < solution_paths.size(); i++){
         printf("Path %d length: %ld\n", i, solution_paths[i].size());

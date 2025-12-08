@@ -1,24 +1,16 @@
 {
     "agents": [
         [
-            54,
-            38
+            4,
+            23
         ],
         [
-            48,
-            36
-        ],
-        [
-            20,
-            48
-        ],
-        [
-            13,
-            66
+            23,
+            5
         ]
     ],
     "tasks": [],
-    "map": "huge/AR0509SR.map",
+    "map": "maps2/lak105d.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

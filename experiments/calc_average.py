@@ -1,13 +1,13 @@
 from matplotlib import pyplot as plt
 
 # file = open("main_experiment_results_NEW.csv")
-file = open("main_experiment_results_11by11_TSP.csv")
+file = open("results/game_map_scaling.csv")
 # file = open("maze_map_scaling_results.csv")
 
 # ../maps/custom-11-11.map,MWRP_CPD,6,4,True,1448
 
-# TYPE = "MAP"
-TYPE = "AGENT_COUNT"
+TYPE = "MAP"
+# TYPE = "AGENT_COUNT"
 
 alg_names = set()
 num_agents_set = set()

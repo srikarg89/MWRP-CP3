@@ -6,9 +6,6 @@
 #include "environment.hpp"
 #include "heirarchical_search.hpp"
 
-// std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
-std::vector<std::string> map_filenames = {"../maps/room-64-64-8.map"};
-
 Map get_map(std::string map_filename) {
     std::ifstream inputFile(map_filename);
     if (!inputFile.is_open()) {
@@ -37,6 +34,88 @@ Map get_map(std::string map_filename) {
 
     Map map(map_filename, x_size, y_size, occupancy, FOUR_WAY_MOVEMENT, BRES_LOS);
     return std::move(map);
+}
+
+std::vector<Position> get_random_agent_starts_border_raw(const Map& map, int num_agents, int border_width) {
+    std::vector<Position> options;
+    for(int x = 0; x < map.x_size; x++) {
+        for(int y = 0; y < map.y_size; y++) {
+            if(x < border_width || x >= map.x_size - border_width || y < border_width || y >= map.y_size - border_width) {
+                Position pos = {x, y};
+                if(!map.check_obstacle(pos)) {
+                    options.push_back(pos);
+                }
+            }
+        }
+    }
+
+    std::random_shuffle(options.begin(), options.end());
+
+    std::vector<Position> agent_starts;
+    for(int i = 0; i < num_agents; i++) {
+        agent_starts.push_back(options[i]);
+    }
+
+    return agent_starts;
+}
+
+std::vector<Position> get_random_agent_starts_border_floodfill(const Map& map, int num_agents) {
+    std::vector<Position> options;
+    std::vector<Position> edge_cells;
+    for(int x = 0; x < map.x_size; x++) {
+        for(int y = 0; y < map.y_size; y++) {
+            if(x < 1 || x >= map.x_size - 1 || y < 1 || y >= map.y_size - 1) {
+                Position pos = {x, y};
+                if(map.check_obstacle(pos)) {
+                    edge_cells.push_back(pos);
+                } else {
+                    options.push_back(pos);
+                }
+            }
+        }
+    }
+
+    // BFS flood fill from obstacles on border to find allowed border cells.
+    std::vector<std::vector<bool>> visited(map.x_size, std::vector<bool>(map.y_size, false));
+    std::queue<Position> queue;
+
+    for(Position pos : edge_cells) {
+        queue.push(pos);
+        visited[pos.x][pos.y] = true;
+    }
+
+    while(!queue.empty()) {
+        Position curr = queue.front();
+        queue.pop();
+
+        int dX[] = {-1, 1, 0, 0};
+        int dY[] = {0, 0, -1, 1};
+
+        for(int i = 0; i < 4; i++) {
+            Position neighbor = curr.add(dX[i], dY[i]);
+            if(neighbor.x < 0 || neighbor.x >= map.x_size || neighbor.y < 0 || neighbor.y >= map.y_size) {
+                continue;
+            }
+            if(visited[neighbor.x][neighbor.y]) {
+                continue;
+            }
+            if(map.check_obstacle(neighbor)) {
+                visited[neighbor.x][neighbor.y] = true;
+                queue.push(neighbor);
+            } else {
+                options.push_back(neighbor);
+            }
+        }
+    }
+
+    std::random_shuffle(options.begin(), options.end());
+
+    std::vector<Position> agent_starts;
+    for(int i = 0; i < num_agents; i++) {
+        agent_starts.push_back(options[i]);
+    }
+
+    return agent_starts;
 }
 
 std::vector<Position> get_random_agent_starts(const Map& map, int num_agents) {
@@ -261,42 +340,13 @@ void write_to_file(std::ofstream& file, std::string map_name, int num_agents, Ce
 
 
 int main() {
-    // for(std::string map_filename : map_filenames) {
-    //     Map map = get_map(map_filename);
-    //     Lookup lookup;
-    //     compute_lookup_los_and_apsp(lookup, map);
-
-    //     printf("Number of nominal free cells on map %s: %d\n", map_filename.c_str(), get_num_free_cells_initially(map));
-
-    //     int total = 0;
-    //     for(int i = 0; i < 50; i++){
-    //         std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
-    //         int num_free_cells_starting_config = get_num_free_cells_starting_config(map, lookup, agent_starts);
-    //         total += num_free_cells_starting_config;
-    //     }
-    //     double average = (double)total / 50.0;
-    //     printf("Average free cells in starting config on map %s with one agent: %.2f\n", map_filename.c_str(), average);
-    // }        
-
-    // std::string map_filename = "../maps/huge/ht_chantry.map";
-    // Map map = get_map(map_filename);
-    // Lookup lookup;
-    // compute_lookup_los_and_apsp(lookup, map);
-
-    // for(int num_agents : {2, 3, 4, 5, 6, 7, 8}) {
-    //     int total = 0;
-    //     for(int i = 0; i < 50; i++){
-    //         std::vector<Position> agent_starts = get_random_agent_starts(map, num_agents);
-    //         int num_free_cells_starting_config = get_num_free_cells_starting_config(map, lookup, agent_starts);
-    //         total += num_free_cells_starting_config;
-    //     }
-    //     double average = (double)total / 50.0;
-    //     printf("Average free cells in starting config on map %s with %d agents: %.2f\n", map_filename.c_str(), num_agents, average);
-    // }
-
     std::ofstream temp;
     temp.open("pruning_experiment.csv");
     temp.close();
+
+    // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
+    // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/room-64-64-8.map"};
+    std::vector<std::string> map_filenames = {"../maps/huge/ht_chantry.map"};
 
     for(std::string map_filename : map_filenames) {
         Map map = get_map(map_filename);
@@ -305,28 +355,48 @@ int main() {
 
         std::vector<int> us = {0, 0, 0};
         std::vector<double> times = {0.0, 0.0, 0.0};
-        for(int i = 0; i < 10; i++){
-            std::vector<Position> agent_starts = get_random_agent_starts(map, 1);
-            printf("\n\nRunning Cell Domination on map %s\n", map_filename.c_str());
-            auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
-            double u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
-            printf("New unseen cells: %d\n", u);
-            us[0] += u;
-            times[0] += result.second;
+        std::ofstream file;
+        file.open("pruning_experiment.csv", std::ios::app);
+        file << "Map, Method, Exp number, U, Initial Free Cells, Average Time (ms)\n";
+        file.close();
 
-            printf("\n\nRunning Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
-            result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
-            u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
-            printf("New unseen cells: %d\n", u);
-            us[1] += u;
-            times[1] += result.second;
+        for(int num_agents : {1, 2, 3, 4, 5}){
+            for(int i = 0; i < 10; i++){
+                printf("\n\nExperiment %d on map %s with %d agents\n", i, map_filename.c_str(), num_agents);
+                std::vector<Position> agent_starts;
+                if(map_filename == "../maps/maze-32-32-2.map" || map_filename == "../maps/room-64-64-8.map") {
+                    agent_starts = get_random_agent_starts_border_raw(map, num_agents, 2);
+                } else {
+                    agent_starts = get_random_agent_starts_border_floodfill(map, num_agents);
+                }
 
-            printf("\n\nRunning Cell Then Path Domination on map %s with %ld agents\n", map_filename.c_str(), agent_starts.size());
-            result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
-            u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
-            printf("New unseen cells: %d\n", u);
-            us[2] += u;
-            times[2] += result.second;
+
+                auto result = prune(map, agent_starts, CellPruningMethod::CELL_DOMINATION);
+                double cell_u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+                double cell_t = result.second;
+                us[0] += cell_u;
+                times[0] += cell_t;
+
+                result = prune(map, agent_starts, CellPruningMethod::PATH_DOMINATION);
+                double path_u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+                double path_t = result.second;
+                us[1] += path_u;
+                times[1] += path_t;
+
+                result = prune(map, agent_starts, CellPruningMethod::CELL_THEN_PATH_DOMINATION);
+                double cell_then_path_u = get_num_free_cells_left(result.first, map, lookup, agent_starts);
+                double cell_then_path_t = result.second;
+                us[2] += cell_then_path_u;
+                times[2] += cell_then_path_t;
+
+                printf("CD: U=%.2f, Time=%.2fms | PD: U=%.2f, Time=%.2fms | CPD: U=%.2f, Time=%.2fms\n", cell_u, cell_t * 1000.0, path_u, path_t * 1000.0, cell_then_path_u, cell_then_path_t * 1000.0);
+
+                file.open("pruning_experiment.csv", std::ios::app);
+                file << map_filename << ", " << i << ", CELL, " << cell_u << ", " << get_num_free_cells_initially(map) << ", " << cell_t * 1000.0 << "\n";
+                file << map_filename << ", " << i << ", PATH, " << path_u << ", " << get_num_free_cells_initially(map) << ", " << path_t * 1000.0 << "\n";
+                file << map_filename << ", " << i << ", CELL_THEN_PATH, " << cell_then_path_u << ", " << get_num_free_cells_initially(map) << ", " << cell_then_path_t * 1000.0 << "\n";
+                file.close();
+            }
         }
         printf("Average U for Cell Domination on map %s: %.2f\n", map_filename.c_str(), (double)us[0] / 10.0);
         printf("Average U for Path Domination on map %s: %.2f\n", map_filename.c_str(), (double)us[1] / 10.0);
@@ -334,13 +404,6 @@ int main() {
         printf("Average time for Cell Domination on map %s: %.2f\n", map_filename.c_str(), times[0] / 10.0);
         printf("Average time for Path Domination on map %s: %.2f\n", map_filename.c_str(), times[1] / 10.0);
         printf("Average time for Cell Then Path Domination on map %s: %.2f\n", map_filename.c_str(), times[2] / 10.0);
-
-        std::ofstream file;
-        file.open("pruning_experiment.csv", std::ios::app);
-        file << map_filename << ", CELL, " << ((double)us[0] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[0] / 10.0) * 1000.0 << "\n";
-        file << map_filename << ", PATH, " << ((double)us[1] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[1] / 10.0) * 1000.0 << "\n";
-        file << map_filename << ", CELL_THEN_PATH, " << ((double)us[2] / 10.0) << ", " << get_num_free_cells_initially(map) << ", " << (times[2] / 10.0) * 1000.0 << "\n";
-        file.close();
     }
 
     // std::ofstream temp;

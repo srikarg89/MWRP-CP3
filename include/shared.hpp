@@ -48,10 +48,12 @@ struct Metrics {
     int num_skipped_high_lazy_f_value = 0;
     int extended_neighbors_calls = 0;
     double neighbor_expansion_time = 0.0;
-    double f_value_calculation_time = 0.0;
+    double lazy_f_value_calculation_time = 0.0;
+    double tsp_f_value_calculation_time = 0.0;
     double domination_check_time = 0.0;
     double neighbor_expansion_bfs_time = 0.0;
     double neighbor_expansion_pruning_time = 0.0;
+    double adding_los_time = 0.0;
 
     // MTSP Metrics.
     double mtsp_setup_time = 0.0;
@@ -68,10 +70,12 @@ struct Metrics {
         num_skipped_high_lazy_f_value = 0;
         extended_neighbors_calls = 0;
         neighbor_expansion_time = 0.0;
-        f_value_calculation_time = 0.0;
+        lazy_f_value_calculation_time = 0.0;
+        tsp_f_value_calculation_time = 0.0;
         domination_check_time = 0.0;
         neighbor_expansion_bfs_time = 0.0;
         neighbor_expansion_pruning_time = 0.0;
+        adding_los_time = 0.0;
 
         mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
@@ -90,8 +94,10 @@ struct Metrics {
         neighbor_expansion_time += other.neighbor_expansion_time;
         neighbor_expansion_bfs_time += other.neighbor_expansion_bfs_time;
         neighbor_expansion_pruning_time += other.neighbor_expansion_pruning_time;
-        f_value_calculation_time += other.f_value_calculation_time;
+        lazy_f_value_calculation_time += other.lazy_f_value_calculation_time;
+        tsp_f_value_calculation_time += other.tsp_f_value_calculation_time;
         domination_check_time += other.domination_check_time;
+        adding_los_time += other.adding_los_time;
 
         mtsp_setup_time += other.mtsp_setup_time;
         mtsp_solver_runtime += other.mtsp_solver_runtime;
@@ -111,7 +117,8 @@ struct MetricsList {
     std::vector<int> num_skipped_high_lazy_f_value;
     std::vector<int> extended_neighbors_calls;
     std::vector<double> neighbor_expansion_time;
-    std::vector<double> f_value_calculation_time;
+    std::vector<double> lazy_f_value_calculation_time;
+    std::vector<double> tsp_f_value_calculation_time;
     std::vector<double> domination_check_time;
     std::vector<double> neighbor_expansion_bfs_time;
     std::vector<double> neighbor_expansion_pruning_time;
@@ -129,7 +136,8 @@ struct MetricsList {
         neighbor_expansion_time.push_back(metrics.neighbor_expansion_time);
         neighbor_expansion_bfs_time.push_back(metrics.neighbor_expansion_bfs_time);
         neighbor_expansion_pruning_time.push_back(metrics.neighbor_expansion_pruning_time);
-        f_value_calculation_time.push_back(metrics.f_value_calculation_time);
+        lazy_f_value_calculation_time.push_back(metrics.lazy_f_value_calculation_time);
+        tsp_f_value_calculation_time.push_back(metrics.tsp_f_value_calculation_time);
         domination_check_time.push_back(metrics.domination_check_time);
 
         mtsp_setup_time.push_back(metrics.mtsp_setup_time);
@@ -150,7 +158,8 @@ struct MetricsList {
         metrics.neighbor_expansion_time = std::accumulate(neighbor_expansion_time.begin(), neighbor_expansion_time.end(), 0.0);
         metrics.neighbor_expansion_bfs_time = std::accumulate(neighbor_expansion_bfs_time.begin(), neighbor_expansion_bfs_time.end(), 0.0);
         metrics.neighbor_expansion_pruning_time = std::accumulate(neighbor_expansion_pruning_time.begin(), neighbor_expansion_pruning_time.end(), 0.0);
-        metrics.f_value_calculation_time = std::accumulate(f_value_calculation_time.begin(), f_value_calculation_time.end(), 0.0);
+        metrics.lazy_f_value_calculation_time = std::accumulate(lazy_f_value_calculation_time.begin(), lazy_f_value_calculation_time.end(), 0.0);
+        metrics.tsp_f_value_calculation_time = std::accumulate(tsp_f_value_calculation_time.begin(), tsp_f_value_calculation_time.end(), 0.0);
         metrics.domination_check_time = std::accumulate(domination_check_time.begin(), domination_check_time.end(), 0.0);
 
         metrics.mtsp_setup_time = std::accumulate(mtsp_setup_time.begin(), mtsp_setup_time.end(), 0.0);
@@ -359,7 +368,7 @@ struct Node {
     }
 
     bool operator>(const Node& rhs) const {
-        return std::tie(f_value, heuristic) > std::tie(rhs.f_value, rhs.heuristic);
+        return std::tie(f_value, heuristic, node_id) > std::tie(rhs.f_value, rhs.heuristic, rhs.node_id);
     }
 };
 

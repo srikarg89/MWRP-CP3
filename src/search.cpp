@@ -84,7 +84,11 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
         if(use_singleton) {
             int singleton_val = get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup);
             f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, singleton_val);
-            f_and_focal_values[i].second = singleton_val;
+            std::vector<AgentState> agents_for_focal = input.agents;
+            for(auto& agent : agents_for_focal){
+                agent.cost = 0;
+            }
+            f_and_focal_values[i].second = get_singleton_f_value(agents_for_focal, map, 0, input.seen, input.tasks_left, lookup);
         }
     }
 
@@ -266,6 +270,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         // Check for dominance in generated costs.
         start = std::chrono::high_resolution_clock::now();
         bool dominated = false;
+        int dominated_node_id = -1;
         // Current node is dominated by existing node, skip.
         if(generated_costs.find(nbr_key) != generated_costs.end()){
             auto& visited_node_list = generated_costs[nbr_key];
@@ -285,6 +290,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
                     // Existing node dominates current node, skip current node.
                     METRICS.num_skipped_duplicate_node += 1;
                     dominated = true;
+                    dominated_node_id = it->id;
                     break;
                 } else if(nbr_cost_better && it->seen.is_subset_of(nbr_seen)){
                     // Current node dominates existing node, remove existing node.
@@ -301,6 +307,9 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         METRICS.domination_check_time += duration.count();
 
         if(dominated){
+            if(node.node_id == 2140){
+                printf("\tDominated neighbor for 2140: Loc: %s, Cost: %d, Num seen: %d / %d\n", agent_states_to_print_string(nbr).c_str(), nbr_cost, nbr_num_seen, map.num_squares);
+            }
             continue;
         }
 
@@ -628,6 +637,8 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             continue;
         }
 
+        printf("Fully expanding node: ID: %d, Loc: %s, Cost: %d, F value: %d, Focal heuristic: %d, Num seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, curr.focal_heuristic, curr.num_seen, map.num_squares);
+
         num_fully_expanded += 1;
 
         expanded_nodes.push_back(curr);
@@ -669,6 +680,12 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, best_solution_cost, last_id_assigned, generated_costs, avoid_expansion_list);
+
+        if(curr.node_id == 2140){
+            for(Node& nbr : neighbors){
+                printf("\tGenerated neighbor for 2140: ID: %d, Loc: %s, Cost: %d, F value: %d, Focal heuristic: %d, Num seen: %d / %d\n", nbr.node_id, agent_states_to_print_string(nbr.agents).c_str(), nbr.cost, nbr.f_value, nbr.focal_heuristic, nbr.num_seen, map.num_squares);
+            }
+        }
 
         num_generated += neighbors.size();
         if(neighbors.size() > 0){

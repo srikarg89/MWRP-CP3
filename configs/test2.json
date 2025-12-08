@@ -2,23 +2,31 @@
     "agents": [
         [
             1,
-            25
+            12
+        ],
+        [
+            2,
+            0
         ],
         [
             1,
-            8
+            6
         ],
         [
-            30,
-            25
+            14,
+            12
         ],
         [
-            1,
+            7,
+            1
+        ],
+        [
+            14,
             3
         ]
     ],
     "tasks": [],
-    "map": "maze-32-32-2.map",
+    "map": "room-16-16-4.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

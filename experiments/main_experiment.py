@@ -15,10 +15,11 @@ def check_pid(pid):
     else:
         return False ## Not Running
 
-pids = [210505, 2397532]
+# pids = [210505, 2397532]
+pids = [2574316]
 while any(check_pid(pid) for pid in pids):
     print("Waiting for previous run to finish...")
-    time.sleep(300)
+    time.sleep(180)
 
 
 
@@ -153,23 +154,23 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # num_experiments = 10
 # results_file = "random_agent_scaling"
 
-# # Room Map Scaling
-# # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
-# MAP_NAMES = ["../maps/room-24-24-4.map"]
-# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
-# SCEN_CONFIG = "../configs/test.json"
-# START_EXPERIMENT = 0
-# num_experiments = 10
-# results_file = "room_map_scaling24"
-
-# Room Agent Scaling
+# Room Map Scaling
 # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
-NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
-MAP_NAMES = ["../maps/room-16-16-4.map"] * len(NUM_AGENT_LOCS)
-SCEN_CONFIG = "../configs/test2.json"
+MAP_NAMES = ["../maps/room-24-24-4.map"]
+NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+SCEN_CONFIG = "../configs/test.json"
 START_EXPERIMENT = 0
 num_experiments = 10
-results_file = "room_agent_scaling"
+results_file = "room_map_scaling24"
+
+# # Room Agent Scaling
+# # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
+# NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
+# MAP_NAMES = ["../maps/room-16-16-4.map"] * len(NUM_AGENT_LOCS)
+# SCEN_CONFIG = "../configs/test2.json"
+# START_EXPERIMENT = 0
+# num_experiments = 10
+# results_file = "room_agent_scaling"
 
 
 

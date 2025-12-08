@@ -1,16 +1,16 @@
 {
     "agents": [
         [
-            1,
-            2
+            19,
+            0
         ],
         [
-            19,
-            6
+            23,
+            18
         ]
     ],
     "tasks": [],
-    "map": "room-20-20-4.map",
+    "map": "room-24-24-4.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

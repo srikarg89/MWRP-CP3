@@ -368,7 +368,7 @@ struct Node {
     }
 
     bool operator>(const Node& rhs) const {
-        return std::tie(f_value, heuristic, node_id) > std::tie(rhs.f_value, rhs.heuristic, rhs.node_id);
+        return std::tie(f_value, focal_heuristic, node_id) > std::tie(rhs.f_value, rhs.focal_heuristic, rhs.node_id);
     }
 };
 

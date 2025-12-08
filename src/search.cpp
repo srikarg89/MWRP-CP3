@@ -513,7 +513,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         if(solver_config.focal_epsilon == 1.0) {
             // Regular A*
             while(solver_config.heuristic_type == LAZY && open_set.top().is_lazy) {
-                printf("WTF BRO??\n");
                 int count = 0;
                 std::vector<Node> batch_nodes;
                 auto it = open_set.ordered_begin();
@@ -555,6 +554,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     Node node = batch_nodes[i];
                     int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
                     node.update_f_value(new_f_value);
+                    node.update_focal_heuristic(f_and_focal_values[i].second);
                     open_set.update(handle_lookup[node.node_id], node);
                 }
                 auto update_end = std::chrono::high_resolution_clock::now();

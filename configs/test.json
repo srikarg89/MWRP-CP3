@@ -1,16 +1,16 @@
 {
     "agents": [
         [
-            19,
-            0
+            46,
+            1
         ],
         [
-            23,
-            18
+            10,
+            44
         ]
     ],
     "tasks": [],
-    "map": "room-24-24-4.map",
+    "map": "mc-forest.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

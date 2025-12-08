@@ -16,7 +16,7 @@ def check_pid(pid):
         return False ## Not Running
 
 # pids = [210505, 2397532]
-pids = [2574316]
+pids = []
 while any(check_pid(pid) for pid in pids):
     print("Waiting for previous run to finish...")
     time.sleep(180)
@@ -154,14 +154,14 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # num_experiments = 10
 # results_file = "random_agent_scaling"
 
-# Room Map Scaling
-# MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
-MAP_NAMES = ["../maps/room-24-24-4.map"]
-NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
-SCEN_CONFIG = "../configs/test.json"
-START_EXPERIMENT = 0
-num_experiments = 10
-results_file = "room_map_scaling24"
+# # Room Map Scaling
+# # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
+# MAP_NAMES = ["../maps/room-24-24-4.map"]
+# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+# SCEN_CONFIG = "../configs/test.json"
+# START_EXPERIMENT = 0
+# num_experiments = 10
+# results_file = "room_map_scaling24"
 
 # # Room Agent Scaling
 # # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
@@ -172,6 +172,15 @@ results_file = "room_map_scaling24"
 # num_experiments = 10
 # results_file = "room_agent_scaling"
 
+# Game Map Scaling
+# MAP_NAMES = ["../maps/maps2/den009d.map", "../maps/maps2/lak105d.map", "../maps/den207d.map"]
+# MAP_NAMES = ["../maps/den101d.map", "../maps/mc-forest.map"]
+MAP_NAMES = ["../maps/mc-forest.map"]
+NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+SCEN_CONFIG = "../configs/test.json"
+START_EXPERIMENT = 4
+num_experiments = 10
+results_file = "game_map_scaling_hard"
 
 
 
@@ -319,7 +328,7 @@ for i in range(len(NUM_AGENT_LOCS)):
         for method_name, method in zip(method_names, methods):
             # if method_name == "OG_MWRP" and prev_time > 80000 or prev_time < 0:
             # if method_name in {"OG_MWRP", "MWRP_CPD"}:
-            if False:
+            if method_name == "OG_MWRP" or (map_name == "../maps/mc-forest.map" and method_name in {"MWRP_CPD", "MWRP_CP3"}):
                 search_passed = False
                 search_time_ms = -1000
 

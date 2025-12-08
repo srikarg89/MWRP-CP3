@@ -23,14 +23,15 @@ data = {}
 exp_to_ignore = []
 
 lines = file.readlines()
-for line in lines:
-    if line.strip() == "":
-        continue
-    line = line.strip().split(",")
-    map_name, alg, num_agents, experiment_id, solved, time = line
-    if int(time) < 0 or not solved:
-        print("NOT SOLVED", line)
-        exp_to_ignore.append((map_name, num_agents, experiment_id))
+
+# for line in lines:
+#     if line.strip() == "":
+#         continue
+#     line = line.strip().split(",")
+#     map_name, alg, num_agents, experiment_id, solved, time = line
+#     if int(time) < 0 or not solved:
+#         print("NOT SOLVED", line)
+#         exp_to_ignore.append((map_name, num_agents, experiment_id))
 
 
 for line in lines:
@@ -87,9 +88,11 @@ for alg_name in sorted(alg_names):
             if map_name not in data[alg_name]:
                 continue
             times = data[alg_name][map_name]
+            times = sorted(times)[1:-1] if len(times) > 2 else times
             avg_time = sum(times) / len(times)
             # print(avg_time)
-            x_val = int(map_name.split("-")[1])
+            # x_val = int(map_name.split("-")[1])
+            x_val = map_name
             if x_val == 15:
                 continue
             x.append(x_val)

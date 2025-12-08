@@ -637,7 +637,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             continue;
         }
 
-        printf("Fully expanding node: ID: %d, Loc: %s, Cost: %d, F value: %d, Focal heuristic: %d, Num seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, curr.focal_heuristic, curr.num_seen, map.num_squares);
+        // printf("Fully expanding node: ID: %d, Loc: %s, Cost: %d, F value: %d, Focal heuristic: %d, Num seen: %d / %d\n", curr.node_id, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.f_value, curr.focal_heuristic, curr.num_seen, map.num_squares);
 
         num_fully_expanded += 1;
 

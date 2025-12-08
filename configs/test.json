@@ -1,16 +1,16 @@
 {
     "agents": [
         [
-            4,
-            23
+            1,
+            2
         ],
         [
-            23,
-            5
+            7,
+            0
         ]
     ],
     "tasks": [],
-    "map": "maps2/lak105d.map",
+    "map": "random-17-17-57.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

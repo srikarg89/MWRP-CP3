@@ -1,22 +1,30 @@
+import sys
 from matplotlib import pyplot as plt
 
+TYPE = sys.argv[1]
+filename = sys.argv[2]
+
+# TYPE = "MAP"
+# TYPE = "AGENT_COUNT"
+
 # file = open("main_experiment_results_NEW.csv")
-file = open("results/game_map_scaling.csv")
+# file = open("results/game_map_scaling3.csv")
 # file = open("maze_map_scaling_results.csv")
+file = open(filename)
 
 # ../maps/custom-11-11.map,MWRP_CPD,6,4,True,1448
 
-TYPE = "MAP"
-# TYPE = "AGENT_COUNT"
 
 alg_names = set()
 num_agents_set = set()
-map_names = set()
+map_names = []
 
 data = {}
 
 lines = file.readlines()
 for line in lines:
+    if line.strip() == "":
+        continue
     line = line.strip().split(",")
     map_name, alg, num_agents, experiment_id, solved, time = line
     if int(time) < 0:
@@ -26,7 +34,12 @@ for line in lines:
     if not solved:
         print("NOT SOLVED:", line)
 
-    map_names.add(map_name)
+    if map_name not in map_names:
+        map_names.append(map_name)
+
+    if alg in {"FOCAL_SOC", "FOCAL_MOC", "MxWAstar"}:
+        continue
+
     alg_names.add(alg)
     num_agents = int(num_agents)
     num_agents_set.add(num_agents)
@@ -43,7 +56,7 @@ for line in lines:
 
 
 print(data.keys())
-
+print(map_names)
 
 for alg_name in sorted(alg_names):
     x = []
@@ -58,13 +71,16 @@ for alg_name in sorted(alg_names):
             y.append(avg_time)
     else:
         print("MAP SIZE", alg_name)
-        for map_name in sorted(map_names):
+        for map_name in map_names:
             if map_name not in data[alg_name]:
                 continue
             times = data[alg_name][map_name]
             avg_time = sum(times) / len(times)
-            print(avg_time)
-            x.append(map_name)
+            # print(avg_time)
+            x_val = int(map_name.split("-")[1])
+            if x_val == 15:
+                continue
+            x.append(x_val)
             y.append(avg_time)
     plt.plot(x, y, label=alg_name)
 

@@ -23,7 +23,7 @@ def check_pid(pid):
 
 
 W_VALUE = 1.5
-TIME_LIMIT = 300.0
+TIME_LIMIT = 200.0
 PARALLEL_BATCH_SIZE = 100
 
 MWRCP3_TEMPLATE = {
@@ -106,8 +106,11 @@ num_experiments = 10
 method_names = ["MWRP_CP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC", "MWRP_CPD", "OG_MWRP"]
 methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
 
-method_names = ["MWRP_CP3", "MxWAstar", "MxWAstar2", "FOCAL_SOC", "FOCAL_SOC2", "FOCAL_MOC", "FOCAL_MOC2", "MWRP_CPD", "OG_MWRP"]
-methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC_TEMPLATE, FOCAL_MOC2_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+method_names = ["MWRP_CP3", "MxWAstar2", "FOCAL_SOC2", "FOCAL_MOC2", "MWRP_CPD", "OG_MWRP"]
+methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+
+# method_names = ["MxWAstar", "MxWAstar2", "FOCAL_SOC", "FOCAL_SOC2", "FOCAL_MOC", "FOCAL_MOC2"]
+# methods = [MxWAstar_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC_TEMPLATE, FOCAL_MOC2_TEMPLATE]
 
 # # Mazes Map Scaling
 # MAP_NAMES = ["../maps/custom-11-11.map", "../maps/custom-13-13.map", "../maps/custom-19-19.map", "../maps/maze-32-32-2.map"]
@@ -119,14 +122,27 @@ methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC_TEMP
 # SCEN_CONFIG = "../configs/test.json"
 # NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
 
-# Games Map Scaling
-# MAP_NAMES = ["../maps/den202d.map", "../maps/den207d.map", "../maps/den101d.map"]
-# MAP_NAMES = ["../maps/den207d.map", "../maps/den101d.map"]
-MAP_NAMES = ["../maps/maps2/lak105d.map", "../maps/maps2/lak104d.map", "../maps/maps2/lak103d.map"]
-MAP_NAMES = ["../maps/maps2/lak105d.map"]
+# # Games Map Scaling
+# # MAP_NAMES = ["../maps/den202d.map", "../maps/den207d.map", "../maps/den101d.map"]
+# # MAP_NAMES = ["../maps/den207d.map", "../maps/den101d.map"]
+# MAP_NAMES = ["../maps/maps2/lak105d.map", "../maps/maps2/lak103d.map", "../maps/maps2/lak104d.map"]
+# # MAP_NAMES = ["../maps/maps2/lak105d.map"]
+# 105 doesn't work for OG, 102 does.
+# SCEN_CONFIG = "../configs/test.json"
+# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+
+# Random Map Scaling
+# MAP_NAMES = ["../maps/random-10-10-20.map", "../maps/random-15-15-45.map", "../maps/random-20-20-80.map"]
+# MAP_NAMES = ["../maps/random-20-20-100.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# MAP_NAMES = ["../maps/random-25-25-93.map"]
+# MAP_NAMES = ["../maps/random-32-32-10.map"]
+MAP_NAMES = ["../maps/random-13-13-33.map", "../maps/random-17-17-57.map"]
 SCEN_CONFIG = "../configs/test.json"
 NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
-
+START_EXPERIMENT = 1
+results_file = "random_map_scaling_20_2"
 
 # MAP_NAMES = MAP_NAMES[3:]
 # NUM_AGENT_LOCS = NUM_AGENT_LOCS[3:]
@@ -243,14 +259,15 @@ def get_random_agent_along_border_floodfill(map_name, num_agents):
 
 
 
+prev_time = 10
 for i in range(len(NUM_AGENT_LOCS)):
-    for experiment_id in range(num_experiments):
+    for experiment_id in range(START_EXPERIMENT, num_experiments):
         map_name, num_agent_starts = MAP_NAMES[i], NUM_AGENT_LOCS[i]
         # agent_locs = get_random_agent_starts(map_name, num_agent_starts)
         map_ending = map_name.split("/")[-1]
         if map_ending.startswith("den") or map_ending.startswith("mc") or map_ending.startswith("ht") or map_ending.startswith("orz") or map_ending.startswith("AR") or map_ending.startswith("lak") or map_ending.startswith("hrt"):
             agent_locs = get_random_agent_along_border_floodfill(map_name, num_agent_starts)
-        elif map_ending in ["custom-19-19.map", "custom-13-13.map", "custom-11-11.map", "maze-32-32-2.map"]:
+        elif map_ending in ["custom-19-19.map", "custom-13-13.map", "custom-11-11.map", "maze-32-32-2.map"] or map_ending.startswith("random"):
             agent_locs = get_random_agent_along_border_raw(map_name, num_agent_starts, border_width=2)
         else:
             raise ValueError("Unknown map type for border agent placement.")
@@ -269,37 +286,43 @@ for i in range(len(NUM_AGENT_LOCS)):
 
         method_failed = False
         for method_name, method in zip(method_names, methods):
-            input_config = method.copy()
-            with open("../solver.json", "w") as f:
-                json.dump(input_config, f, indent=4)
+            # if method_name == "OG_MWRP" and prev_time > 80000 or prev_time < 0:
+            # if method_name in {"OG_MWRP", "MWRP_CPD"}:
+            if False:
+                search_passed = False
+                search_time_ms = -1000
 
-            print(f"Running experiment on map {map_name} with {num_agent_starts} agent starts, experiment id {experiment_id}, method {method_name}")
-            start_time = time.time()
-            result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True, capture_output=True, text=True)
-            # result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True)
-            time_taken = time.time() - start_time
-            time_ms = int(time_taken * 1000)
+            else:
+                input_config = method.copy()
+                with open("../solver.json", "w") as f:
+                    json.dump(input_config, f, indent=4)
 
-            search_passed = False
-            search_time = -1.0
-            pd_time = 0.0
-            lines = result.stdout.strip().split("\n")
-            for line in lines:
-                line = line.strip()
-                if line.startswith("PD precomputation time:"):
-                    pd_time = float(line.split()[-1].strip())
-                elif line.startswith("Experiment Search Time:"):
-                    search_passed = True
-                    search_time = float(line.split()[-1].strip())
+                print(f"Running experiment on map {map_name} with {num_agent_starts} agent starts, experiment id {experiment_id}, method {method_name}")
+                start_time = time.time()
+                result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True, capture_output=True, text=True)
+                # result = subprocess.run(["./run", SCEN_CONFIG, "../solver.json"], cwd="/home/srikar/Documents/Research/SearchAndTAPFWithPTC/build", check=True)
+                time_taken = time.time() - start_time
+                time_ms = int(time_taken * 1000)
 
-            search_time_ms = int((pd_time + search_time) * 1000)
+                search_passed = False
+                search_time = -1.0
+                pd_time = 0.0
+                lines = result.stdout.strip().split("\n")
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith("PD precomputation time:"):
+                        pd_time = float(line.split()[-1].strip())
+                    elif line.startswith("Experiment Search Time:"):
+                        search_passed = True
+                        search_time = float(line.split()[-1].strip())
+
+                search_time_ms = int((pd_time + search_time) * 1000)
 
             
             # print("\tMethod", method_name, "expanded", num_expanded, " nodes and took", time_ms, "ms to run")
-            print("\tMethod", method_name, " nodes and took", search_time_ms, "ms to run")
+            print("\tMethod", method_name, "took", search_time_ms, "ms to run")
 
-            results = open("results/game_map_scaling2.csv", "a+")
-            # results = open("results/test.csv", "a+")
+            results = open(f"results/{results_file}.csv", "a+")
 
   
             results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n")

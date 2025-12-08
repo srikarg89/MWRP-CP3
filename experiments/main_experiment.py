@@ -15,9 +15,10 @@ def check_pid(pid):
     else:
         return False ## Not Running
 
-# while check_pid(5316):
-#     print("Waiting for previous run to finish...")
-#     time.sleep(300)
+pids = [210505, 2397532]
+while any(check_pid(pid) for pid in pids):
+    print("Waiting for previous run to finish...")
+    time.sleep(300)
 
 
 
@@ -144,19 +145,33 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # START_EXPERIMENT = 1
 # results_file = "random_map_scaling_20_2"
 
-# Random Agent Scaling
-# MAP_NAMES = ["../maps/random-10-10-20.map", "../maps/random-15-15-45.map", "../maps/random-20-20-80.map"]
-# MAP_NAMES = ["../maps/random-20-20-100.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
-# MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
-# MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
-# MAP_NAMES = ["../maps/random-25-25-93.map"]
-# MAP_NAMES = ["../maps/random-32-32-10.map"]
+# # Random Agent Scaling
+# NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
+# MAP_NAMES = ["../maps/random-17-17-57.map"] * len(NUM_AGENT_LOCS)
+# SCEN_CONFIG = "../configs/test.json"
+# START_EXPERIMENT = 0
+# num_experiments = 10
+# results_file = "random_agent_scaling"
+
+# # Room Map Scaling
+# # MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
+# MAP_NAMES = ["../maps/room-24-24-4.map"]
+# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+# SCEN_CONFIG = "../configs/test.json"
+# START_EXPERIMENT = 0
+# num_experiments = 10
+# results_file = "room_map_scaling24"
+
+# Room Agent Scaling
+# MAP_NAMES = ["../maps/room-12-16-4.map", "../maps/room-16-16-4.map", "../maps/room-20-20-4.map"]
 NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
-MAP_NAMES = ["../maps/random-17-17-57.map"] * len(NUM_AGENT_LOCS)
-SCEN_CONFIG = "../configs/test.json"
+MAP_NAMES = ["../maps/room-16-16-4.map"] * len(NUM_AGENT_LOCS)
+SCEN_CONFIG = "../configs/test2.json"
 START_EXPERIMENT = 0
 num_experiments = 10
-results_file = "random_agent_scaling"
+results_file = "room_agent_scaling"
+
+
 
 
 # MAP_NAMES = MAP_NAMES[3:]
@@ -282,7 +297,7 @@ for i in range(len(NUM_AGENT_LOCS)):
         map_ending = map_name.split("/")[-1]
         if map_ending.startswith("den") or map_ending.startswith("mc") or map_ending.startswith("ht") or map_ending.startswith("orz") or map_ending.startswith("AR") or map_ending.startswith("lak") or map_ending.startswith("hrt"):
             agent_locs = get_random_agent_along_border_floodfill(map_name, num_agent_starts)
-        elif map_ending in ["custom-19-19.map", "custom-13-13.map", "custom-11-11.map", "maze-32-32-2.map"] or map_ending.startswith("random"):
+        elif map_ending in ["custom-19-19.map", "custom-13-13.map", "custom-11-11.map", "maze-32-32-2.map"] or map_ending.startswith("random") or map_ending.startswith("room"):
             agent_locs = get_random_agent_along_border_raw(map_name, num_agent_starts, border_width=2)
         else:
             raise ValueError("Unknown map type for border agent placement.")

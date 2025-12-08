@@ -5,7 +5,7 @@ TYPE = sys.argv[1]
 filename = sys.argv[2]
 
 # TYPE = "MAP"
-# TYPE = "AGENT_COUNT"
+# TYPE = "AGENT"
 
 # file = open("main_experiment_results_NEW.csv")
 # file = open("results/game_map_scaling3.csv")
@@ -20,6 +20,7 @@ num_agents_set = set()
 map_names = []
 
 data = {}
+exp_to_ignore = []
 
 lines = file.readlines()
 for line in lines:
@@ -27,12 +28,22 @@ for line in lines:
         continue
     line = line.strip().split(",")
     map_name, alg, num_agents, experiment_id, solved, time = line
-    if int(time) < 0:
+    if int(time) < 0 or not solved:
+        print("NOT SOLVED", line)
+        exp_to_ignore.append((map_name, num_agents, experiment_id))
+
+
+for line in lines:
+    if line.strip() == "":
+        continue
+    line = line.strip().split(",")
+    map_name, alg, num_agents, experiment_id, solved, time = line
+    if int(time) < 0 or not solved:
         print("NOT SOLVED", line)
         continue
-
-    if not solved:
-        print("NOT SOLVED:", line)
+    
+    if (map_name, num_agents, experiment_id) in exp_to_ignore:
+        continue
 
     if map_name not in map_names:
         map_names.append(map_name)
@@ -61,10 +72,11 @@ print(map_names)
 for alg_name in sorted(alg_names):
     x = []
     y = []
-    if TYPE == "AGENT_COUNT":
+    if TYPE == "AGENT":
         print("AGENT COUNT", alg_name)
         for num_agents in sorted(num_agents_set):
             times = data[alg_name][num_agents]
+            times = sorted(times)[1:-1]
             avg_time = sum(times) / len(times)
             print(avg_time)
             x.append(num_agents)

@@ -131,18 +131,33 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # SCEN_CONFIG = "../configs/test.json"
 # NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
 
-# Random Map Scaling
+# # Random Map Scaling
+# # MAP_NAMES = ["../maps/random-10-10-20.map", "../maps/random-15-15-45.map", "../maps/random-20-20-80.map"]
+# # MAP_NAMES = ["../maps/random-20-20-100.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# # MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# # MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
+# # MAP_NAMES = ["../maps/random-25-25-93.map"]
+# # MAP_NAMES = ["../maps/random-32-32-10.map"]
+# MAP_NAMES = ["../maps/random-13-13-33.map", "../maps/random-17-17-57.map"]
+# SCEN_CONFIG = "../configs/test.json"
+# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+# START_EXPERIMENT = 1
+# results_file = "random_map_scaling_20_2"
+
+# Random Agent Scaling
 # MAP_NAMES = ["../maps/random-10-10-20.map", "../maps/random-15-15-45.map", "../maps/random-20-20-80.map"]
 # MAP_NAMES = ["../maps/random-20-20-100.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
 # MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
 # MAP_NAMES = ["../maps/random-20-20-80.map", "../maps/random-25-25-125.map", "../maps/random-30-30-225.map"]
 # MAP_NAMES = ["../maps/random-25-25-93.map"]
 # MAP_NAMES = ["../maps/random-32-32-10.map"]
-MAP_NAMES = ["../maps/random-13-13-33.map", "../maps/random-17-17-57.map"]
+NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
+MAP_NAMES = ["../maps/random-17-17-57.map"] * len(NUM_AGENT_LOCS)
 SCEN_CONFIG = "../configs/test.json"
-NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
-START_EXPERIMENT = 1
-results_file = "random_map_scaling_20_2"
+START_EXPERIMENT = 0
+num_experiments = 10
+results_file = "random_agent_scaling"
+
 
 # MAP_NAMES = MAP_NAMES[3:]
 # NUM_AGENT_LOCS = NUM_AGENT_LOCS[3:]

@@ -1,16 +1,32 @@
 {
     "agents": [
         [
-            46,
-            1
+            15,
+            3
         ],
         [
-            10,
-            44
+            4,
+            18
+        ],
+        [
+            27,
+            6
+        ],
+        [
+            8,
+            4
+        ],
+        [
+            0,
+            23
+        ],
+        [
+            6,
+            14
         ]
     ],
     "tasks": [],
-    "map": "mc-forest.map",
+    "map": "maps2/lak105d.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

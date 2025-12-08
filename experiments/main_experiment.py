@@ -172,15 +172,23 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # num_experiments = 10
 # results_file = "room_agent_scaling"
 
+# # Game Map Scaling
+# # MAP_NAMES = ["../maps/maps2/den009d.map", "../maps/maps2/lak105d.map", "../maps/den207d.map"]
+# # MAP_NAMES = ["../maps/den101d.map", "../maps/mc-forest.map"]
+# MAP_NAMES = ["../maps/mc-forest.map"]
+# NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+# SCEN_CONFIG = "../configs/test.json"
+# START_EXPERIMENT = 4
+# num_experiments = 10
+# results_file = "game_map_scaling_hard"
+
 # Game Map Scaling
-# MAP_NAMES = ["../maps/maps2/den009d.map", "../maps/maps2/lak105d.map", "../maps/den207d.map"]
-# MAP_NAMES = ["../maps/den101d.map", "../maps/mc-forest.map"]
-MAP_NAMES = ["../maps/mc-forest.map"]
-NUM_AGENT_LOCS = [2] * len(MAP_NAMES)
+NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
+MAP_NAMES = ["../maps/maps2/lak105d.map"] * len(NUM_AGENT_LOCS)
 SCEN_CONFIG = "../configs/test.json"
-START_EXPERIMENT = 4
+START_EXPERIMENT = 0
 num_experiments = 10
-results_file = "game_map_scaling_hard"
+results_file = "game_agent_scaling"
 
 
 
@@ -326,9 +334,10 @@ for i in range(len(NUM_AGENT_LOCS)):
 
         method_failed = False
         for method_name, method in zip(method_names, methods):
+            if False:
             # if method_name == "OG_MWRP" and prev_time > 80000 or prev_time < 0:
             # if method_name in {"OG_MWRP", "MWRP_CPD"}:
-            if method_name == "OG_MWRP" or (map_name == "../maps/mc-forest.map" and method_name in {"MWRP_CPD", "MWRP_CP3"}):
+            # if method_name == "OG_MWRP" or (map_name == "../maps/mc-forest.map" and method_name in {"MWRP_CPD", "MWRP_CP3"}):
                 search_passed = False
                 search_time_ms = -1000
 

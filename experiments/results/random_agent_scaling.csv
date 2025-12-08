@@ -58,6 +58,7 @@
 ../maps/random-17-17-57.map,FOCAL_MOC2,1,9,True,300
 ../maps/random-17-17-57.map,MWRP_CPD,1,9,True,17588
 ../maps/random-17-17-57.map,OG_MWRP,1,9,True,80698
+
 ../maps/random-17-17-57.map,MWRP_CP3,2,0,True,814
 ../maps/random-17-17-57.map,MxWAstar2,2,0,True,156
 ../maps/random-17-17-57.map,FOCAL_SOC2,2,0,True,126
@@ -118,18 +119,13 @@
 ../maps/random-17-17-57.map,FOCAL_MOC2,2,9,True,107
 ../maps/random-17-17-57.map,MWRP_CPD,2,9,True,12348
 ../maps/random-17-17-57.map,OG_MWRP,2,9,True,18357
+
 ../maps/random-17-17-57.map,MWRP_CP3,3,0,True,1760
 ../maps/random-17-17-57.map,MxWAstar2,3,0,True,250
 ../maps/random-17-17-57.map,FOCAL_SOC2,3,0,True,297
 ../maps/random-17-17-57.map,FOCAL_MOC2,3,0,True,151
 ../maps/random-17-17-57.map,MWRP_CPD,3,0,True,4112
 ../maps/random-17-17-57.map,OG_MWRP,3,0,True,4489
-../maps/random-17-17-57.map,MWRP_CP3,3,1,True,18313
-../maps/random-17-17-57.map,MxWAstar2,3,1,True,177
-../maps/random-17-17-57.map,FOCAL_SOC2,3,1,True,96
-../maps/random-17-17-57.map,FOCAL_MOC2,3,1,True,96
-../maps/random-17-17-57.map,MWRP_CPD,3,1,True,42140
-../maps/random-17-17-57.map,OG_MWRP,3,1,False,-1000
 ../maps/random-17-17-57.map,MWRP_CP3,3,2,True,1900
 ../maps/random-17-17-57.map,MxWAstar2,3,2,True,106
 ../maps/random-17-17-57.map,FOCAL_SOC2,3,2,True,75
@@ -178,6 +174,7 @@
 ../maps/random-17-17-57.map,FOCAL_MOC2,3,9,True,74
 ../maps/random-17-17-57.map,MWRP_CPD,3,9,True,42
 ../maps/random-17-17-57.map,OG_MWRP,3,9,True,40
+
 ../maps/random-17-17-57.map,MWRP_CP3,4,0,True,664
 ../maps/random-17-17-57.map,MxWAstar2,4,0,True,77
 ../maps/random-17-17-57.map,FOCAL_SOC2,4,0,True,102
@@ -238,6 +235,7 @@
 ../maps/random-17-17-57.map,FOCAL_MOC2,4,9,True,68
 ../maps/random-17-17-57.map,MWRP_CPD,4,9,True,92
 ../maps/random-17-17-57.map,OG_MWRP,4,9,True,76
+
 ../maps/random-17-17-57.map,MWRP_CP3,5,0,True,230
 ../maps/random-17-17-57.map,MxWAstar2,5,0,True,88
 ../maps/random-17-17-57.map,FOCAL_SOC2,5,0,True,190
@@ -284,8 +282,9 @@
 ../maps/random-17-17-57.map,MxWAstar2,5,7,True,107
 ../maps/random-17-17-57.map,FOCAL_SOC2,5,7,True,157
 ../maps/random-17-17-57.map,FOCAL_MOC2,5,7,True,9815
-../maps/random-17-17-57.map,MWRP_CPD,5,7,False,-993
+../maps/random-17-17-57.map,MWRP_CPD,5,7,False,200000
 ../maps/random-17-17-57.map,OG_MWRP,5,7,True,102013
+
 ../maps/random-17-17-57.map,MWRP_CP3,6,0,True,1695
 ../maps/random-17-17-57.map,MxWAstar2,6,0,True,174
 ../maps/random-17-17-57.map,FOCAL_SOC2,6,0,True,325

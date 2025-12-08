@@ -14,8 +14,16 @@ file = open(filename)
 
 # ../maps/custom-11-11.map,MWRP_CPD,6,4,True,1448
 
+ALG_NAMES = [
+    ("OG_MWRP", "MWRP-A*"),
+    ("MWRP_CPD", "MWRP-A* + CPD"),
+    ("MWRP_CP3", "MWRP-CP$^3$"),
+    ("MxWAstar", "MxWA*"),
+    ("FOCAL_SOC", "FS (SORC)"),
+    ("FOCAL_MOC", "FS (MORC)"),
+]
 
-alg_names = set()
+
 num_agents_set = set()
 map_names = []
 
@@ -23,16 +31,6 @@ data = {}
 exp_to_ignore = []
 
 lines = file.readlines()
-
-# for line in lines:
-#     if line.strip() == "":
-#         continue
-#     line = line.strip().split(",")
-#     map_name, alg, num_agents, experiment_id, solved, time = line
-#     if int(time) < 0 or not solved:
-#         print("NOT SOLVED", line)
-#         exp_to_ignore.append((map_name, num_agents, experiment_id))
-
 
 for line in lines:
     if line.strip() == "":
@@ -43,16 +41,14 @@ for line in lines:
         print("NOT SOLVED", line)
         continue
     
+    print(line)
+
     if (map_name, num_agents, experiment_id) in exp_to_ignore:
         continue
 
     if map_name not in map_names:
         map_names.append(map_name)
 
-    if alg in {"FOCAL_SOC", "FOCAL_MOC", "MxWAstar"}:
-        continue
-
-    alg_names.add(alg)
     num_agents = int(num_agents)
     num_agents_set.add(num_agents)
     if alg not in data:
@@ -67,10 +63,20 @@ for line in lines:
     data[alg][map_name].append(int(time))
 
 
+if "FOCAL_SOC2" in data:
+    data["FOCAL_SOC"] = data["FOCAL_SOC2"]
+
+if "FOCAL_MOC2" in data:
+    data["FOCAL_MOC"] = data["FOCAL_MOC2"]
+
+if "MxWAstar2" in data:
+    data["MxWAstar"] = data["MxWAstar2"]
+
+
 print(data.keys())
 print(map_names)
 
-for alg_name in sorted(alg_names):
+for alg_name, alg_label in ALG_NAMES:
     x = []
     y = []
     if TYPE == "AGENT":
@@ -97,7 +103,7 @@ for alg_name in sorted(alg_names):
                 continue
             x.append(x_val)
             y.append(avg_time)
-    plt.plot(x, y, label=alg_name)
+    plt.plot(x, y, label=alg_label)
 
 
 # plt.gca().set(title='semilogy')

@@ -346,7 +346,7 @@ int main() {
 
     // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
     // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/room-64-64-8.map"};
-    std::vector<std::string> map_filenames = {"../maps/huge/ht_chantry.map"};
+    std::vector<std::string> map_filenames = {"../maps/random-20-20-80.map", "../maps/room-24-24-4.map", "../maps/mc-forest.map"};
 
     for(std::string map_filename : map_filenames) {
         Map map = get_map(map_filename);
@@ -364,7 +364,7 @@ int main() {
             for(int i = 0; i < 10; i++){
                 printf("\n\nExperiment %d on map %s with %d agents\n", i, map_filename.c_str(), num_agents);
                 std::vector<Position> agent_starts;
-                if(map_filename == "../maps/maze-32-32-2.map" || map_filename == "../maps/room-64-64-8.map") {
+                if(map_filename == "../maps/maze-32-32-2.map" || map_filename == "../maps/room-64-64-8.map" || map_filename == "../maps/room-24-24-4.map" || map_filename == "../maps/random-20-20-80.map"){ {
                     agent_starts = get_random_agent_starts_border_raw(map, num_agents, 2);
                 } else {
                     agent_starts = get_random_agent_starts_border_floodfill(map, num_agents);

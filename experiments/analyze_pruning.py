@@ -1,11 +1,12 @@
 import statistics
 
 # file = open("results/border_test.csv")
-file = open("../build/pruning_experiment.csv")
+file = open("../build/pruning_experiment_updated.csv")
 lines = file.readlines()
 data = {}
 
 exp_ids_count = {}
+avg_unseen_size = {}
 for line in lines:
     if len(line.strip()) == 0 or line.startswith("Map,"):
         continue
@@ -20,6 +21,7 @@ for line in lines:
     if map_name not in data:
         data[map_name] = {}
         exp_ids_count[map_name] = {}
+        avg_unseen_size[map_name] = []
     
     if alg not in data[map_name]:
         data[map_name][alg] = {}
@@ -36,11 +38,13 @@ for line in lines:
     
     data[map_name][alg][num_agents][0].append(prune_percentage)
     data[map_name][alg][num_agents][1].append(float(time))
+    avg_unseen_size[map_name].append(int(original_unseen))
     
 
 algs = ["CELL", "PATH", "CELL_THEN_PATH"]
 
 for map_name in sorted(data):
+    print(f"Average size of unseen on {map_name}:", sum(avg_unseen_size[map_name]) / len(avg_unseen_size[map_name]))
     for alg in algs:
         # for num_agents in sorted(data[map_name][alg]):
         #     print("Map:", map_name, "Alg:", alg, "Num agents:", num_agents)

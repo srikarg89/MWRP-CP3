@@ -1,7 +1,7 @@
 {
-    "agents": [[0, 12], [1, 5]],
+    "agents": [[0, 0]],
     "tasks": [],
-    "map": "random-20-20-100.map",
+    "map": "random-20-20-80.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"
 }

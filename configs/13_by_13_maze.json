@@ -1,5 +1,5 @@
 {
-    "agents": [[0, 0]],
+    "agents": [[0, 0], [0, 12]],
     "tasks": [],
     "map": "custom-13-13.map",
     "movement": "FOUR_WAY_MOVEMENT",

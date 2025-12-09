@@ -35,6 +35,8 @@ ax.set_xticklabels([])
 # plt.savefig('../images/32x32 Map Example.png', dpi=500)
 
 # plt.savefig('../images/32x32 Cell and Path Domination.png', dpi=500)
-plt.savefig('../images/HT Chantry Cell and Path Domination.png', dpi=500)
+# plt.savefig('../images/HT Chantry Cell and Path Domination.png', dpi=500)
+# plt.savefig('../images/Minecraft Cell and Path Domination 3 Agents.png', dpi=500)
+plt.savefig('../images/Random Cell and Path Domination 1 Agent.png', dpi=500)
 
 plt.show()

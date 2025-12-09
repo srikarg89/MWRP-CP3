@@ -230,10 +230,21 @@ std::pair<std::vector<bool>, double> prune(const Map& map, std::vector<Position>
     return std::make_pair(lookup.strictly_easier, duration.count());
 }
 
-int get_num_free_cells_initially(const Map& map) {
+int get_num_free_cells_initially(const Map& map, std::vector<Position> agent_starts, Lookup& lookup) {
     int count = 0;
     for(int i = 0; i < map.num_squares; i++) {
         if(map.check_obstacle(map.get_pos_from_map_idx(i))) {
+            continue;
+        }
+        bool in_los = false;
+        for(Position pos : agent_starts) {
+            int pos_map_idx = map.get_map_idx(pos);
+            if(lookup.watchers_set[i].find(pos_map_idx) != lookup.watchers_set[i].end()) {
+                in_los = true;
+                break;
+            }
+        }
+        if(in_los) {
             continue;
         }
         count += 1;
@@ -346,7 +357,8 @@ int main() {
 
     // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/huge/ht_chantry.map", "../maps/lak202.map", "../maps/room-64-64-8.map"};
     // std::vector<std::string> map_filenames = {"../maps/maze-32-32-2.map", "../maps/room-64-64-8.map"};
-    std::vector<std::string> map_filenames = {"../maps/random-20-20-80.map", "../maps/room-24-24-4.map", "../maps/mc-forest.map"};
+    // std::vector<std::string> map_filenames = {"../maps/random-20-20-80.map", "../maps/room-24-24-4.map", "../maps/mc-forest.map"};
+    std::vector<std::string> map_filenames = {"../maps/random-20-20-80.map", "../maps/maze-32-32-2.map", "../maps/mc-forest.map"};
 
     for(std::string map_filename : map_filenames) {
         Map map = get_map(map_filename);
@@ -360,11 +372,12 @@ int main() {
         file << "Map, Method, Exp number, U, Initial Free Cells, Average Time (ms)\n";
         file.close();
 
-        for(int num_agents : {1, 2, 3, 4, 5}){
+        // for(int num_agents : {1, 2, 3, 4}){
+        for(int num_agents : {1}){
             for(int i = 0; i < 10; i++){
                 printf("\n\nExperiment %d on map %s with %d agents\n", i, map_filename.c_str(), num_agents);
                 std::vector<Position> agent_starts;
-                if(map_filename == "../maps/maze-32-32-2.map" || map_filename == "../maps/room-64-64-8.map" || map_filename == "../maps/room-24-24-4.map" || map_filename == "../maps/random-20-20-80.map"){ {
+                if(map_filename == "../maps/maze-32-32-2.map" || map_filename == "../maps/room-64-64-8.map" || map_filename == "../maps/room-24-24-4.map" || map_filename == "../maps/random-20-20-80.map") {
                     agent_starts = get_random_agent_starts_border_raw(map, num_agents, 2);
                 } else {
                     agent_starts = get_random_agent_starts_border_floodfill(map, num_agents);
@@ -392,9 +405,9 @@ int main() {
                 printf("CD: U=%.2f, Time=%.2fms | PD: U=%.2f, Time=%.2fms | CPD: U=%.2f, Time=%.2fms\n", cell_u, cell_t * 1000.0, path_u, path_t * 1000.0, cell_then_path_u, cell_then_path_t * 1000.0);
 
                 file.open("pruning_experiment.csv", std::ios::app);
-                file << map_filename << ", " << i << ", CELL, " << cell_u << ", " << get_num_free_cells_initially(map) << ", " << cell_t * 1000.0 << "\n";
-                file << map_filename << ", " << i << ", PATH, " << path_u << ", " << get_num_free_cells_initially(map) << ", " << path_t * 1000.0 << "\n";
-                file << map_filename << ", " << i << ", CELL_THEN_PATH, " << cell_then_path_u << ", " << get_num_free_cells_initially(map) << ", " << cell_then_path_t * 1000.0 << "\n";
+                file << map_filename << ", " << i << ", CELL, " << cell_u << ", " << get_num_free_cells_initially(map, agent_starts, lookup) << ", " << cell_t * 1000.0 << "\n";
+                file << map_filename << ", " << i << ", PATH, " << path_u << ", " << get_num_free_cells_initially(map, agent_starts, lookup) << ", " << path_t * 1000.0 << "\n";
+                file << map_filename << ", " << i << ", CELL_THEN_PATH, " << cell_then_path_u << ", " << get_num_free_cells_initially(map, agent_starts, lookup) << ", " << cell_then_path_t * 1000.0 << "\n";
                 file.close();
             }
         }

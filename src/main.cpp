@@ -45,8 +45,6 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
     // exit(0);
 
-    std::vector<Task> known_tasks = env.get_known_incomplete_tasks();
-    printf("Total number of tasks in problem: %lu\n", known_tasks.size());
     int num_strictly_easier = 0;
     for(bool b : lookup.strictly_easier){
         num_strictly_easier += b;
@@ -65,7 +63,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     MetricsList aggregated;
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), known_tasks, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), {}, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");
@@ -85,7 +83,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
             }
             paths_to_go.push_back(path_to_go);
         }
-        write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+        write_run_state_to_file(final_run_file, timestep, paths_to_go, scenario_config.map, env.get_agent_positions(), env.get_seen());
 
         std::vector<Position> actions;
         for(int i = 0; i < solution.size(); i++) {
@@ -97,7 +95,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     }
 
     printf("\n\n\nFinal timestep: %d\n", timestep);
-    write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen(), env.get_known_incomplete_tasks(), env.get_completed_tasks(), env.get_unknown_tasks());
+    write_run_state_to_file(final_run_file, timestep, {}, scenario_config.map, env.get_agent_positions(), env.get_seen());
 
     final_run_file.close();
 
@@ -135,7 +133,6 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
     printf("Total time taken: %.3f seconds\n", duration.count());
-    printf("Total tasks completed: %lu / %lu\n", env.get_completed_tasks().size(), scenario_config.tasks.size());
     printf("Total squares seen: %d / %d\n", (int)env.get_seen().count(), scenario_config.map.num_squares);
 }
 
@@ -149,163 +146,3 @@ int main(int argc, char** argv) {
     run(scenario_config, problem_input);
     return 0;
 }
-
-/*
-mc_forest, two agents, same start (51, 25), no tasks, 1.5 epsilon focal search
-Max time: 284
-Total nodes expanded: 18656
-Total nodes fully expanded: 18656
-Total expansions skipped: 0
-Total generations skipped because of inferior cost: 145582
-Total generations skipped because of task failure: 0
-Total generations skipped because of task deadlock: 0
-Total nodes generated: 79743
-MTSP Setup time: 29.972 seconds
-MTSP Solver time: 304.725 seconds
-MTSP Solver time 2: 0.000 seconds
-Total MTSP calls: 79651
-Total neighbor expansion time: 32.087 seconds
-Total get_f_value time: 115.640 seconds
-Max node depth expanded: 75
-Path 0 length: 284
-Path 1 length: 284
-Total search time taken: 151.301 seconds
-
-Final timestep: 283
-Aggregated Metrics:
-	MTSP Calls: 79651
-	MTSP Setup Time: 29.972 seconds
-	MTSP Solver Time: 304.725 seconds
-Total time taken: 152.505 seconds
-Total tasks completed: 0 / 0
-Total squares seen: 2652 / 2652
-
-mc_forest, two agents, different starts (51, 25) and (2, 25), no tasks, 1.5 epsilon focal search
-Max time: 240
-Total nodes expanded: 1022
-Total nodes fully expanded: 1022
-Total expansions skipped: 0
-Total generations skipped because of inferior cost: 139513
-Total generations skipped because of task failure: 0
-Total generations skipped because of task deadlock: 0
-Total nodes generated: 38673
-MTSP Setup time: 13.914 seconds
-MTSP Solver time: 260.933 seconds
-MTSP Solver time 2: 0.000 seconds
-Total MTSP calls: 38618
-Total neighbor expansion time: 0.642 seconds
-Total get_f_value time: 22.091 seconds
-Max node depth expanded: 42
-Path 0 length: 240
-Path 1 length: 240
-Total search time taken: 23.364 seconds
-
-Final timestep: 239
-Aggregated Metrics:
-	MTSP Calls: 38618
-	MTSP Setup Time: 13.914 seconds
-	MTSP Solver Time: 260.933 seconds
-Total time taken: 24.610 seconds
-Total tasks completed: 0 / 0
-Total squares seen: 2652 / 2652
-
-mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search with 1.5 focal heuristic weight
-Max time: 447
-Total nodes expanded: 1114
-Total nodes fully expanded: 1114
-Total expansions skipped: 112
-Total generations skipped because of inferior cost: 3599
-Total generations skipped because of task deadlock: 0
-Total nodes generated: 3300
-MTSP Setup time: 1.410 seconds
-MTSP Solver time: 21.946 seconds
-Total MTSP calls: 3299
-Total neighbor expansion time: 0.278 seconds
-Total get_f_value time: 8.297 seconds
-Total domination check time: 0.008 seconds
-Max node depth expanded: 70
-Path 0 length: 447
-Total search time taken: 8.777 seconds
-
-Final timestep: 446
-Aggregated Metrics:
-	MTSP Calls: 3299
-	MTSP Setup Time: 1.410 seconds
-	MTSP Solver Time: 21.946 seconds
-	Get f_value Time: 8.297 seconds
-	Neighbor Expansion Time: 0.278 seconds
-	Domination Check Time: 0.008 seconds
-Total time taken: 9.828 seconds
-Total tasks completed: 0 / 0
-Total squares seen: 2652 / 2652
-
-mc_forest, one agent (51, 25), no tasks, 1.25 epsilon focal search with 1.5 focal heuristic weight and 20s time limit
-Total nodes expanded: 2953
-Total nodes fully expanded: 2953
-Total expansions skipped: 266
-Total generations skipped because of inferior cost: 10496
-Total generations skipped because of task deadlock: 0
-Total nodes generated: 8590
-MTSP Setup time: 3.676 seconds
-MTSP Solver time: 45.404 seconds
-Total MTSP calls: 8565
-Total neighbor expansion time: 1.645 seconds
-Total get_f_value time: 17.797 seconds
-Total domination check time: 0.027 seconds
-Max node depth expanded: 74
-Path 0 length: 437
-Total search time taken: 20.003 seconds
-
-Final timestep: 436
-Aggregated Metrics:
-	MTSP Calls: 8565
-	MTSP Setup Time: 3.676 seconds
-	MTSP Solver Time: 45.404 seconds
-	Get f_value Time: 17.797 seconds
-	Neighbor Expansion Time: 1.645 seconds
-	Domination Check Time: 0.027 seconds
-Total time taken: 21.075 seconds
-Total tasks completed: 0 / 0
-Total squares seen: 2652 / 2652
-
-
-
-HEIRARCHICAL SEARCH COMPARISON
-
-mc_forest, 5 tasks, no mrt, two agents, centralized search only.
-Final timestep: 361
-Aggregated Metrics:
-	Centralized Search Time: 148.724 seconds
-	Decentralized Search Time: 0.000 seconds
-	Number of Decentralized Searches: 0
-	MTSP Calls: 139438
-	MTSP Setup Time: 47.395 seconds
-	MTSP Solver Time: 402.236 seconds
-	Get f_value Time: 60.015 seconds
-	Neighbor Expansion Time: 66.963 seconds
-	Domination Check Time: 1.586 seconds
-Total time taken: 170.659 seconds
-Total tasks completed: 5 / 5
-Total squares seen: 2652 / 2652
-
-mc_forest, 5 tasks, no mrt, two agents, heirarchical search only.
-Max time: 102
-Task completed at (45,39)!
-Task completed at (20,31)!
-Final timestep: 275
-Aggregated Metrics:
-	Centralized Search Time: 83.183 seconds
-	Decentralized Search Time: 154.073 seconds
-	Number of Decentralized Searches: 12
-	MTSP Calls: 110624
-	MTSP Setup Time: 36.851 seconds
-	MTSP Solver Time: 365.345 seconds
-	Get f_value Time: 99.799 seconds
-	Neighbor Expansion Time: 102.982 seconds
-	Domination Check Time: 2.157 seconds
-Total time taken: 274.045 seconds
-Total tasks completed: 5 / 5
-Total squares seen: 2652 / 2652
-
-
-*/

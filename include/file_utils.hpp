@@ -5,8 +5,7 @@
 #include "utils.hpp"
 
 inline void write_node_to_file(std::ofstream& file, const Node& node, const Lookup& lookup, const Map& map, int parent_id, HeuristicType heuristic_type){
-    std::unordered_set<int> exploration_pivots;
-    std::unordered_set<int> task_pivots;
+    std::unordered_set<int> pivots;
     std::unordered_set<int> watchers;
     std::vector<AgentState> non_terminated_agents;
     for(const AgentState& agent : node.agents){
@@ -17,26 +16,20 @@ inline void write_node_to_file(std::ofstream& file, const Node& node, const Look
 
     if(heuristic_type == TSP || heuristic_type == MAX) {
         DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, node.seen, node.tasks_left, lookup, INT_MAX);
-        prune_graph(disjoint_graph, lookup, INT_MAX);
+        prune_graph(disjoint_graph, lookup);
         for(int i = 0; i < disjoint_graph.pivots.size(); i++){
             int pivot = disjoint_graph.pivots[i];
-            if(i < disjoint_graph.num_exploration_pivots){
-                exploration_pivots.insert(pivot);
-                for(Position watcher : lookup.watchers[pivot]){
-                    watchers.insert(map.get_map_idx(watcher));
-                }
-            } else {
-                task_pivots.insert(pivot);
+            pivots.insert(pivot);
+            for(Position watcher : lookup.watchers[pivot]){
+                watchers.insert(map.get_map_idx(watcher));
             }
         }
     }
 
     std::string map_list = "";
     for(int i = 0; i < node.seen.size(); i++){
-        if(exploration_pivots.find(i) != exploration_pivots.end()){
+        if(pivots.find(i) != pivots.end()){
             map_list += "3"; // Exploration Pivot
-        } else if(task_pivots.find(i) != task_pivots.end()){
-            map_list += "5"; // Task Pivot
         } else if(watchers.find(i) != watchers.end()){
             map_list += "4"; // Watcher
         }
@@ -127,11 +120,8 @@ inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<
     }
 }
 
-inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen, std::vector<Task> known_incomplete_tasks, std::vector<Task> completed_tasks, std::vector<Task> unknown_tasks) {
+inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen) {
     std::vector<int> agent_map_idxs = map.get_map_idxs(agent_positions);
-    std::vector<int> known_incomplete_task_map_idxs = map.get_map_idxs(task_to_pos_array(known_incomplete_tasks));
-    std::vector<int> completed_task_map_idxs = map.get_map_idxs(task_to_pos_array(completed_tasks));
-    std::vector<int> unknown_task_map_idxs = map.get_map_idxs(task_to_pos_array(unknown_tasks));
 
     // Create seen / agent state map list.
     std::string map_list = "";
@@ -145,21 +135,8 @@ inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vect
         }
     }
 
-    std::string task_list = "";
-    for(int i = 0; i < seen.size(); i++){
-        if(std::find(known_incomplete_task_map_idxs.begin(), known_incomplete_task_map_idxs.end(), i) != known_incomplete_task_map_idxs.end()){
-            task_list += "1"; // Known Incomplete Task
-        } else if(std::find(completed_task_map_idxs.begin(), completed_task_map_idxs.end(), i) != completed_task_map_idxs.end()){
-            task_list += "2"; // Completed Task
-        } else if(std::find(unknown_task_map_idxs.begin(), unknown_task_map_idxs.end(), i) != unknown_task_map_idxs.end()){
-            task_list += "3"; // Unknown Task
-        } else {
-            task_list += "0"; // Not a task
-        }
-    }
-
     // file << "Timestep, Num Agents, Agent positions, Seen Bitset"; // Header
-    file << timestep << "," << map_list << "," << task_list << ",";
+    file << timestep << "," << map_list << ",";
     for(auto& path : paths_to_go){
         for(Position pos : path){
             file << map.get_map_idx(pos) << "_";

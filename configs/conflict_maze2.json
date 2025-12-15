@@ -1,7 +1,0 @@
-{
-    "agents": [[0, 0], [10, 0]],
-    "tasks": [],
-    "map": "test-conflicts-2.map",
-    "movement": "FOUR_WAY_MOVEMENT",
-    "los": "FOUR_WAY_LOS"
-}

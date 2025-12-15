@@ -586,8 +586,6 @@ struct PastSolution {
 struct Optimizations {
     bool prune_pivots;
     bool run_parallel;
-    bool expand_lowest_cost_agent_only;
-    int max_pivots_after_pruning;
     int max_pivots_generated;
     int parallel_batch_size;
 };
@@ -659,9 +657,7 @@ struct ProblemInput {
         Optimizations optimizations;
         optimizations.prune_pivots = parsed_data["prune_pivots"].get<bool>();
         optimizations.run_parallel = parsed_data["run_parallel"].get<bool>();
-        optimizations.expand_lowest_cost_agent_only = parsed_data["expand_lowest_cost_agent_only"].get<bool>();
         optimizations.max_pivots_generated = parsed_data["max_pivots_generated"].get<int>();
-        optimizations.max_pivots_after_pruning = parsed_data["max_pivots_after_pruning"].get<int>();
         optimizations.parallel_batch_size = parsed_data["parallel_batch_size"].get<int>();
 
         double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();

@@ -30,8 +30,6 @@ include_directories(${CONCORDE_DIR})
 include_directories(/home/srikar/libraries/qsopt)
 include_directories(${CPLEX_INCLUDE_DIRS})
 include_directories(${bshoshany-thread-pool_SOURCE_DIR}/include)
-# include_directories(/opt/ibm/ILOG/CPLEX_Studio2211/cplex/include)
-# include_directories(/opt/ibm/ILOG/CPLEX_Studio2211/concert/include)
 
 add_library(stapf_lib src/search.cpp)
 

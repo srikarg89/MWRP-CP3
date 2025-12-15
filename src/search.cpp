@@ -44,7 +44,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
         if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
             DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, input.tasks_left, lookup, optimizations.max_pivots_generated);
             if(optimizations.prune_pivots){
-                prune_graph(disjoint_graph, lookup, optimizations.max_pivots_after_pruning);
+                prune_graph(disjoint_graph, lookup);
             }
             // printf("Num pivots: %d\n", (int)disjoint_graph.pivots.size());
             alter_disjoint_graph_for_waiting_robots(disjoint_graph, map, non_terminated_agents, input.tasks_left, lookup);
@@ -180,33 +180,8 @@ std::vector<AgentState> get_agent_options(const AgentState& agent, const Map& ma
 }
 
 
-std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool expand_lowest_cost_agent_only){
-    // Single-agent expansion
-
-    if(expand_lowest_cost_agent_only) {
-        int agent_to_expand = -1;
-        int non_terminated_count = 0;
-        for(int i = 0; i < agents.size(); i++){
-            if(agents[i].terminated){
-                continue;
-            }
-            non_terminated_count += 1;
-            if(agent_to_expand == -1 || agents[i].cost < agents[agent_to_expand].cost){
-                agent_to_expand = i;
-            }
-        }
-
-        std::vector<AgentState> agent_options = get_agent_options(agents[agent_to_expand], map, seen, tasks_left, lookup, non_terminated_count > 1);
-        std::vector<std::vector<AgentState>> all_moves;
-        for(AgentState option : agent_options){
-            std::vector<AgentState> move = agents;
-            move[agent_to_expand] = option;
-            all_moves.push_back(move);
-        }
-    }
-
-    // Joint-space expansion
-
+// Expanding Borders Expansion
+std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
         options.push_back(get_agent_options(agent, map, seen, tasks_left, lookup, true));
@@ -236,7 +211,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
 std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int best_solution_cost, int last_id_assigned, std::unordered_map<std::string, std::vector<VisitedNodeInfo>>& generated_costs, std::unordered_set<int>& avoid_expansion_list){
     std::vector<Node> neighbor_nodes;
     auto start = std::chrono::high_resolution_clock::now();
-    auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup, solver_config.optimizations.expand_lowest_cost_agent_only);
+    auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     METRICS.neighbor_expansion_time += duration.count();

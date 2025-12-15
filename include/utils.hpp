@@ -681,7 +681,7 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
     };
 }
 
-inline void prune_graph(DisjointGraph& graph, const Lookup& lookup, int max_pivots_after_pruning){
+inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
     while(true){
         int shortcut_pivot = -1;
         int biggest_shortcut = 0;
@@ -724,48 +724,6 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup, int max_pivo
             graph.num_exploration_pivots -= 1;
         } else {
             printf("Warning: Removed a task pivot during pruning. This shouldn't happen.\n");
-            exit(0);
-        }
-    }
-
-    // Prune pivots to be under the max allowed using farness centrality.
-    // NOTE: Tried using MAX instead of SUM for farness, but MAX performed much worse.
-    while(graph.pivots.size() > max_pivots_after_pruning){
-        int worst_pivot = -1;
-        int worst_farness = INT_MAX;
-
-        for(int i = 0; i < graph.pivots.size(); i++){
-            int farness = 0;
-            for(int j = 0; j < graph.pivots.size(); j++){
-                if(i == j){
-                    continue;
-                }
-                farness += graph.pivot_pivot_costs[i][j];
-            }
-            for(int j = 0; j < graph.agent_pivot_costs.size(); j++){
-                farness += graph.agent_pivot_costs[j][i];
-            }
-
-            if(farness < worst_farness){
-                worst_farness = farness;
-                worst_pivot = i;
-            }
-        }
-
-        graph.pivots.erase(graph.pivots.begin() + worst_pivot);
-        graph.pivot_task_ids.erase(graph.pivot_task_ids.begin() + worst_pivot);
-        graph.num_required_visits.erase(graph.num_required_visits.begin() + worst_pivot);
-        graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + worst_pivot);
-        for(auto& row : graph.pivot_pivot_costs){
-            row.erase(row.begin() + worst_pivot);
-        }
-        for(auto& row : graph.agent_pivot_costs){
-            row.erase(row.begin() + worst_pivot);
-        }
-        if(worst_pivot < graph.num_exploration_pivots){
-            graph.num_exploration_pivots -= 1;
-        } else {
-            printf("Warning 2: Removed a task pivot during pruning. This shouldn't happen.\n");
             exit(0);
         }
     }

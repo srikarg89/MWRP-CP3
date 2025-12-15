@@ -101,15 +101,93 @@ MWRP_CPD_PHC_TEMPLATE["parallel_batch_size"] = PARALLEL_BATCH_SIZE
 
 # MWRCP3_TEMPLATE["centralized_hard_search_time_limit"] = 100.0
 
+# method_names = ["MWRP_CP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC", "MWRP_CPD", "OG_MWRP"]
+# methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+
+# method_names = ["MWRP_CP3", "MxWAstar2", "FOCAL_SOC2", "FOCAL_MOC2", "MWRP_CPD", "OG_MWRP"]
+# methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+
+
 num_experiments = 10
 
+####### SUBOPTIMAL EXPERIMENT CONFIGURATION ########
+MxWAsta10_TEMPLATE = MxWAstar_TEMPLATE.copy(); MxWAsta10_TEMPLATE["centralized_astar_weight"] = 10.0
+MxWAsta5_TEMPLATE = MxWAstar_TEMPLATE.copy(); MxWAsta5_TEMPLATE["centralized_astar_weight"] = 5.0
+MxWAsta3_TEMPLATE = MxWAstar_TEMPLATE.copy(); MxWAsta3_TEMPLATE["centralized_astar_weight"] = 3.0
+MxWAsta2_TEMPLATE = MxWAstar_TEMPLATE.copy(); MxWAsta2_TEMPLATE["centralized_astar_weight"] = 2.0
+MxWAsta1_5_TEMPLATE = MxWAstar_TEMPLATE.copy(); MxWAsta1_5_TEMPLATE["centralized_astar_weight"] = 1.5
+MxWAstar_TEMPLATE1_2 = MxWAstar_TEMPLATE.copy(); MxWAstar_TEMPLATE1_2["centralized_astar_weight"] = 1.2
 
-####### EXPERIMENT CONFIGURATION ########
-method_names = ["MWRP_CP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC", "MWRP_CPD", "OG_MWRP"]
-methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+FOCAL_SOC10_TEMPLATE = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC10_TEMPLATE["centralized_focal_epsilon"] = 10.0
+FOCAL_SOC5_TEMPLATE = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC5_TEMPLATE["centralized_focal_epsilon"] = 5.0
+FOCAL_SOC3_TEMPLATE = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC3_TEMPLATE["centralized_focal_epsilon"] = 3.0
+FOCAL_SOC2_TEMPLATE = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC2_TEMPLATE["centralized_focal_epsilon"] = 2.0
+FOCAL_SOC1_5_TEMPLATE = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC1_5_TEMPLATE["centralized_focal_epsilon"] = 1.5
+FOCAL_SOC_TEMPLATE1_2 = FOCAL_SOC_TEMPLATE.copy(); FOCAL_SOC_TEMPLATE1_2["centralized_focal_epsilon"] = 1.2
 
-method_names = ["MWRP_CP3", "MxWAstar2", "FOCAL_SOC2", "FOCAL_MOC2", "MWRP_CPD", "OG_MWRP"]
-methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+FOCAL_MOC10_TEMPLATE = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC10_TEMPLATE["centralized_focal_epsilon"] = 10.0
+FOCAL_MOC5_TEMPLATE = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC5_TEMPLATE["centralized_focal_epsilon"] = 5.0
+FOCAL_MOC3_TEMPLATE = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC3_TEMPLATE["centralized_focal_epsilon"] = 3.0
+FOCAL_MOC2_TEMPLATE = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC2_TEMPLATE["centralized_focal_epsilon"] = 2.0
+FOCAL_MOC1_5_TEMPLATE = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC1_5_TEMPLATE["centralized_focal_epsilon"] = 1.5
+FOCAL_MOC_TEMPLATE1_2 = FOCAL_MOC_TEMPLATE.copy(); FOCAL_MOC_TEMPLATE1_2["centralized_focal_epsilon"] = 1.2
+
+method_names = [
+    "MxWAstar10", "MxWAstar5", "MxWAstar3", "MxWAstar2", "MxWAstar1.5", "MxWAstar1.2",
+    "FOC_SOC10", "FOC_SOC5", "FOC_SOC3", "FOC_SOC2", "FOC_SOC1.5", "FOC_SOC1.2",
+    "FOC_MOC10", "FOC_MOC5", "FOC_MOC3", "FOC_MOC2", "FOC_MOC1.5", "FOC_MOC1.2"
+]
+methods = [
+    MxWAsta10_TEMPLATE, MxWAsta5_TEMPLATE, MxWAsta3_TEMPLATE, MxWAsta2_TEMPLATE, MxWAsta1_5_TEMPLATE, MxWAstar_TEMPLATE1_2,
+    FOCAL_SOC10_TEMPLATE, FOCAL_SOC5_TEMPLATE, FOCAL_SOC3_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_SOC1_5_TEMPLATE, FOCAL_SOC_TEMPLATE1_2,
+    FOCAL_MOC10_TEMPLATE, FOCAL_MOC5_TEMPLATE, FOCAL_MOC3_TEMPLATE, FOCAL_MOC2_TEMPLATE, FOCAL_MOC1_5_TEMPLATE, FOCAL_MOC_TEMPLATE1_2
+]
+
+method_names = [
+    "MxWAstar10", "SOC_10", "MOC_10",
+    "MxWAstar5", "SOC_5", "MOC_5",
+    "MxWAstar3", "SOC_3", "MOC_3",
+    "MxWAstar2", "SOC_2", "MOC_2",
+    "MxWAstar1.5", "SOC_1.5", "MOC_1.5",
+    "MxWAstar1.2", "SOC_1.2", "MOC_1.2",
+]
+methods = [
+    MxWAsta10_TEMPLATE, FOCAL_SOC10_TEMPLATE, FOCAL_MOC10_TEMPLATE,
+    MxWAsta5_TEMPLATE, FOCAL_SOC5_TEMPLATE, FOCAL_MOC5_TEMPLATE,
+    MxWAsta3_TEMPLATE, FOCAL_SOC3_TEMPLATE, FOCAL_MOC3_TEMPLATE,
+    MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_TEMPLATE,
+    MxWAsta1_5_TEMPLATE, FOCAL_SOC1_5_TEMPLATE, FOCAL_MOC1_5_TEMPLATE,
+    MxWAstar_TEMPLATE1_2, FOCAL_SOC_TEMPLATE1_2, FOCAL_MOC_TEMPLATE1_2
+]
+
+# Agent locs: [(50, 23), (1, 44)]
+
+# MAP_NAMES = ["../maps/maze-32-32-2.map"]
+# NUM_AGENT_LOCS = [6]
+# MAP_NAMES = ["../maps/mc-forest.map"]
+# NUM_AGENT_LOCS = [2]
+# MAP_NAMES = ["../maps/den101d.map"]
+# NUM_AGENT_LOCS = [4]
+MAP_NAMES = ["../maps/room-24-24-4.map"]
+NUM_AGENT_LOCS = [3]
+
+# map_name = "mc-forest-hardcoded"
+# num_agent_starts = 3
+# experiment_id = 0
+# SCEN_CONFIG_TO_USE = "../configs/mc_forest_3_robots.json"
+START_EXPERIMENT = 0
+results_file = "mayberoom"
+SCEN_CONFIG = "../configs/test.json"
+
+# 32x32 Maze [[31, 30], [31, 21], [16, 31], [19, 1], [28, 31], [14, 30]]
+
+
+# ####### EXPERIMENT CONFIGURATION ########
+# method_names = ["MWRP_CP3", "MxWAstar", "FOCAL_SOC", "FOCAL_MOC", "MWRP_CPD", "OG_MWRP"]
+# methods = [MWRCP3_TEMPLATE, MxWAstar_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_MOC_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
+
+# method_names = ["MWRP_CP3", "MxWAstar2", "FOCAL_SOC2", "FOCAL_MOC2", "MWRP_CPD", "OG_MWRP"]
+# methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_TEMPLATE, MWRP_CPD_TEMPLATE, OG_MWRP_TEMPLATE]
 
 # method_names = ["MxWAstar", "MxWAstar2", "FOCAL_SOC", "FOCAL_SOC2", "FOCAL_MOC", "FOCAL_MOC2"]
 # methods = [MxWAstar_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC_TEMPLATE, FOCAL_MOC2_TEMPLATE]
@@ -183,12 +261,12 @@ methods = [MWRCP3_TEMPLATE, MxWAsta2_TEMPLATE, FOCAL_SOC2_TEMPLATE, FOCAL_MOC2_T
 # results_file = "game_map_scaling_hard"
 
 # Game Map Scaling
-NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
-MAP_NAMES = ["../maps/maps2/lak105d.map"] * len(NUM_AGENT_LOCS)
-SCEN_CONFIG = "../configs/test.json"
-START_EXPERIMENT = 0
-num_experiments = 10
-results_file = "game_agent_scaling"
+# NUM_AGENT_LOCS = [1, 2, 3, 4, 5, 6]
+# MAP_NAMES = ["../maps/maps2/lak105d.map"] * len(NUM_AGENT_LOCS)
+# SCEN_CONFIG = "../configs/test.json"
+# START_EXPERIMENT = 0
+# num_experiments = 10
+# results_file = "game_agent_scaling"
 
 
 
@@ -329,8 +407,14 @@ for i in range(len(NUM_AGENT_LOCS)):
             "movement": "FOUR_WAY_MOVEMENT",
             "los": "BRES_LOS"
         }
+
+# if True:
+#     if True:
+        # with open(SCEN_CONFIG_TO_USE, "r") as f:
+        #     scenario_config = json.load(f)
         with open(SCEN_CONFIG, "w") as f:
             json.dump(scenario_config, f, indent=4)
+
 
         method_failed = False
         for method_name, method in zip(method_names, methods):
@@ -340,6 +424,7 @@ for i in range(len(NUM_AGENT_LOCS)):
             # if method_name == "OG_MWRP" or (map_name == "../maps/mc-forest.map" and method_name in {"MWRP_CPD", "MWRP_CP3"}):
                 search_passed = False
                 search_time_ms = -1000
+                solution_quality = -1
 
             else:
                 input_config = method.copy()
@@ -356,6 +441,7 @@ for i in range(len(NUM_AGENT_LOCS)):
                 search_passed = False
                 search_time = -1.0
                 pd_time = 0.0
+                solution_quality = -1
                 lines = result.stdout.strip().split("\n")
                 for line in lines:
                     line = line.strip()
@@ -364,17 +450,19 @@ for i in range(len(NUM_AGENT_LOCS)):
                     elif line.startswith("Experiment Search Time:"):
                         search_passed = True
                         search_time = float(line.split()[-1].strip())
+                    elif line.startswith("Final timestep:"):
+                        solution_quality = int(line.split()[-1].strip())
 
                 search_time_ms = int((pd_time + search_time) * 1000)
 
             
             # print("\tMethod", method_name, "expanded", num_expanded, " nodes and took", time_ms, "ms to run")
-            print("\tMethod", method_name, "took", search_time_ms, "ms to run")
+            print("\tMethod", method_name, "took", search_time_ms, "ms to run and had solution quality", solution_quality, "\n")
 
             results = open(f"results/{results_file}.csv", "a+")
 
   
-            results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms}\n")
+            results.write(f"{map_name},{method_name},{num_agent_starts},{experiment_id},{search_passed},{search_time_ms},{solution_quality}\n")
             results.close()
 
             # if search_time_ms < 0:

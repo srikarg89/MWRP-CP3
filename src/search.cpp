@@ -670,6 +670,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             if(curr.cost < best_solution_cost) {
                 printf("Writing solution to file. Previous best cost: %d, New best cost: %d\n", best_solution_cost, curr.cost);
                 double time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
+                printf("ANYTIME SOLUTION: %f %d\n", time, curr.cost);
                 // sol_found_file << time << "," << curr.cost << "\n";
                 best_solution_cost = curr.cost;
                 solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);

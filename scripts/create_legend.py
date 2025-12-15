@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+plt.rcParams["legend.fontsize"] = 12      # legend
+
 # Create dummy handles
 ms = 12
 mw = 1.5
@@ -38,7 +40,7 @@ handles = [
 # ]
 
 fig = plt.figure()
-legend = fig.legend(handles=handles, loc='center', ncol=len(handles), frameon=True, edgecolor='black')
+legend = fig.legend(handles=handles, loc='center', ncol=len(handles), frameon=True, edgecolor='black', columnspacing=0.4)
 for line in legend.get_lines():
     line.set_linewidth(3.0)
 
@@ -47,4 +49,4 @@ fig.tight_layout()
 
 plt.savefig('../images/Fig1 Legend.png', dpi=500, bbox_inches='tight')
 
-plt.show()
+# plt.show()

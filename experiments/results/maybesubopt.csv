@@ -1,0 +1,52 @@
+Agent locs: [[31, 30], [31, 21], [16, 31], [19, 1], [28, 31], [14, 30]]
+
+MxWAstar_10, Max time: 8335ms, solution quality, 182
+
+SOC_10, Max time: 16490ms, solution quality, 191
+
+MOC_10, Max time: 75585ms, solution quality, 114
+
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MxWAstar5
+	Method MxWAstar5 took 8290 ms to run and had solution quality 118 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method SOC_5
+	Method SOC_5 took 16055 ms to run and had solution quality 191 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MOC_5
+	Method MOC_5 took 72880 ms to run and had solution quality 114 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MxWAstar3
+	Method MxWAstar3 took 8330 ms to run and had solution quality 111 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method SOC_3
+	Method SOC_3 took 16054 ms to run and had solution quality 163 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MOC_3
+	Method MOC_3 took 72957 ms to run and had solution quality 114 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MxWAstar2
+	Method MxWAstar2 took 15120 ms to run and had solution quality 73 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method SOC_2
+	Method SOC_2 took 17537 ms to run and had solution quality 114 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MOC_2
+	Method MOC_2 took 72196 ms to run and had solution quality 114 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MxWAstar1.5
+	Method MxWAstar1.5 took 28396 ms to run and had solution quality 79 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method SOC_1.5
+	Method SOC_1.5 took 24213 ms to run and had solution quality 86 
+
+Running experiment on map ../maps/maze-32-32-2.map with 6 agent starts, experiment id 1, method MOC_1.5
+	Method MOC_1.5 took 62169 ms to run and had solution quality 86 
+
+
+MxWAstar_1.2, Max time: 199252ms, solution quality, 68
+
+SOC_1.2, Max time: 371677ms, solution quality, 70
+
+MOC_1.2, Max time: 142710ms, solution quality, 69
+

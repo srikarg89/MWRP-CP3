@@ -1,5 +1,5 @@
 {
-    "agents": [[11, 40], [62, 2]],
+    "agents": [[11, 40], [62, 2], [22, 7]],
     "tasks": [],
     "map": "den101d.map",
     "movement": "FOUR_WAY_MOVEMENT",

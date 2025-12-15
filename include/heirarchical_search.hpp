@@ -179,6 +179,13 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         return multi_agent_solution;
     }
 
+    int centralized_cost = 0;
+    for(const auto& path : multi_agent_solution){
+        if(path.size() > centralized_cost){
+            centralized_cost = path.size();
+        }
+    }
+
     // Figure out which agent has the highest makespan.
     std::vector<bool> should_retry = std::vector<bool>(starts.size(), true);
     std::vector<std::vector<Partition>> partitions_solved_by_agent(starts.size(), std::vector<Partition>());
@@ -278,6 +285,16 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     }
 
     aggregated.num_decentralized_searches.push_back(num_decentralized_searches);
+
+    int decentralized_cost = 0;
+    for(const auto& path : multi_agent_solution){
+        if(path.size() > decentralized_cost){
+            decentralized_cost = path.size();
+        }
+    }
+
+    printf("\nFinal centralized cost: %d\n", centralized_cost);
+    printf("Final decentralized cost: %d\n\n", decentralized_cost);
 
     add_waits_to_end(multi_agent_solution);
     return multi_agent_solution;

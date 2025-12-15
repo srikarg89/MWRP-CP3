@@ -124,7 +124,6 @@ for i in range(len(NUM_AGENT_LOCS)):
 
         scenario_config = {
             "agents": agent_locs,
-            "tasks": [],
             "map": map_name.removeprefix("../maps/"),
             "movement": "FOUR_WAY_MOVEMENT",
             "los": "BRES_LOS"

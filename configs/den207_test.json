@@ -1,7 +1,6 @@
 
 {
     "agents": [[31, 43], [17, 27], [29, 15], [5, 5]],
-    "tasks": [],
     "map": "den207d.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"

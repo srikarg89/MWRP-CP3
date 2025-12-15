@@ -1,6 +1,5 @@
 {
     "agents": [[51, 25], [2, 25]],
-    "tasks": [],
     "map": "mc-forest.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"

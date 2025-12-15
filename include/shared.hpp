@@ -745,7 +745,6 @@ inline std::vector<std::string> split(std::string s, const std::string& delimite
 
 struct ScenarioConfig {
     std::vector<Position> agent_starts;
-    std::vector<Task> tasks;
     Map map;
 
     static ScenarioConfig from_json(const std::string& config_filename) {
@@ -812,34 +811,12 @@ struct ScenarioConfig {
 
         Map map(map_name, x_size, y_size, occupancy, movement_type, los_type);
 
-        auto tasks_json = parsed_data["tasks"];
-        std::vector<Task> tasks;
-        for(const auto& task : tasks_json) {
-            int task_id = task["id"].get<int>();
-            auto task_position = task["location"].get<std::vector<int>>();
-            if(task_position.size() != 2) {
-                throw std::runtime_error("Each task position must have exactly two coordinates.");
-            }
-            int num_agents_required = 1;
-            if(task.contains("num_agents_required")) {
-                num_agents_required = task["num_agents_required"].get<int>();
-            }
-            Position task_pos = Position{task_position[0], task_position[1]};
-            tasks.push_back(Task(task_id, task_pos, map.get_map_idx(task_pos), num_agents_required));
-        }
-
         // Validate agent and task positions.
         for(const auto& agent : agent_starts) {
             if(map.get_map_idx(agent) < 0 || map.get_map_idx(agent) >= map.num_squares || map.check_obstacle(agent)) {
                 throw std::runtime_error("Agent position " + agent.toString() + " is out of bounds or on an obstacle.");
             }
         }
-        for(const auto& task : tasks) {
-            if(task.map_idx < 0 || task.map_idx >= map.num_squares || map.check_obstacle(task.pos)) {
-                throw std::runtime_error("Task (" + task.toString() + ") is out of bounds or on an obstacle.");
-            }
-        }
-
-        return {std::move(agent_starts), std::move(tasks), std::move(map)};
+        return {std::move(agent_starts), std::move(map)};
     }
 };

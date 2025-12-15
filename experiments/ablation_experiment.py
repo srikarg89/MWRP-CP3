@@ -173,7 +173,6 @@ for RANDOM, RANDOM_INSTANCES in [(False, 1)]:
 
             scenario_config = {
                 "agents": agent_locs,
-                "tasks": [],
                 "map": map_name.removeprefix("../maps/"),
                 "movement": "FOUR_WAY_MOVEMENT",
                 "los": "BRES_LOS"

@@ -211,7 +211,6 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 }
 
 
-// NOTE: All tasks are also pivots, so num_tasks <= num_pivots.
 inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits, FocalMethod focal_method, bool optimize_focal) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;

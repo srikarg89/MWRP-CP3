@@ -1,6 +1,5 @@
 {
     "agents": [[4, 23], [23, 5]],
-    "tasks": [],
     "map": "maps2/lak105d.map",
     "movement": "FOUR_WAY_MOVEMENT",
     "los": "BRES_LOS"

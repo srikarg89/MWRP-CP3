@@ -577,12 +577,6 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
     printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
 }
 
-struct PastSolution {
-    std::vector<Position> path;
-    boost::dynamic_bitset<> seen;
-    std::vector<Task> tasks_left;
-};
-
 struct Optimizations {
     bool prune_pivots;
     bool run_parallel;

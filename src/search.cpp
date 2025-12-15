@@ -383,12 +383,12 @@ std::vector<HeuristicInput> get_heuristic_inputs_from_nodes(const std::vector<No
 
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup, const std::unordered_map<std::string, std::vector<PastSolution>>& solution_history) {
+std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup) {
     // Reset metrics for every search run.
     METRICS.reset();
 
     // Create initial seen bitset.
-    add_dominance_and_task_visibility_to_seen(start_seen, incomplete_tasks, map, lookup);
+    add_dominance_to_seen(start_seen, map, lookup);
     int num_start_seen = start_seen.count();
     
     std::vector<AgentState> start_agent_states;

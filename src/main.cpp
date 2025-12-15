@@ -42,7 +42,6 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     Lookup lookup;
     precompute_lookup(lookup, scenario_config.map, problem_input.heuristic_type, env.get_agent_positions(), problem_input.run_decentralized_search, problem_input.cell_pruning_method);
     printf("Initial map state: %s\n", get_map_state(lookup, scenario_config.map, env.get_seen(), env.get_agent_positions()).c_str());
-    std::unordered_map<std::string, std::vector<PastSolution>> solution_history;
     // exit(0);
 
     int num_strictly_easier = 0;
@@ -63,7 +62,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     MetricsList aggregated;
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), {}, env.get_seen(), scenario_config.map, problem_input, lookup, solution_history, aggregated);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), {}, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");

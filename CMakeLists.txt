@@ -6,13 +6,13 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_BUILD_TYPE Release)
 # set(CMAKE_BUILD_TYPE Debug)
 
-set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/cplex/)
+set(CPLEX_ROOT_DIR /opt/ibm/ILOG/CPLEX_Studio2211/)
+
+include(cmake/CPM.cmake)
 
 find_package(nlohmann_json 3.11.0 REQUIRED) # Specify required version
 find_package(Boost 1.70 REQUIRED COMPONENTS system filesystem program_options)
 find_package(Cplex REQUIRED)
-
-include(cmake/CPM.cmake)
 
 CPMAddPackage(
   NAME bshoshany-thread-pool
@@ -30,6 +30,8 @@ include_directories(${CONCORDE_DIR})
 include_directories(/home/srikar/libraries/qsopt)
 include_directories(${CPLEX_INCLUDE_DIRS})
 include_directories(${bshoshany-thread-pool_SOURCE_DIR}/include)
+# include_directories(/opt/ibm/ILOG/CPLEX_Studio2211/cplex/include)
+# include_directories(/opt/ibm/ILOG/CPLEX_Studio2211/concert/include)
 
 add_library(stapf_lib src/search.cpp)
 

@@ -20,9 +20,6 @@ CPMAddPackage(
   GIT_TAG v5.0.0 # Or the latest stable release tag
 )
 
-
-set(CONCORDE_DIR "/home/srikar/libraries/concorde_build")
-
 # Specify include directories for the project
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -31,15 +28,15 @@ include_directories(/home/srikar/libraries/qsopt)
 include_directories(${CPLEX_INCLUDE_DIRS})
 include_directories(${bshoshany-thread-pool_SOURCE_DIR}/include)
 
-add_library(stapf_lib src/search.cpp)
+add_library(mwrp_lib src/search.cpp)
 
 # Add an executable target
 add_executable(run src/main.cpp)
 add_executable(pruning_experiment src/pruning_experiment.cpp)
 
-target_link_libraries(run PRIVATE stapf_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
-target_link_libraries(run PRIVATE ${CPLEX_LIBRARIES} ${CONCORDE_DIR}/concorde.a /home/srikar/libraries/qsopt/lib/qsopt.a)
+target_link_libraries(run PRIVATE mwrp_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
+target_link_libraries(run PRIVATE ${CPLEX_LIBRARIES} /home/srikar/libraries/qsopt/lib/qsopt.a)
 # target_compile_options(run PRIVATE -Wno-deprecated-declarations) # For GCC/Clang
 
-target_link_libraries(pruning_experiment PRIVATE stapf_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
-target_link_libraries(pruning_experiment PRIVATE ${CPLEX_LIBRARIES} ${CONCORDE_DIR}/concorde.a /home/srikar/libraries/qsopt/lib/qsopt.a)
+target_link_libraries(pruning_experiment PRIVATE mwrp_lib nlohmann_json::nlohmann_json Boost::system Boost::filesystem Boost::program_options)
+target_link_libraries(pruning_experiment PRIVATE ${CPLEX_LIBRARIES} /home/srikar/libraries/qsopt/lib/qsopt.a)

@@ -171,7 +171,7 @@ void compute_lookup_los_and_apsp(Lookup& lookup, const Map& map) {
                 lookup.watchers_set[los_map_idx].insert(map_idx);
             }
 
-            auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, map);
+            auto [distances, preds] = get_bfs_distances_and_preds({pos}, map);
             lookup.apsp.push_back(distances);
             lookup.apsp_paths.push_back(preds);
         }

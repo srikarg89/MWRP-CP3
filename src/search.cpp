@@ -2,7 +2,6 @@
 #include "search.hpp"
 #include "shared.hpp"
 #include "utils.hpp"
-#include "pathfinding.hpp"
 #include "heuristics.hpp"
 #include "los.hpp"
 #include <unordered_map>
@@ -325,8 +324,7 @@ std::vector<HeuristicInput> get_heuristic_inputs_from_nodes(const std::vector<No
 }
 
 
-// Inputs: Agent starting positions, Tasks, LOS type, map.
-// Output: Optimal path.
+// Output: Optimal makespan path.
 std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup) {
     // Reset metrics for every search run.
     METRICS.reset();
@@ -381,16 +379,12 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
     std::vector<Node> expanded_nodes;
 
-    int num_expanded = 0;
     int num_generated = 0;
     int last_id_assigned = 0;
     int max_new_squares_seen = 0;
     int num_skipped = 0;
     int num_fully_expanded = 0;
     int num_discarded_high_f = 0;
-    int num_lazy_in_a_row = 0;
-    double popping_time = 0.0;
-    double update_time = 0.0;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -402,13 +396,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
     while(!(open_set.empty())){
         double time_elapsed = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
-        // printf("Time elapsed: %.3f seconds\n", time_elapsed);
-        // printf("\tTime popped from open set: %.3f seconds\n", popping_time);
-        // printf("\tOpen set size: %d, Focal list size: %d\n", (int)open_set.size(), (int)focal_list.size());
-        // printf("\tGeneration time: %.3f seconds\n", METRICS.neighbor_expansion_time);
-        // printf("\tLazy f-value calculation time: %.3f seconds\n", METRICS.lazy_f_value_calculation_time);
-        // printf("\tTSP f-value calculation time: %.3f seconds\n", METRICS.tsp_f_value_calculation_time);
-        // printf("\tUpdate time: %.3f seconds\n", update_time);
 
         if(time_elapsed > solver_config.hard_search_time_limit){
             printf("Hard time limit reached, exiting!.\n");
@@ -416,7 +403,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         if(solution_found && (time_elapsed > solver_config.search_time_limit)){
-            printf("Search time limit reached, ending search.\n");
+            printf("Soft time limit reached, ending search.\n");
             break;
         }
 
@@ -428,7 +415,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 std::vector<Node> batch_nodes;
                 auto it = open_set.ordered_begin();
                 int parallel_batch_size = solver_config.optimizations.run_parallel ? solver_config.optimizations.parallel_batch_size : 1;
-                auto pop_start = std::chrono::high_resolution_clock::now();
                 if(parallel_batch_size > 0){
                     while(it != open_set.ordered_end() && count < parallel_batch_size){
                         if(it->is_lazy){
@@ -447,9 +433,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                         ++it;
                     }
                 }
-                auto pop_end = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> pop_duration = pop_end - pop_start;
-                popping_time += pop_duration.count();
 
                 // printf("Running MxWA* batch heuristic on %d nodes!\n", (int)batch_nodes.size());
                 num_lazy_batches_run += 1;
@@ -460,7 +443,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 std::chrono::duration<double> f_duration = f_end - f_start;
                 METRICS.tsp_f_value_calculation_time += f_duration.count();
 
-                auto update_start = std::chrono::high_resolution_clock::now();
                 for(int i = 0; i < batch_nodes.size(); i++){
                     Node node = batch_nodes[i];
                     int new_f_value = std::max(f_and_focal_values[i].first, node.f_value); // Ensure f value never decreases.
@@ -468,9 +450,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     node.update_focal_heuristic(f_and_focal_values[i].second);
                     open_set.update(handle_lookup[node.node_id], node);
                 }
-                auto update_end = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> update_duration = update_end - update_start;
-                update_time += update_duration.count();
             }
         } else {
             // Focal A*
@@ -479,7 +458,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 auto it = open_set.ordered_begin();
                 int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)min_f_value);
                 std::vector<Node> nodes_to_recompute;
-                auto pop_start = std::chrono::high_resolution_clock::now();
                 while(it != open_set.ordered_end() && it->f_value <= max_f_value){
                     if(it->is_lazy) {
                         nodes_to_recompute.push_back(*it);
@@ -490,9 +468,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
                     ++it;
                 }
-                auto pop_end = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> pop_duration = pop_end - pop_start;
-                popping_time += pop_duration.count();
 
                 if(nodes_to_recompute.size() > 0){
                     num_lazy_batches_run += 1;
@@ -561,7 +536,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         max_new_squares_seen = std::max(max_new_squares_seen, curr.num_seen - num_obstacles);
         if(num_fully_expanded % 100 == 0){
-            printf("Expanded %d nodes. Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d. Time elapsed: %f\n", num_expanded, num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen, std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count());
+            printf("Fully expanded %d nodes. Num generated %d. Loc: %s, cost: %d, heuristic: %d, num free seen: %d / %d, max free squares seen: %d. Time elapsed: %f\n", num_fully_expanded, num_generated, agent_states_to_print_string(curr.agents).c_str(), curr.cost, curr.heuristic, (curr.num_seen - num_obstacles), num_free, max_new_squares_seen, std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count());
             printf("\tF value: %d. Cost: %d. Heuristic: %d. Focal: %d\n", curr.f_value, curr.cost, curr.heuristic, curr.focal_heuristic);
             printf("\tNode depth: %d, Max node depth expanded: %d. Min f value: %d, Max f value searching: %d\n", curr.depth, max_node_depth_expanded, prev_min_f, (int)(solver_config.focal_epsilon * prev_min_f));
         }
@@ -581,8 +556,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             if(curr.cost < best_solution_cost) {
                 printf("Writing solution to file. Previous best cost: %d, New best cost: %d\n", best_solution_cost, curr.cost);
                 double time = std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - start_time).count();
-                printf("ANYTIME SOLUTION: %f %d\n", time, curr.cost);
-                // sol_found_file << time << "," << curr.cost << "\n";
+                printf("Anytime solution found at time %f with cost %d\n", time, curr.cost);
                 best_solution_cost = curr.cost;
                 solution_paths = reconstruct_path(curr.node_id, pred_lookup, id_lookup, starts, map, lookup);
             }
@@ -598,7 +572,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             last_id_assigned = neighbors.back().node_id;
         }
         std::vector<Node> batch_nodes;
-        auto push_start = std::chrono::high_resolution_clock::now();
         for(Node& nbr : neighbors){
             int nbr_admissible_f_value = std::max((int)((double)nbr.f_value / A_STAR_WEIGHT), nbr.cost);
             if(nbr_admissible_f_value >= best_solution_cost){
@@ -622,9 +595,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 }
             }
         }
-        auto push_end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> push_duration = push_end - push_start;
-        update_time += push_duration.count();
 
         if(batch_nodes.size() > 0){
             num_lazy_batches_run += 1;
@@ -666,7 +636,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         printf("Focal set size: %ld\n", focal_list.size());
     }
 
-    printf("Total nodes expanded: %d\n", num_expanded);
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
@@ -675,17 +644,9 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes generated: %d\n", num_generated);
     printf("Total lazy batches run: %d\n", num_lazy_batches_run);
 
-    // if(solver_config.heuristic_type == TSP || solver_config.heuristic_type == MAX || solver_config.heuristic_type == LAZY){
-    //     printf("MTSP Setup time: %.3f seconds\n", METRICS.mtsp_setup_time);
-    //     printf("MTSP Solver time: %.3f seconds\n", METRICS.mtsp_solver_runtime);
-    //     printf("Total MTSP calls: %d\n", METRICS.mtsp_total_calls);
-    // }
-
     printf("Total neighbor expansion time: %.3f seconds\n", METRICS.neighbor_expansion_time);
     printf("Total lazy f_value time: %.3f seconds\n", METRICS.lazy_f_value_calculation_time);
     printf("Total TSP f_value time: %.3f seconds\n", METRICS.tsp_f_value_calculation_time);
-    printf("Total update time: %.3f seconds\n", update_time);
-    printf("Total popping time: %.3f seconds\n", popping_time);
     printf("Total domination check time: %.3f seconds\n", METRICS.domination_check_time);
     printf("Total adding LOS time: %.3f seconds\n", METRICS.adding_los_time);
     printf("Max node depth expanded: %d\n", max_node_depth_expanded);
@@ -703,52 +664,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total search time taken: %.3f seconds\n", seconds_taken);
 
     debug_file.close();
-    // sol_found_file.close();
-
-    std::ofstream solution_file;
-    solution_file.open("search_solution.csv");
-    solution_file << "Timestep, Num Agents, Num seen, Agent positions, Seen Bitset\n"; // Header
-    solution_file << map.map_name << "\n";
-    write_solution_to_file(solution_file, solution_paths, start_seen, map, lookup);
-    solution_file.close();
 
     return solution_paths;
 }
-
-
-/*
-EB
-
-Start f value: 22
-Goal condition met!
-Num seen: 121 / 121
-Search time taken: 0.968 seconds
-Solution cost: 25
-Path for agent (length 24) 0: (0,0) (0,1) (1,1) (2,1) (2,0) (3,0) (4,0) (4,1) (4,2) (4,3) (5,3) (6,3) (7,3) (8,3) (9,3) (10,3) (9,3) (8,3) (7,3) (6,3) (6,2) (6,1) (7,1) (7,0) 
-Path for agent (length 26) 1: (10,10) (9,10) (8,10) (8,9) (7,9) (7,8) (7,7) (7,6) (7,5) (7,6) (7,7) (7,8) (6,8) (5,8) (5,9) (5,10) (5,9) (5,8) (4,8) (3,8) (3,7) (2,7) (1,7) (1,6) (1,5) (0,5) 
-Total nodes expanded: 36
-Total nodes fully expanded: 36
-Total expansions skipped: 0
-Total generations skipped: 32
-Total nodes generated: 359
-Total heuristic time: 0.000 seconds
-Total MTSP time: 0.057 seconds
-MTSP Solver time: 0.918 seconds
-Total MTSP calls: 359
-Solution size: 2
-
-
-Search time taken: 1.021 seconds
-Solution cost: 25
-Path for agent (length 24) 0: (0,0) (0,1) (1,1) (2,1) (2,0) (3,0) (4,0) (4,1) (4,2) (4,3) (5,3) (6,3) (7,3) (8,3) (9,3) (10,3) (9,3) (8,3) (7,3) (6,3) (6,2) (6,1) (7,1) (7,0) 
-Path for agent (length 26) 1: (10,10) (9,10) (8,10) (8,9) (7,9) (7,8) (7,7) (7,6) (7,5) (7,6) (7,7) (7,8) (6,8) (5,8) (5,9) (5,10) (5,9) (5,8) (4,8) (3,8) (3,7) (2,7) (1,7) (1,6) (1,5) (0,5) 
-Total nodes expanded: 36
-Total nodes fully expanded: 36
-Total expansions skipped: 0
-Total generations skipped: 32
-Total nodes generated: 359
-MTSP Setup time: 0.063 seconds
-MTSP Solver time: 0.960 seconds
-Total MTSP calls: 359
-
-*/

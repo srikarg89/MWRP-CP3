@@ -169,16 +169,11 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
 
     aggregated.num_decentralized_searches.push_back(num_decentralized_searches);
 
-    int decentralized_cost = 0;
-    for(const auto& path : multi_agent_solution){
-        if(path.size() > decentralized_cost){
-            decentralized_cost = path.size();
-        }
-    }
+    add_waits_to_end(multi_agent_solution);
+    int decentralized_cost = multi_agent_solution[0].size();
 
     printf("\nFinal centralized cost: %d\n", centralized_cost);
     printf("Final decentralized cost: %d\n\n", decentralized_cost);
 
-    add_waits_to_end(multi_agent_solution);
     return multi_agent_solution;
 }

@@ -75,51 +75,6 @@ inline std::string get_map_state(const Lookup& lookup, const Map& map, boost::dy
     return map_list;
 }
 
-inline void write_solution_to_file(std::ofstream& file, std::vector<std::vector<Position>> paths, boost::dynamic_bitset<> start_seen, const Map& map, const Lookup& lookup){
-    boost::dynamic_bitset<> seen = start_seen;
-    int num_seen = 0;
-    for(int map_idx = 0; map_idx < map.x_size * map.y_size; map_idx++){
-        if(map.check_obstacle(map.get_pos_from_map_idx(map_idx))){
-            seen[map_idx] = 1;
-            num_seen += 1;
-        }
-    }
-    std::vector<AgentState> start_agent_states;
-    size_t max_length = 0;
-    for(int i = 0; i < paths.size(); i++){
-        max_length = std::max(max_length, paths[i].size());
-    }
-
-    for(auto& path : paths){
-        while(path.size() < max_length){
-            path.push_back(path.back());
-        }
-    }
-
-    for(int t = 0; t < max_length; t++){
-        std::vector<Position> curr_positions;
-        for(int p = 0; p < paths.size(); p++){
-            Position pos = paths[p][t];
-            curr_positions.push_back(pos);
-            num_seen += add_los_to_seen(seen, lookup.los[map.get_map_idx(pos)], map);
-        }
-
-        std::string map_list = "";
-        for(int i = 0; i < seen.size(); i++){
-            if(seen[i]){
-                map_list += "2"; // Seen
-            } else {
-                map_list += "0"; // Not seen
-            }
-        }
-        file << t << "," << curr_positions.size() << "," << num_seen << ",";
-        for(Position pos : curr_positions){
-            file << pos.x << "," << pos.y << ",";
-        }
-        file << map_list << "\n";
-    }
-}
-
 inline void write_run_state_to_file(std::ofstream& file, int timestep, std::vector<std::vector<Position>> paths_to_go, const Map& map, std::vector<Position> agent_positions, boost::dynamic_bitset<> seen) {
     std::vector<int> agent_map_idxs = map.get_map_idxs(agent_positions);
 

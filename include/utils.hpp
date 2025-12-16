@@ -1,9 +1,9 @@
 #pragma once
 
 #include <vector>
+#include <queue>
 #include <boost/dynamic_bitset.hpp>
 #include "shared.hpp"
-#include "pathfinding.hpp"
 #include "los.hpp"
 
 // Copy taken since we alter the paths.
@@ -20,6 +20,34 @@ inline void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
             paths[i].push_back(paths[i].back());
         }
     }
+}
+
+inline std::tuple<std::vector<int>, std::vector<int>> get_bfs_distances_and_preds(std::vector<Position> starts, const Map& map){
+    std::vector<int> distances(map.x_size * map.y_size, INT_MAX);
+    std::vector<int> preds(map.x_size * map.y_size, INT_MAX);
+    std::queue<int> queue;
+
+    for(Position start : starts){
+        int start_map_idx = map.get_map_idx(start);
+        queue.push(start_map_idx);
+        distances[start_map_idx] = 0;
+        preds[start_map_idx] = -1;
+    }
+
+    while(!queue.empty()){
+        int curr = queue.front();
+        queue.pop();
+        for(int neighbor_map_idx : map.neighbors[curr]){
+            if(distances[neighbor_map_idx] != INT_MAX){
+                continue;
+            }
+            distances[neighbor_map_idx] = distances[curr] + 1;
+            preds[neighbor_map_idx] = curr;
+            queue.push(neighbor_map_idx);
+        }
+    }
+
+    return std::make_tuple(distances, preds);
 }
 
 
@@ -318,14 +346,6 @@ inline std::vector<bool> calculate_path_dominance(std::vector<Position> start_po
     return strictly_easier;
 }
 
-inline std::vector<bool> vec_and(const std::vector<bool>& a, const std::vector<bool>& b){
-    std::vector<bool> result;
-    for(int i = 0; i < a.size(); i++){
-        result.push_back(a[i] & b[i]);
-    }
-    return result;
-}
-
 inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heuristic_type, std::vector<Position> agent_starts, bool run_decentralized_search, CellPruningMethod cell_pruning_method){
     // Precompute the LOS Lookup and the All Pairs Shortest Path (APSP)
     printf("Precomputing lookup!\n");
@@ -361,7 +381,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
                 lookup.watchers_set[los_map_idx].insert(map_idx);
             }
 
-            auto [distances, preds] = pathfinding::get_bfs_distances_and_preds({pos}, map);
+            auto [distances, preds] = get_bfs_distances_and_preds({pos}, map);
             lookup.apsp.push_back(distances);
             lookup.apsp_paths.push_back(preds);
         }
@@ -523,7 +543,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
         // For each pivot, we want to compute the distances from the pivot component to every other location.
         // Then, we can use that data to calculate the min dstance from the pivot component to any other pivot component.
-        auto [pivot_cell_dists, _] = pathfinding::get_bfs_distances_and_preds(lookup.watchers[pivot_idx], map);
+        auto [pivot_cell_dists, _] = get_bfs_distances_and_preds(lookup.watchers[pivot_idx], map);
         lookup.pivot_cell_dists[pivot_idx] = pivot_cell_dists;
 
         for(int cell_idx = 0; cell_idx < map.num_squares; cell_idx++){

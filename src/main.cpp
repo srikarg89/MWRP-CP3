@@ -61,6 +61,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
 
     MetricsList aggregated;
 
+    // Calculate makespan optimal path.
     int timestep = 0;
     std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
 

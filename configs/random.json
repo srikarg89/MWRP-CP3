@@ -1,6 +1,0 @@
-{
-    "agents": [[0, 0], [31, 31]],
-    "map": "random-32-32-10.map",
-    "movement": "FOUR_WAY_MOVEMENT",
-    "los": "BRES_LOS"
-}

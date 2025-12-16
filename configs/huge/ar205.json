@@ -1,6 +1,0 @@
-{
-    "agents": [[125, 13]],
-    "map": "huge/AR0205SR.map",
-    "movement": "FOUR_WAY_MOVEMENT",
-    "los": "BRES_LOS"
-}

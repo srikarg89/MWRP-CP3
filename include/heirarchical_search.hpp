@@ -55,7 +55,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     };
     auto start_time = std::chrono::high_resolution_clock::now();
     A_STAR_WEIGHT = problem_input.centralized_astar_weight;
-    std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, {}, start_seen, map, solver_config, lookup, {});
+    std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, {}, start_seen, map, solver_config, lookup);
     aggregated.add_metrics(METRICS);
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;

@@ -62,7 +62,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     MetricsList aggregated;
 
     int timestep = 0;
-    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), {}, env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
+    std::vector<std::vector<Position>> solution = run_heirarchical_search(timestep, env.get_agent_positions(), env.get_seen(), scenario_config.map, problem_input, lookup, aggregated);
 
     std::ofstream final_run_file;
     final_run_file.open("final_solution.csv");

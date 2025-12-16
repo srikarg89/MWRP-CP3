@@ -5,7 +5,6 @@
 
 #include "shared.hpp"
 #include "los.hpp"
-#include "collisions.hpp"
 #include "search.hpp"
 
 struct Partition {
@@ -55,7 +54,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
     };
     auto start_time = std::chrono::high_resolution_clock::now();
     A_STAR_WEIGHT = problem_input.centralized_astar_weight;
-    std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, {}, start_seen, map, solver_config, lookup);
+    std::vector<std::vector<Position>> multi_agent_solution = run_search(start_timestep, starts, start_seen, map, solver_config, lookup);
     aggregated.add_metrics(METRICS);
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end_time - start_time;
@@ -145,7 +144,7 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         printf("Time taken before search calculation: %.6f seconds\n", duration.count());
 
         A_STAR_WEIGHT = problem_input.decentralized_astar_weight;
-        std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, {}, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
+        std::vector<std::vector<Position>> single_agent_solution = run_search(start_timestep, single_agent_start, single_agent_seen, map, single_agent_solver_config, single_agent_lookup);
         aggregated.add_metrics(METRICS);
 
         // Update centralized solution.

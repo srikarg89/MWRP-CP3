@@ -4,7 +4,6 @@
 #include "utils.hpp"
 #include "pathfinding.hpp"
 #include "heuristics.hpp"
-#include "collisions.hpp"
 #include "los.hpp"
 #include <unordered_map>
 #include <iostream>
@@ -328,7 +327,7 @@ std::vector<HeuristicInput> get_heuristic_inputs_from_nodes(const std::vector<No
 
 // Inputs: Agent starting positions, Tasks, LOS type, map.
 // Output: Optimal path.
-std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, std::vector<Task> incomplete_tasks, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup) {
+std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Position> starts, boost::dynamic_bitset<> start_seen, const Map& map, const SolverConfig& solver_config, const Lookup& lookup) {
     // Reset metrics for every search run.
     METRICS.reset();
 
@@ -373,14 +372,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     HeuristicType start_heuristic_type = solver_config.heuristic_type;
     if(start_heuristic_type == LAZY){
         start_heuristic_type = SINGLETON;
-    }
-    printf("Incomplete tasks (%ld): \n", incomplete_tasks.size());
-    for(const Task& task : incomplete_tasks){
-        printf("\t%s\n", task.toString().c_str());
-        if(task.num_agents_required > starts.size()){
-            printf("Task %s requires more agents (%d) than are available (%ld). No solution possible.\n", task.toString().c_str(), task.num_agents_required, starts.size());
-            exit(1);
-        }
     }
 
     auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];

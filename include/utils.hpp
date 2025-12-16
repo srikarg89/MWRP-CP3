@@ -6,6 +6,23 @@
 #include "pathfinding.hpp"
 #include "los.hpp"
 
+// Copy taken since we alter the paths.
+inline void add_waits_to_end(std::vector<std::vector<Position>>& paths) {
+    int max_time = 0;
+    for(const auto& path : paths){
+        max_time = std::max(max_time, (int)path.size());
+    }
+
+    printf("Max time: %d\n", max_time);
+    
+    for(int i = 0; i < paths.size(); i++){
+        while(paths[i].size() < max_time){
+            paths[i].push_back(paths[i].back());
+        }
+    }
+}
+
+
 inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     METRICS.extended_neighbors_calls += 1;
     auto start = std::chrono::high_resolution_clock::now();

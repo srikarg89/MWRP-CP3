@@ -13,7 +13,6 @@ struct HeuristicInput {
     std::vector<AgentState> agents;
     int cost;
     boost::dynamic_bitset<> seen;
-    std::vector<Task> tasks_left;
     int num_seen;
 };
 

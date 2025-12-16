@@ -213,10 +213,9 @@ inline std::string bit_set_to_string(const boost::dynamic_bitset<>& bitset){
 struct AgentState {
     Position pos;
     bool terminated;
-    int waiting_idx; // -1 if not waiting, otherwise the index of the task being waited at.
     int cost;
 
-    AgentState(Position p, bool t, int w, int c) : pos(p), terminated(t), waiting_idx(w), cost(c) {}
+    AgentState(Position p, bool t, int c) : pos(p), terminated(t), cost(c) {}
 };
 
 inline std::vector<Position> agent_states_to_positions(const std::vector<AgentState>& agents){
@@ -246,8 +245,6 @@ inline std::string agent_states_to_string(const std::vector<AgentState>& agents)
     std::string str = "[";
     for(const AgentState& agent : sorted_agents){
         // TODO: Change this if we expand individual agents at a time.
-        // Cost matters for distinguishing states when waiting.
-        // str += agent.pos.toString() + (agent.terminated ? " / T" : "") + " / " + std::to_string(agent.waiting_idx) + (agent.waiting_idx != -1 ? " / " + std::to_string(agent.cost) : "") + ", ";
         // str += agent.pos.toString() + ", ";
         str += agent.pos.toString() + (agent.terminated ? " / T" : "") + ", ";
     }
@@ -284,28 +281,9 @@ struct Task {
     }
 };
 
-inline std::string task_array_hash_string(const std::vector<Task>& tasks){
-    std::string str = "[";
-    for(const Task& task : tasks){
-        str += std::to_string(task.id) + ",";
-    }
-    str += "]";
-    return str;
-}
-
-inline std::vector<Position> task_to_pos_array(const std::vector<Task>& tasks){
-    std::vector<Position> poses;
-    for(const Task& task : tasks){
-        poses.push_back(task.pos);
-    }
-    return poses;
-}
-
-
 struct Node {
     int node_id;
     std::vector<AgentState> agents;
-    std::vector<Task> tasks_left;
     boost::dynamic_bitset<> seen;
     int cost;
     int heuristic;
@@ -315,11 +293,10 @@ struct Node {
     bool is_lazy;
     int depth;
 
-    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, std::vector<Task> t, int c, int f, int foc, int n, int d){
+    Node(int id, std::vector<AgentState> a, boost::dynamic_bitset<> s, int c, int f, int foc, int n, int d){
         node_id = id;
         agents = a;
         seen = s;
-        tasks_left = t;
         cost = c;
         heuristic = f - c;
         num_seen = n;
@@ -773,7 +750,7 @@ struct ScenarioConfig {
 
         Map map(map_name, x_size, y_size, occupancy, movement_type, los_type);
 
-        // Validate agent and task positions.
+        // Validate agent position.
         for(const auto& agent : agent_starts) {
             if(map.get_map_idx(agent) < 0 || map.get_map_idx(agent) >= map.num_squares || map.check_obstacle(agent)) {
                 throw std::runtime_error("Agent position " + agent.toString() + " is out of bounds or on an obstacle.");

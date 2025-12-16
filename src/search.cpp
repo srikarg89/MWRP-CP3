@@ -126,11 +126,11 @@ std::vector<AgentState> get_agent_options(const AgentState& agent, const Map& ma
     // Expanding borders implementation.
     std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, lookup);
     for(auto [nbr, added_cost] : nbrs_with_added_cost){
-        agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
+        agent_options.push_back(AgentState(nbr, false, agent.cost + added_cost));
     }
 
     if(allow_terminate){
-        agent_options.push_back(AgentState(agent.pos, true, -1, agent.cost)); // Option to terminate.
+        agent_options.push_back(AgentState(agent.pos, true, agent.cost)); // Option to terminate.
     }
     return agent_options;
 }
@@ -176,25 +176,18 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     for(auto& nbr : neighbors){
         boost::dynamic_bitset<> nbr_seen = node.seen;
         // For each neighbor, loop through path to neighbor.
-        int new_squares_seen = 0;
+        int nbr_num_seen = node.num_seen;
         int nbr_cost = 0;
         start = std::chrono::high_resolution_clock::now();
         for(const AgentState& agent : nbr){
-            new_squares_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
+            nbr_num_seen += add_los_to_seen(nbr_seen, lookup.los[map.get_map_idx(agent.pos)], map);
             nbr_cost = std::max(nbr_cost, agent.cost);
-
-            // If the agent has reached the task, remove it from the tasks left.
-            int agent_map_idx = map.get_map_idx(agent.pos);
         }
         end = std::chrono::high_resolution_clock::now();
         duration = end - start;
         METRICS.adding_los_time += duration.count();
 
-        std::vector<Task> nbr_tasks_left;
-
-        int nbr_num_seen = node.num_seen + new_squares_seen;
-
-        std::string nbr_key = agent_states_to_string(nbr) + task_array_hash_string(nbr_tasks_left);
+        std::string nbr_key = agent_states_to_string(nbr);
         std::vector<AgentState> nbr_sorted = get_sorted_agents_by_position(nbr);
 
         // Check for dominance in generated costs.
@@ -249,7 +242,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
             }
         }
 
-        neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_tasks_left, nbr_num_seen});
+        neighbor_heuristic_inputs.push_back(HeuristicInput{nbr, nbr_cost, nbr_seen, nbr_num_seen});
     }
 
     HeuristicType heuristic_type = solver_config.heuristic_type;
@@ -276,14 +269,14 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         int nbr_focal_value = f_and_focal_values[i].second;
         last_id_assigned += 1;
 
-        std::string nbr_key = agent_states_to_string(input.agents) + task_array_hash_string(input.tasks_left);
+        std::string nbr_key = agent_states_to_string(input.agents);
         std::vector<AgentState> nbr_sorted = get_sorted_agents_by_position(input.agents);
         if(generated_costs.find(nbr_key) == generated_costs.end()){
             generated_costs[nbr_key] = std::vector<VisitedNodeInfo>{};
         }
         generated_costs[nbr_key].push_back(VisitedNodeInfo{last_id_assigned, nbr_sorted, input.seen});
 
-        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.tasks_left, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, node.depth + 1));
+        neighbor_nodes.push_back(Node(last_id_assigned, input.agents, input.seen, input.cost, nbr_f_value, nbr_focal_value, input.num_seen, node.depth + 1));
     }
 
     return neighbor_nodes;
@@ -327,7 +320,7 @@ std::vector<std::vector<Position>> reconstruct_path(int goal_node_id, const std:
 std::vector<HeuristicInput> get_heuristic_inputs_from_nodes(const std::vector<Node>& nodes){
     std::vector<HeuristicInput> inputs;
     for(const Node& node : nodes){
-        inputs.push_back(HeuristicInput{node.agents, node.cost, node.seen, node.tasks_left, node.num_seen});
+        inputs.push_back(HeuristicInput{node.agents, node.cost, node.seen, node.num_seen});
     }
     return inputs;
 }
@@ -346,7 +339,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     std::vector<AgentState> start_agent_states;
     for(Position start : starts){
         num_start_seen += add_los_to_seen(start_seen, lookup.los[map.get_map_idx(start)], map);
-        start_agent_states.push_back(AgentState(start, false, -1, start_timestep));
+        start_agent_states.push_back(AgentState(start, false, start_timestep));
     }
 
     // Initialize search data structures.
@@ -390,10 +383,10 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
     }
 
-    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, incomplete_tasks, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
+    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
 
-    handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, incomplete_tasks, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*depth = */ 0));
+    handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*depth = */ 0));
 
     std::vector<Node> expanded_nodes;
 
@@ -583,7 +576,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         }
 
         // Goal condition.
-        if(curr.num_seen == map.num_squares && curr.tasks_left.size() == 0){
+        if(curr.num_seen == map.num_squares){
             printf("Goal condition met!\n");
             printf("\tNum seen: %d / %d\n", curr.num_seen, map.num_squares);
             printf("\tSolution node depth: %d\n", curr.depth);

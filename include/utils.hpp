@@ -716,39 +716,3 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
     }
 }
-
-// Disallow waiting robots from going anywhere before completing their current task.
-// This is done by setting the cost to go to any other pivot as infinite, and setting the cost to go to the task itself as the min time it would take to complete the task.
-inline void alter_disjoint_graph_for_waiting_robots(DisjointGraph& graph, const Map& map, const std::vector<AgentState>& non_terminated_agents, const std::vector<Task>& tasks_left, const Lookup& lookup) {
-    int max_apsp = map.num_squares;
-    int U = max_apsp * std::accumulate(graph.num_required_visits.begin(), graph.num_required_visits.end(), 0);; // Some large number.
-    for(int i = 0; i < non_terminated_agents.size(); i++){
-        const AgentState& agent = non_terminated_agents[i];
-        if(agent.waiting_idx == -1){
-            continue;
-        }
-
-        Task task = get_task_by_id(tasks_left, agent.waiting_idx);
-        int time_to_complete = std::max(get_min_time_for_task_completion(non_terminated_agents, map, task, lookup, false), task.release_time - agent.cost);
-
-        // Robot is waiting at a task, so set the cost for the robot to directly go to any other location as infinite.
-        // Also, set the cost to go to the task itself as however long it would take to complete the task.
-        bool found = false;
-        for(int j = 0; j < graph.pivots.size(); j++){
-            if(graph.pivot_task_ids[j] == agent.waiting_idx){
-                found = true;
-                if(graph.agent_pivot_costs[i][j] != 0){
-                    printf("Error: Robot waiting at a task but cost to that task pivot is not 0!\n");
-                    exit(0);
-                }
-                graph.agent_pivot_costs[i][j] = time_to_complete;
-            } else {
-                graph.agent_pivot_costs[i][j] = U;
-            }
-        }
-        if(!found){
-            printf("Error: Robot waiting at a task but task pivot not found in graph!\n");
-            exit(0);
-        }
-    }
-}

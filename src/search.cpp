@@ -47,7 +47,6 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
                 prune_graph(disjoint_graph, lookup);
             }
             // printf("Num pivots: %d\n", (int)disjoint_graph.pivots.size());
-            alter_disjoint_graph_for_waiting_robots(disjoint_graph, map, non_terminated_agents, input.tasks_left, lookup);
 
             // If there's no pivots, just return the singleton heuristic.
             if(disjoint_graph.pivots.size() == 0){

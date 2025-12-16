@@ -573,8 +573,6 @@ inline void add_dominance_to_seen(boost::dynamic_bitset<>& seen, const Map& map,
 inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, int max_pivots_generated){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
-    std::vector<int> pivot_task_ids;
-    std::vector<int> num_required_visits;
 
     for(int potential_pivot : lookup.sorted_pivot_order){
         if(pivots.size() >= max_pivots_generated){
@@ -595,29 +593,11 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
             }
         }
 
-        // Check if one of the tasks is already a watcher for this pivot.
-        // for(int task : tasks_left){
-        for(const Task& task : tasks_left){
-            if(lookup.pivot_cell_dists[potential_pivot][task.map_idx] == 0){
-                valid = false;
-                break;
-            }
-        }
-
         if(!valid){
             continue;
         }
 
         pivots.push_back(potential_pivot);
-        pivot_task_ids.push_back(-1); // Exploration pivot.
-        num_required_visits.push_back(1); // Exploration pivot requires 1 visit.
-    }
-
-    int num_exploration_pivots = pivots.size();
-    for(const Task& task : tasks_left){
-        pivots.push_back(task.map_idx);
-        pivot_task_ids.push_back(task.id);
-        num_required_visits.push_back(task.num_agents_required);
     }
 
     int max_edge_cost = 0;
@@ -629,16 +609,7 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
         std::vector<int> pivot_outgoing_costs;
         for(int j = 0; j < pivots.size(); j++){
             int p2 = pivots[j];
-            int cost = 0;
-            if(i < num_exploration_pivots && j < num_exploration_pivots){ // P1 is exploration, P2 is exploration.
-                cost = lookup.pivot_pivot_dists[p1][p2];
-            } else if(i < num_exploration_pivots && j >= num_exploration_pivots) { // P1 is exploration, P2 is task.
-                cost = lookup.pivot_cell_dists[p1][p2];
-            } else if(i >= num_exploration_pivots && j < num_exploration_pivots) { // P1 is task, P2 is exploration.
-                cost = lookup.pivot_cell_dists[p2][p1];
-            } else { // P1 is task, P2 is task.
-                cost = lookup.apsp[p1][p2];
-            }
+            int cost = lookup.pivot_pivot_dists[p1][p2];
 
             pivot_outgoing_costs.push_back(cost);
             max_edge_cost = std::max(max_edge_cost, cost);
@@ -646,13 +617,8 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
         pivot_pivot_costs.push_back(pivot_outgoing_costs);
 
         for(int j = 0; j < agents.size(); j++){
-            int cost = 0;
             int agent_map_idx = map.get_map_idx(agents[j].pos);
-            if(i < num_exploration_pivots) {
-                cost = lookup.pivot_cell_dists[p1][agent_map_idx];
-            } else {
-                cost = lookup.apsp[p1][agent_map_idx];
-            }
+            int cost = lookup.pivot_cell_dists[p1][agent_map_idx];
             agent_pivot_costs[j].push_back(cost);
             max_edge_cost = std::max(max_edge_cost, cost);
         }
@@ -660,12 +626,9 @@ inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<Ag
 
     return DisjointGraph {
         .pivots=pivots,
-        .pivot_task_ids=pivot_task_ids,
-        .num_required_visits=num_required_visits,
         .pivot_pivot_costs=pivot_pivot_costs,
         .agent_pivot_costs=agent_pivot_costs,
-        .max_edge_cost=max_edge_cost,
-        .num_exploration_pivots=num_exploration_pivots
+        .max_edge_cost=max_edge_cost
     };
 }
 
@@ -699,20 +662,12 @@ inline void prune_graph(DisjointGraph& graph, const Lookup& lookup){
         }
 
         graph.pivots.erase(graph.pivots.begin() + shortcut_pivot);
-        graph.pivot_task_ids.erase(graph.pivot_task_ids.begin() + shortcut_pivot);
-        graph.num_required_visits.erase(graph.num_required_visits.begin() + shortcut_pivot);
         graph.pivot_pivot_costs.erase(graph.pivot_pivot_costs.begin() + shortcut_pivot);
         for(auto& row : graph.pivot_pivot_costs){
             row.erase(row.begin() + shortcut_pivot);
         }
         for(auto& row : graph.agent_pivot_costs){
             row.erase(row.begin() + shortcut_pivot);
-        }
-        if(shortcut_pivot < graph.num_exploration_pivots){
-            graph.num_exploration_pivots -= 1;
-        } else {
-            printf("Warning: Removed a task pivot during pruning. This shouldn't happen.\n");
-            exit(0);
         }
     }
 }

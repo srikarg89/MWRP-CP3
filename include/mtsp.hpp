@@ -9,14 +9,14 @@
 
 using namespace std;
 
-inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m, const std::vector<int>& num_required_visits) {
+inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
     // Greedy: Go to the next cheapest edge that doesn't violate any constraints.
     std::vector<std::vector<int>> initial_paths(m, std::vector<int>());
     for(int i = 0; i < m; i++){
         initial_paths[i].push_back(n); // Start at depot
     }
 
-    std::vector<std::unordered_set<int>> agents_visited(n, std::unordered_set<int>());
+    std::vector<bool> visited(n, false);
 
     while(true) {
         int cheapest = -1;
@@ -25,16 +25,11 @@ inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::
 
         bool added = false;
         for(int i = 0; i < n; i++) {
-            if(agents_visited[i].size() == num_required_visits[i]){
+            if(visited[i]){
                 continue;
             }
 
             for(int j = 0; j < m; j++){
-                // Agent's already visited this location.
-                if(agents_visited[i].find(j) != agents_visited[i].end()){
-                    continue;
-                }
-
                 int curr = initial_paths[j].back();
                 int cost;
                 if(curr == n){
@@ -57,7 +52,7 @@ inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::
         }
 
         initial_paths[cheapest_agent].push_back(cheapest);
-        agents_visited[cheapest].insert(cheapest_agent);
+        visited[cheapest] = true;
     }
 
     for(int i = 0; i < m; i++){
@@ -66,25 +61,21 @@ inline std::vector<std::vector<int>> get_greedy_solution(const std::vector<std::
     return initial_paths;
 }
 
-// TODO: Equalities are bad, maybe setting this to >=1 is better?
-inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, int n, int m, const std::vector<int>& num_required_visits){
+inline void add_num_visits_constraint(IloEnv& env, IloModel& model, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, int n, int m){
     for(int loc = 0; loc < n; loc++) {
         IloExpr expr(env);
         for(int agent = 0; agent < m; agent++) {
-            IloExpr visits_per_agent(env);
             for(int from = 0; from < n + 1; from++) {
                 if(from != loc) {
                     expr += x[agent][from][loc];
-                    visits_per_agent += x[agent][from][loc];
                 }
             }
-            model.add(visits_per_agent <= 1); // Each agent can visit a location at most once.
-            visits_per_agent.end();
         }
 
+        // Constraint: Every location is visited exactly once.
         // NOTE: This should be fine since there should be no shortcuts in the solution due to other constraints.
-        // model.add(expr >= num_required_visits[loc]);
-        model.add(expr == num_required_visits[loc]);
+        // model.add(expr >= 1);
+        model.add(expr == 1);
 
         expr.end();
     }
@@ -166,8 +157,8 @@ inline void print_paths(IloCplex& cplex, const std::vector<std::vector<std::vect
     }
 }
 
-inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, const std::vector<std::vector<int>>& cost_matrix, int n, int m, const std::vector<int>& num_required_visits) {
-    std::vector<std::vector<int>> initial_paths = get_greedy_solution(cost_matrix, n, m, num_required_visits);
+inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::vector<std::vector<std::vector<IloBoolVar>>>& x, const std::vector<std::vector<int>>& cost_matrix, int n, int m) {
+    std::vector<std::vector<int>> initial_paths = get_greedy_solution(cost_matrix, n, m);
 
     for(int agent = 0; agent < m; agent++){
         // Don't add if the agent didn't leave its depot.
@@ -211,7 +202,7 @@ inline void set_MIP_start(IloNumVarArray& vars, IloNumArray& vals, const std::ve
 }
 
 
-inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, const std::vector<int>& num_required_visits, FocalMethod focal_method, bool optimize_focal) {
+inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::vector<std::vector<int>>& cost_matrix, const std::vector<int>& current_costs, FocalMethod focal_method, bool optimize_focal) {
     auto start = std::chrono::high_resolution_clock::now();
     IloEnv env;
     try {
@@ -233,7 +224,7 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
         }
 
         // Constraint 1: Every location is visited exactly once. Done by ensuring every column sums to 1. But only for the N locations (not dummy depots).
-        add_num_visits_constraint(env, model, x, n, m, num_required_visits);
+        add_num_visits_constraint(env, model, x, n, m);
 
         // Constraint 2: Continuous path. Leaving loc - arriving at loc = 0 for all loc.
         add_continuous_path_constraint(env, model, x, n, m);
@@ -310,7 +301,7 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
         // Attach the MIP start to the model
         IloNumVarArray vars(env);
         IloNumArray vals(env);
-        set_MIP_start(vars, vals, x, cost_matrix, n, m, num_required_visits);
+        set_MIP_start(vars, vals, x, cost_matrix, n, m);
 
         // Solve
         IloCplex cplex(model);
@@ -351,10 +342,6 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
             //     printf("\tInitial cost: %d, total cost: %d\n", current_costs[agent], agent_cost + current_costs[agent]);
             // }
             // print_paths(cplex, x, n, m, cost_matrix);
-            // if(num_required_visits.back() > 1 || num_required_visits[num_required_visits.size() - 2] > 1){
-            //     printf("Note: Some locations required multiple visits.\n");
-            //     exit(0);
-            // }
 
             double makespan_double = cplex.getObjValue();
             int makespan = static_cast<int>(std::round(makespan_double));

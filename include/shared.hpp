@@ -554,12 +554,9 @@ struct Lookup {
 
 struct DisjointGraph {
     std::vector<int> pivots;
-    std::vector<int> pivot_task_ids; // -1 if exploration pivot, otherwise the task id.
-    std::vector<int> num_required_visits;
     std::vector<std::vector<int>> pivot_pivot_costs;
     std::vector<std::vector<int>> agent_pivot_costs;
     int max_edge_cost;
-    int num_exploration_pivots;
 };
 
 inline void print_disjoint_graph(const DisjointGraph& graph) {
@@ -574,7 +571,6 @@ inline void print_disjoint_graph(const DisjointGraph& graph) {
         printf("%s\n", int_array_to_string(row).c_str());
     }
     printf("Max Edge Cost: %d\n", graph.max_edge_cost);
-    printf("Num Exploration Pivots: %d\n", graph.num_exploration_pivots);
 }
 
 struct Optimizations {

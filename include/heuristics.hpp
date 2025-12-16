@@ -99,18 +99,6 @@ std::pair<int, int> get_multi_tsp_f_and_focal_value(const DisjointGraph& disjoin
         cost_map.push_back(disjoint_graph.agent_pivot_costs[i]);
     }
 
-    // printf("Pivots:\n");
-    // for(int i = 0; i < disjoint_graph.pivots.size(); i++){
-    //     int p = disjoint_graph.pivots[i];
-    //     printf("\t%d: %d\n", i, p);
-    // }
-    // for(int i = 0; i < disjoint_graph.num_required_visits.size(); i++){
-    //     printf("Pivot %d requires %d visits\n", i, disjoint_graph.num_required_visits[i]);
-    // }
-    if(disjoint_graph.pivots.size() != disjoint_graph.num_required_visits.size()){
-        printf("Pivots size %ld != num required visits size %ld\n", disjoint_graph.pivots.size(), disjoint_graph.num_required_visits.size());
-        exit(1);
-    }
-    auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, disjoint_graph.num_required_visits, focal_method, optimize_focal);
+    auto mtsp_solution = run_mtsp(agent_costs.size(), disjoint_graph.pivots.size(), cost_map, agent_costs, focal_method, optimize_focal);
     return mtsp_solution;
 }

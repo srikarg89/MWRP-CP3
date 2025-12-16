@@ -42,7 +42,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
         bool use_singleton = (heuristic_type == SINGLETON || heuristic_type == LAZY || heuristic_type == MAX);
 
         if(heuristic_type == TSP || heuristic_type == MAX || heuristic_type == LAZY) {
-            DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, input.tasks_left, lookup, optimizations.max_pivots_generated);
+            DisjointGraph disjoint_graph = compute_disjoint_graph(map, non_terminated_agents, input.seen, lookup, optimizations.max_pivots_generated);
             if(optimizations.prune_pivots){
                 prune_graph(disjoint_graph, lookup);
             }
@@ -81,13 +81,13 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
 
         // Singleton heuristic.
         if(use_singleton) {
-            int singleton_val = get_singleton_f_value(input.agents, map, input.cost, input.seen, input.tasks_left, lookup);
+            int singleton_val = get_singleton_f_value(input.agents, map, input.cost, input.seen, lookup);
             f_and_focal_values[i].first = std::max(f_and_focal_values[i].first, singleton_val);
             std::vector<AgentState> agents_for_focal = input.agents;
             for(auto& agent : agents_for_focal){
                 agent.cost = 0;
             }
-            f_and_focal_values[i].second = get_singleton_f_value(agents_for_focal, map, 0, input.seen, input.tasks_left, lookup);
+            f_and_focal_values[i].second = get_singleton_f_value(agents_for_focal, map, 0, input.seen, lookup);
         }
     }
 
@@ -116,58 +116,15 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
     return f_and_focal_values;
 }
 
-int get_wait_action_end_time(const Map& map, const Lookup& lookup, const std::vector<AgentState>& agents, Task task, int agent_cost){
-    // If we're at a task, clearly it hasn't been completed yet, so I guess more robots need to come. Add a wait action to wait until however long it'll take someone else to come.
-    std::vector<int> agent_min_arrival_times;
-    for(AgentState agent : agents) {
-        // Ignore agents that are terminated or waiting at other tasks, since they can't really come help right now.
-        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)) {
-            continue;
-        }
-        int agent_map_idx = map.get_map_idx(agent.pos);
-        agent_min_arrival_times.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
-    }
-
-    std::sort(agent_min_arrival_times.begin(), agent_min_arrival_times.end());
-    // Since we need num_agents_required agents to reach the task. NOTE: It is possible that there aren't num_agents_required available, because other agents are waiting, and will be freed up once their task is completed.
-    int min_alt_wait_time = agent_min_arrival_times[std::min(task.num_agents_required - 1, (int)agent_min_arrival_times.size() - 1)];
-    return std::max(agent_cost, min_alt_wait_time);
-}
-
-std::vector<AgentState> get_agent_options(const AgentState& agent, const Map& map, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, bool allow_terminate) {
+std::vector<AgentState> get_agent_options(const AgentState& agent, const Map& map, const boost::dynamic_bitset<>& seen, const Lookup& lookup, bool allow_terminate) {
     if(agent.terminated){
         // If any agent is terminated, we don't generate any neighbors.
         return {agent};
     }
     std::vector<AgentState> agent_options;
 
-    int at_incomplete_task_idx = -1;
-    for(const Task& t : tasks_left){
-        if(map.get_map_idx(agent.pos) == t.map_idx){
-            at_incomplete_task_idx = t.id;
-            break;
-        }
-    }
-
-    // TODO: Fix this when I add back in tasks.
-    // // If not waiting, but we're at a task, and the task is incomplete, then we can wait at the task.
-    // // If we're currently waiting, we should continue to wait at the task.
-    // if(agent.waiting_idx != -1 || at_incomplete_task_idx != -1){
-    //     // printf("WE'RE AT AN INCOMPLETE TASK, ADDING WAIT OPTION\n");
-    //     // Figure out how long to wait for.
-    //     int wait_task_idx = (agent.waiting_idx != -1) ? agent.waiting_idx : at_incomplete_task_idx;
-    //     Task task = get_task_by_id(tasks_left, wait_task_idx);
-    //     int wait_time = std::max(get_wait_action_end_time(map, lookup, agents, task, agent.cost), task.release_time);
-    //     agent_options.push_back(AgentState(agent.pos, false, wait_task_idx, wait_time));
-
-    //     // If we're currently waiting, we can't move until we complete the task.
-    //     if(agent.waiting_idx != -1){
-    //         return agent_options;
-    //     }
-    // }
-
     // Expanding borders implementation.
-    std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, tasks_left, lookup);
+    std::vector<std::tuple<Position, int>> nbrs_with_added_cost = get_extended_neighbors(map, agent.pos, seen, lookup);
     for(auto [nbr, added_cost] : nbrs_with_added_cost){
         agent_options.push_back(AgentState(nbr, false, -1, agent.cost + added_cost));
     }
@@ -180,13 +137,12 @@ std::vector<AgentState> get_agent_options(const AgentState& agent, const Map& ma
 
 
 // Expanding Borders Expansion
-std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     std::vector<std::vector<AgentState>> options;
     for(AgentState agent : agents){
-        options.push_back(get_agent_options(agent, map, seen, tasks_left, lookup, true));
+        options.push_back(get_agent_options(agent, map, seen, lookup, true));
     }
 
-    // An agent is considered 'free' if it is not terminated and not waiting at a task.
     // Now, take the cartesian product of the options. Don't include states in which all of the agents terminate.
     std::vector<std::vector<AgentState>> all_moves;
     std::function<void(int, std::vector<AgentState>, bool)> backtrack = [&](int idx, std::vector<AgentState> current, bool has_non_terminated_agent){
@@ -210,7 +166,7 @@ std::vector<std::vector<AgentState>> get_possible_moves(const Map& map, const st
 std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup, SolverConfig solver_config, int best_solution_cost, int last_id_assigned, std::unordered_map<std::string, std::vector<VisitedNodeInfo>>& generated_costs, std::unordered_set<int>& avoid_expansion_list){
     std::vector<Node> neighbor_nodes;
     auto start = std::chrono::high_resolution_clock::now();
-    auto neighbors = get_possible_moves(map, node.agents, node.seen, node.tasks_left, lookup);
+    auto neighbors = get_possible_moves(map, node.agents, node.seen, lookup);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
     METRICS.neighbor_expansion_time += duration.count();
@@ -281,14 +237,11 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
         METRICS.domination_check_time += duration.count();
 
         if(dominated){
-            if(node.node_id == 2140){
-                printf("\tDominated neighbor for 2140: Loc: %s, Cost: %d, Num seen: %d / %d\n", agent_states_to_print_string(nbr).c_str(), nbr_cost, nbr_num_seen, map.num_squares);
-            }
             continue;
         }
 
         if(solver_config.heuristic_type == TSP){
-            double min_nbr_f_value = get_singleton_f_value(nbr, map, nbr_cost, nbr_seen, nbr_tasks_left, lookup);
+            double min_nbr_f_value = get_singleton_f_value(nbr, map, nbr_cost, nbr_seen, lookup);
             if(min_nbr_f_value >= best_solution_cost){
                 // Don't generate neighbors that are already worse than the best solution found so far.
                 METRICS.num_skipped_high_lazy_f_value += 1;
@@ -656,12 +609,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
 
         std::vector<Node> neighbors = get_neighbors(curr, map, lookup, solver_config, best_solution_cost, last_id_assigned, generated_costs, avoid_expansion_list);
 
-        if(curr.node_id == 2140){
-            for(Node& nbr : neighbors){
-                printf("\tGenerated neighbor for 2140: ID: %d, Loc: %s, Cost: %d, F value: %d, Focal heuristic: %d, Num seen: %d / %d\n", nbr.node_id, agent_states_to_print_string(nbr.agents).c_str(), nbr.cost, nbr.f_value, nbr.focal_heuristic, nbr.num_seen, map.num_squares);
-            }
-        }
-
         num_generated += neighbors.size();
         if(neighbors.size() > 0){
             last_id_assigned = neighbors.back().node_id;
@@ -739,7 +686,6 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total nodes fully expanded: %d\n", num_fully_expanded);
     printf("Total expansions skipped: %d\n", num_skipped);
     printf("Total generations skipped because of inferior cost: %d\n", METRICS.num_skipped_duplicate_node);
-    printf("Total generations skipped because of task deadlock: %d\n", METRICS.num_skipped_task_deadlock);
     printf("Total generations skipped for high lazy f value: %d\n", METRICS.num_skipped_high_lazy_f_value);
     printf("Total generations discarded for high f value: %d\n", num_discarded_high_f);
     printf("Total nodes generated: %d\n", num_generated);

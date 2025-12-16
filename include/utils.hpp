@@ -6,32 +6,7 @@
 #include "pathfinding.hpp"
 #include "los.hpp"
 
-inline int get_min_time_for_task_completion(const std::vector<AgentState>& agents, const Map& map, const Task& task, const Lookup& lookup, bool include_agents_curr_cost){
-    // Find the closest agent and how long it would take to reach the task.
-    std::vector<int> times_to_reach_task;
-    for(const AgentState& agent : agents){
-        // Only include non-terminated agents that are waiting for this task or not waiting at all.
-        if(agent.terminated || (agent.waiting_idx != -1 && agent.waiting_idx != task.id)){
-            continue;
-        }
-        int agent_map_idx = map.get_map_idx(agent.pos);
-        if(include_agents_curr_cost){
-            times_to_reach_task.push_back(agent.cost + lookup.apsp[agent_map_idx][task.map_idx]);
-        } else {
-            times_to_reach_task.push_back(lookup.apsp[agent_map_idx][task.map_idx]);
-        }
-    }
-    std::sort(times_to_reach_task.begin(), times_to_reach_task.end());
-
-    // If there's less agents than required for the task, then another task must be completed first. Just choose the max time for now.
-    if(times_to_reach_task.size() < task.num_agents_required){
-        return times_to_reach_task.back();
-    }
-
-    return times_to_reach_task[task.num_agents_required - 1]; // Since we need num_agents_required agents to reach the task, see how long it'll take the slowest one to get there.
-}
-
-inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& map, const Position& pos, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     METRICS.extended_neighbors_calls += 1;
     auto start = std::chrono::high_resolution_clock::now();
     std::queue<std::tuple<Position, int>> queue; // (position, cost)
@@ -51,15 +26,6 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
         }
         visited.insert(curr_map_idx);
 
-        // Don't wanna do this if agent started at a task, since maybe we don't wanna wait for it.
-        bool at_task = false;
-        for(const Task& task : tasks_left){
-            if(curr_map_idx == task.map_idx){
-                at_task = true;
-                break;
-            }
-        }
-
         bool is_new = false;
         for(Position visible : lookup.los[curr_map_idx]){
             if(!seen[map.get_map_idx(visible)]){
@@ -68,9 +34,9 @@ inline std::vector<std::tuple<Position, int>> get_extended_neighbors(const Map& 
             }
         }
 
-        if((is_new || at_task) && curr_cost > 0){
+        if(is_new && curr_cost > 0){
             extended_neighbors.push_back(std::make_tuple(curr_pos, curr_cost));
-            continue; // Don't expand further from a task or from a cell that can see a new cel.
+            continue; // Don't expand further from a cell that can see a new cell.
         }
 
         std::vector<Position> neighbors = map.get_neighbors(curr_pos);
@@ -570,7 +536,7 @@ inline void add_dominance_to_seen(boost::dynamic_bitset<>& seen, const Map& map,
     }
 }
 
-inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup, int max_pivots_generated){
+inline DisjointGraph compute_disjoint_graph(const Map& map, const std::vector<AgentState>& agents, const boost::dynamic_bitset<>& seen, const Lookup& lookup, int max_pivots_generated){
     // Step 1: Get all the nodes: Agent position, pivots, watchers. We already processed the distances between pivot components, so don't need to add in the watchers.
     std::vector<int> pivots;
 

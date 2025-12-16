@@ -17,14 +17,8 @@ struct HeuristicInput {
     int num_seen;
 };
 
-int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const std::vector<Task>& tasks_left, const Lookup& lookup){
+int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map, int node_cost, const boost::dynamic_bitset<>& seen, const Lookup& lookup){
     int f_value = 0;
-    std::unordered_map<int, int> min_time_to_complete_task;
-    for(const Task& task : tasks_left){
-        int ttc = get_min_time_for_task_completion(agents, map, task, lookup, true);
-        min_time_to_complete_task[task.id] = ttc;
-        f_value = std::max(f_value, ttc);
-    }
     for(int i = 0; i < seen.size(); i++){
         if(seen[i]) {
             continue;
@@ -35,12 +29,7 @@ int get_singleton_f_value(const std::vector<AgentState>& agents, const Map& map,
                 continue;
             }
             int agent_map_idx = map.get_map_idx(agent.pos);
-            int agent_cost_before_moving = agent.cost;
-            if(agent.waiting_idx != -1){
-                // Agent is waiting at a task, so its "release time" from this task is effectively the time it'll take to complete that task.
-                agent_cost_before_moving = std::max(agent_cost_before_moving, min_time_to_complete_task[agent.waiting_idx]);
-            }
-            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, agent_cost_before_moving + (int)(A_STAR_WEIGHT * lookup.min_dist_to_see[agent_map_idx][i]));
+            closest_agent_f_value_to_see = std::min(closest_agent_f_value_to_see, agent.cost + (int)(A_STAR_WEIGHT * lookup.min_dist_to_see[agent_map_idx][i]));
         }
 
         f_value = std::max(f_value, closest_agent_f_value_to_see);

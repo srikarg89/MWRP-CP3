@@ -44,7 +44,6 @@ struct Metrics {
 
     // General search metrics.
     int num_skipped_duplicate_node = 0;
-    int num_skipped_task_deadlock = 0;
     int num_skipped_high_lazy_f_value = 0;
     int extended_neighbors_calls = 0;
     double neighbor_expansion_time = 0.0;
@@ -66,7 +65,6 @@ struct Metrics {
         num_decentralized_searches = 0;
 
         num_skipped_duplicate_node = 0;
-        num_skipped_task_deadlock = 0;
         num_skipped_high_lazy_f_value = 0;
         extended_neighbors_calls = 0;
         neighbor_expansion_time = 0.0;
@@ -88,7 +86,6 @@ struct Metrics {
         num_decentralized_searches += other.num_decentralized_searches;
 
         num_skipped_duplicate_node += other.num_skipped_duplicate_node;
-        num_skipped_task_deadlock += other.num_skipped_task_deadlock;
         num_skipped_high_lazy_f_value += other.num_skipped_high_lazy_f_value;
         extended_neighbors_calls += other.extended_neighbors_calls;
         neighbor_expansion_time += other.neighbor_expansion_time;
@@ -113,7 +110,6 @@ struct MetricsList {
 
     // General search metrics.
     std::vector<int> num_skipped_duplicate_node;
-    std::vector<int> num_skipped_task_deadlock;
     std::vector<int> num_skipped_high_lazy_f_value;
     std::vector<int> extended_neighbors_calls;
     std::vector<double> neighbor_expansion_time;
@@ -130,7 +126,6 @@ struct MetricsList {
 
     void add_metrics(const Metrics& metrics) {
         num_skipped_duplicate_node.push_back(metrics.num_skipped_duplicate_node);
-        num_skipped_task_deadlock.push_back(metrics.num_skipped_task_deadlock);
         num_skipped_high_lazy_f_value.push_back(metrics.num_skipped_high_lazy_f_value);
         extended_neighbors_calls.push_back(metrics.extended_neighbors_calls);
         neighbor_expansion_time.push_back(metrics.neighbor_expansion_time);
@@ -152,7 +147,6 @@ struct MetricsList {
         metrics.num_decentralized_searches = std::accumulate(num_decentralized_searches.begin(), num_decentralized_searches.end(), 0);
 
         metrics.num_skipped_duplicate_node = std::accumulate(num_skipped_duplicate_node.begin(), num_skipped_duplicate_node.end(), 0);
-        metrics.num_skipped_task_deadlock = std::accumulate(num_skipped_task_deadlock.begin(), num_skipped_task_deadlock.end(), 0);
         metrics.num_skipped_high_lazy_f_value = std::accumulate(num_skipped_high_lazy_f_value.begin(), num_skipped_high_lazy_f_value.end(), 0);
         metrics.extended_neighbors_calls = std::accumulate(extended_neighbors_calls.begin(), extended_neighbors_calls.end(), 0);
         metrics.neighbor_expansion_time = std::accumulate(neighbor_expansion_time.begin(), neighbor_expansion_time.end(), 0.0);
@@ -307,28 +301,6 @@ inline std::vector<Position> task_to_pos_array(const std::vector<Task>& tasks){
     return poses;
 }
 
-inline Task get_task_by_id(const std::vector<Task>& tasks, int id){
-    for(const Task& task : tasks){
-        if(task.id == id){
-            return task;
-        }
-    }
-    throw std::runtime_error("Task with ID " + std::to_string(id) + " not found.");
-}
-
-inline bool task_arrays_equal(std::vector<Task> a, std::vector<Task> b){
-    if(a.size() != b.size()){
-        return false;
-    }
-    std::sort(a.begin(), a.end(), [](const Task& t1, const Task& t2){ return t1.id < t2.id; });
-    std::sort(b.begin(), b.end(), [](const Task& t1, const Task& t2){ return t1.id < t2.id; });
-    for(int i = 0; i < a.size(); i++){
-        if(a[i].id != b[i].id || a[i].release_time != b[i].release_time || a[i].deadline != b[i].deadline || a[i].num_agents_required != b[i].num_agents_required){
-            return false;
-        }
-    }
-    return true;
-}
 
 struct Node {
     int node_id;

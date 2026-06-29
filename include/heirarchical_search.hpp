@@ -136,7 +136,17 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         std::vector<Position> single_agent_start = {starts[agent_idx]};
         boost::dynamic_bitset<> single_agent_seen = ~responsibility.vision;
         Lookup single_agent_lookup = lookup;
-        single_agent_lookup.strictly_easier = lookup.strictly_easier_per_agent[agent_idx];
+        std::vector<bool> agent_strictly_easier = lookup.strictly_easier;
+        // Add any squares that are dominated by the agent's responsibility to the strictly easier list for this agent.
+        if(lookup.per_agent_path_dominations.size() > agent_idx){
+            for(int map_idx = 0; map_idx < map.num_squares; map_idx++){
+                if(!agent_strictly_easier[map_idx]) {
+                    // Check if this square is dominated by any of the agent's responsibility squares.
+                    agent_strictly_easier[map_idx] = (lookup.per_agent_path_dominations[agent_idx][map_idx] & responsibility.vision).any();
+                }
+            }
+        }
+        single_agent_lookup.strictly_easier = agent_strictly_easier;
         printf("Map state before decentralized search: %s\n", get_map_state(single_agent_lookup, map, single_agent_seen, single_agent_start).c_str());
 
         end_time = std::chrono::high_resolution_clock::now();

@@ -318,6 +318,7 @@ inline std::pair<int, int> run_mtsp(int num_agents, int num_pivots, const std::v
         auto seconds_taken = std::chrono::duration<double>(end - start).count();
         METRICS.mtsp_setup_time += seconds_taken;
         METRICS.mtsp_total_calls += 1;
+        METRICS.mtsp_max_cities = std::max(METRICS.mtsp_max_cities, n);
 
         start = std::chrono::high_resolution_clock::now();
 

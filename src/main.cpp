@@ -105,6 +105,7 @@ void run(const ScenarioConfig& scenario_config, const ProblemInput& problem_inpu
     printf("\tDecentralized Search Time: %.3f seconds\n", aggregated_sum.decentralized_search_time);
     printf("\tNumber of Decentralized Searches: %d\n", aggregated_sum.num_decentralized_searches);
     printf("\tMTSP Calls: %d\n", aggregated_sum.mtsp_total_calls);
+    printf("\tMTSP Max Cities: %d\n", aggregated_sum.mtsp_max_cities);
     printf("\tMTSP Setup Time: %.3f seconds\n", aggregated_sum.mtsp_setup_time);
     printf("\tMTSP Solver Time: %.3f seconds\n", aggregated_sum.mtsp_solver_runtime);
     printf("\tLazy f_value Time: %.3f seconds\n", aggregated_sum.lazy_f_value_calculation_time);

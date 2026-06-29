@@ -58,6 +58,7 @@ struct Metrics {
     double mtsp_setup_time = 0.0;
     double mtsp_solver_runtime = 0.0;
     int mtsp_total_calls = 0;
+    int mtsp_max_cities = 0;
 
     void reset() {
         centralized_search_time = 0.0;
@@ -78,6 +79,7 @@ struct Metrics {
         mtsp_setup_time = 0.0;
         mtsp_solver_runtime = 0.0;
         mtsp_total_calls = 0;
+        mtsp_max_cities = 0;
     }
 
     void add(const Metrics& other) {
@@ -99,6 +101,7 @@ struct Metrics {
         mtsp_setup_time += other.mtsp_setup_time;
         mtsp_solver_runtime += other.mtsp_solver_runtime;
         mtsp_total_calls += other.mtsp_total_calls;
+        mtsp_max_cities = std::max(mtsp_max_cities, other.mtsp_max_cities);
     }
 };
 
@@ -123,6 +126,7 @@ struct MetricsList {
     std::vector<double> mtsp_setup_time;
     std::vector<double> mtsp_solver_runtime;
     std::vector<int> mtsp_total_calls;
+    std::vector<int> mtsp_max_cities;
 
     void add_metrics(const Metrics& metrics) {
         num_skipped_duplicate_node.push_back(metrics.num_skipped_duplicate_node);
@@ -138,6 +142,7 @@ struct MetricsList {
         mtsp_setup_time.push_back(metrics.mtsp_setup_time);
         mtsp_solver_runtime.push_back(metrics.mtsp_solver_runtime);
         mtsp_total_calls.push_back(metrics.mtsp_total_calls);
+        mtsp_max_cities.push_back(metrics.mtsp_max_cities);
     }
     
     Metrics sum_metrics() {
@@ -479,7 +484,7 @@ struct Lookup {
 
     // Squares that are strictly easier to see than another square. Can be ignored during the exploration aspect of the search.
     std::vector<bool> strictly_easier;
-    std::vector<std::vector<bool>> strictly_easier_per_agent;
+    std::vector<std::vector<boost::dynamic_bitset<>>> per_agent_path_dominations;
 };
 
 struct DisjointGraph {

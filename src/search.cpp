@@ -650,6 +650,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
     printf("Total domination check time: %.3f seconds\n", METRICS.domination_check_time);
     printf("Total adding LOS time: %.3f seconds\n", METRICS.adding_los_time);
     printf("Max node depth expanded: %d\n", max_node_depth_expanded);
+    printf("Max number of cities mtsp: %d\n", METRICS.mtsp_max_cities);
     for(int i = 0; i < solution_paths.size(); i++){
         printf("Path %d length: %ld\n", i, solution_paths[i].size());
         printf("\t[");

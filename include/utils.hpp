@@ -393,17 +393,9 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
 
     if(cell_pruning_method == CellPruningMethod::NONE){
         lookup.strictly_easier = std::vector<bool>(map.num_squares, false);
-        for(int i = 0; i < agent_starts.size(); i++){
-            lookup.strictly_easier_per_agent.push_back(std::vector<bool>(map.num_squares, false));
-        }
     } else if(cell_pruning_method == CellPruningMethod::CELL_DOMINATION){
         // Find squares whose watchers are dominated by another square.
         lookup.strictly_easier = calculate_square_dominance(map, lookup.watchers, lookup.watchers_set);
-        if(run_decentralized_search){
-            for(int i = 0; i < agent_starts.size(); i++){
-                lookup.strictly_easier_per_agent.push_back(lookup.strictly_easier);
-            }
-        }
     } else if(cell_pruning_method == CellPruningMethod::PATH_DOMINATION || cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
         std::vector<bool> cells_to_ignore = std::vector<bool>(map.num_squares, false);
         if(cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
@@ -437,7 +429,7 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
                 end_time = std::chrono::high_resolution_clock::now();
                 duration = end_time - start_time;
                 printf("Path dominance precomputation time for agent %d: %.6f seconds\n", i, duration.count());
-                lookup.strictly_easier_per_agent.push_back(path_dominations_to_strictly_easier(map, agent_path_dominations));
+                lookup.per_agent_path_dominations.push_back(agent_path_dominations);
                 // Merge path dominations.
                 for(int j = 0; j < map.num_squares; j++){
                     combined_path_dominations[j] = combined_path_dominations[j] & agent_path_dominations[j];
@@ -452,11 +444,6 @@ inline void precompute_lookup(Lookup& lookup, const Map& map, HeuristicType heur
         if(cell_pruning_method == CellPruningMethod::CELL_THEN_PATH_DOMINATION){
             for(int i = 0; i < map.num_squares; i++){
                 lookup.strictly_easier[i] = lookup.strictly_easier[i] | cells_to_ignore[i];
-                if(run_decentralized_search){
-                    for(int j = 0; j < agent_starts.size(); j++){
-                        lookup.strictly_easier_per_agent[j][i] = lookup.strictly_easier_per_agent[j][i] | cells_to_ignore[i];
-                    }
-                }                
             }
         }
 

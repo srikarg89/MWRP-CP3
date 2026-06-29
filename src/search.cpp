@@ -11,7 +11,7 @@
 #include <boost/heap/fibonacci_heap.hpp>
 #include "BS_thread_pool.hpp"
 
-std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, FocalMethod focal_method, Optimizations optimizations, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, double focal_heuristic_weight, const Lookup& lookup) {
+std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_type, FocalMethod focal_method, Optimizations optimizations, const Map& map, const std::vector<HeuristicInput>& neighbor_heuristic_inputs, const Lookup& lookup) {
     std::vector<std::pair<int, int>> f_and_focal_values; // Minimum f value is the node cost (no such thing as a negative heuristic).
     for (const auto& input : neighbor_heuristic_inputs) {
         f_and_focal_values.push_back(std::make_pair(input.cost, 0));
@@ -56,22 +56,10 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
                 }
                 tsp_idxs.push_back(i);
                 if(optimizations.run_parallel){
-                    futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, focal_method, focal_heuristic_weight]() {
-                        // if(focal_heuristic_weight == 1.0) {
-                        //     return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
-                        // }
-                        // auto a = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
-                        // auto b = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, true);
-                        // return std::make_pair(a.first, b.second);
+                    futures.push_back(pool.submit_task([disjoint_graph, non_terminated_agent_costs, focal_method]() {
                         return get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
                     }));
                 } else {
-                    // if(focal_heuristic_weight == 1.0) {
-                    //     non_parallel_results.push_back(get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false));
-                    // }
-                    // auto a = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false);
-                    // auto b = get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, true);
-                    // non_parallel_results.push_back(std::make_pair(a.first, b.second));
                     non_parallel_results.push_back(get_multi_tsp_f_and_focal_value(disjoint_graph, non_terminated_agent_costs, focal_method, false));
                 }
             }
@@ -108,7 +96,7 @@ std::vector<std::pair<int, int>> get_f_and_focal_values(HeuristicType heuristic_
                 current_sum = std::max(current_sum, (double)agent.cost);
             }
         }
-        f_and_focal_values[i].second = current_sum + focal_heuristic_weight * f_and_focal_values[i].second;
+        f_and_focal_values[i].second = current_sum + 10000.0 * f_and_focal_values[i].second;
     }
 
     return f_and_focal_values;
@@ -249,7 +237,7 @@ std::vector<Node> get_neighbors(Node& node, const Map& map, const Lookup& lookup
     }
 
     start = std::chrono::high_resolution_clock::now();
-    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, solver_config.focal_method, solver_config.optimizations, map, neighbor_heuristic_inputs, solver_config.focal_heuristic_weight, lookup);
+    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(heuristic_type, solver_config.focal_method, solver_config.optimizations, map, neighbor_heuristic_inputs, lookup);
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
     METRICS.lazy_f_value_calculation_time += duration.count();
@@ -372,7 +360,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
         start_heuristic_type = SINGLETON;
     }
 
-    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, num_start_seen}}, solver_config.focal_heuristic_weight, lookup)[0];
+    auto [start_f_value, start_focal_value] = get_f_and_focal_values(start_heuristic_type, solver_config.focal_method, solver_config.optimizations, map, {HeuristicInput{start_agent_states, start_timestep, start_seen, num_start_seen}}, lookup)[0];
     printf("Start f value: %d, Start focal value: %d, Num start seen: %d / %d\n", start_f_value, start_focal_value, num_start_seen, map.num_squares);
 
     handle_lookup[0] = open_set.push(Node(/* id = */ 0, start_agent_states, start_seen, /* cost = */ start_timestep, start_f_value, start_focal_value, num_start_seen, /*depth = */ 0));
@@ -438,7 +426,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                 num_lazy_batches_run += 1;
                 auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
                 auto f_start = std::chrono::high_resolution_clock::now();
-                std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, lookup);
                 auto f_end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> f_duration = f_end - f_start;
                 METRICS.tsp_f_value_calculation_time += f_duration.count();
@@ -474,7 +462,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
                     // printf("Running focal batch heuristic on %d nodes!\n", (int)nodes_to_recompute.size());
                     auto batch_inputs = get_heuristic_inputs_from_nodes(nodes_to_recompute);
                     auto f_start = std::chrono::high_resolution_clock::now();
-                    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+                    std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, lookup);
                     auto f_end = std::chrono::high_resolution_clock::now();
                     std::chrono::duration<double> f_duration = f_end - f_start;
                     METRICS.tsp_f_value_calculation_time += f_duration.count();
@@ -602,7 +590,7 @@ std::vector<std::vector<Position>> run_search(int start_timestep, std::vector<Po
             auto batch_inputs = get_heuristic_inputs_from_nodes(batch_nodes);
             int max_f_value = (int)std::ceil(solver_config.focal_epsilon * (double)prev_min_f);
             auto f_start = std::chrono::high_resolution_clock::now();
-            std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, solver_config.focal_heuristic_weight, lookup);
+            std::vector<std::pair<int, int>> f_and_focal_values = get_f_and_focal_values(HeuristicType::TSP, solver_config.focal_method, solver_config.optimizations, map, batch_inputs, lookup);
             auto f_end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> f_duration = f_end - f_start;
             METRICS.tsp_f_value_calculation_time += f_duration.count();

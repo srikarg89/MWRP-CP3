@@ -48,7 +48,6 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
         .focal_method = problem_input.focal_method,
         .optimizations = problem_input.optimizations,
         .focal_epsilon = problem_input.centralized_focal_epsilon,
-        .focal_heuristic_weight = problem_input.centralized_focal_heuristic_weight,
         .search_time_limit = problem_input.centralized_search_time_limit,
         .hard_search_time_limit = problem_input.centralized_hard_search_time_limit
     };
@@ -129,7 +128,6 @@ std::vector<std::vector<Position>> run_heirarchical_search(int start_timestep, s
             .focal_method = problem_input.focal_method,
             .optimizations = problem_input.optimizations,
             .focal_epsilon = problem_input.decentralized_focal_epsilon,
-            .focal_heuristic_weight = problem_input.decentralized_focal_heuristic_weight,
             .search_time_limit = problem_input.decentralized_search_time_limit,
             .hard_search_time_limit = problem_input.decentralized_hard_search_time_limit
         };

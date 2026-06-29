@@ -521,13 +521,11 @@ struct ProblemInput {
     CellPruningMethod cell_pruning_method;
     Optimizations optimizations;
     double centralized_focal_epsilon;
-    double centralized_focal_heuristic_weight;
     double centralized_search_time_limit;
     double centralized_hard_search_time_limit;
     double centralized_astar_weight;
     bool run_decentralized_search;
     double decentralized_focal_epsilon;
-    double decentralized_focal_heuristic_weight;
     double decentralized_search_time_limit;
     double decentralized_hard_search_time_limit;
     double decentralized_astar_weight;
@@ -586,13 +584,11 @@ struct ProblemInput {
         optimizations.parallel_batch_size = parsed_data["parallel_batch_size"].get<int>();
 
         double centralized_focal_epsilon = parsed_data["centralized_focal_epsilon"].get<double>();
-        double centralized_focal_heuristic_weight = parsed_data["centralized_focal_heuristic_weight"].get<double>();
         double centralized_search_time_limit = parsed_data["centralized_search_time_limit"].get<double>();
         double centralized_hard_search_time_limit = parsed_data["centralized_hard_search_time_limit"].get<double>();
         double centralized_astar_weight = parsed_data["centralized_astar_weight"].get<double>();
         bool run_decentralized_search = parsed_data["run_decentralized_search"].get<bool>();
         double decentralized_focal_epsilon = parsed_data["decentralized_focal_epsilon"].get<double>();
-        double decentralized_focal_heuristic_weight = parsed_data["decentralized_focal_heuristic_weight"].get<double>();
         double decentralized_search_time_limit = parsed_data["decentralized_search_time_limit"].get<double>();
         double decentralized_hard_search_time_limit = parsed_data["decentralized_hard_search_time_limit"].get<double>();
         double decentralized_astar_weight = parsed_data["decentralized_astar_weight"].get<double>();
@@ -604,13 +600,11 @@ struct ProblemInput {
             .cell_pruning_method = cell_pruning_method,
             .optimizations = optimizations,
             .centralized_focal_epsilon = centralized_focal_epsilon,
-            .centralized_focal_heuristic_weight = centralized_focal_heuristic_weight,
             .centralized_search_time_limit = centralized_search_time_limit,
             .centralized_hard_search_time_limit = centralized_hard_search_time_limit,
             .centralized_astar_weight = centralized_astar_weight,
             .run_decentralized_search = run_decentralized_search,
             .decentralized_focal_epsilon = decentralized_focal_epsilon,
-            .decentralized_focal_heuristic_weight = decentralized_focal_heuristic_weight,
             .decentralized_search_time_limit = decentralized_search_time_limit,
             .decentralized_hard_search_time_limit = decentralized_hard_search_time_limit,
             .decentralized_astar_weight = decentralized_astar_weight,
@@ -625,7 +619,6 @@ struct SolverConfig {
     FocalMethod focal_method;
     Optimizations optimizations;
     double focal_epsilon;
-    double focal_heuristic_weight;
     double search_time_limit;
     double hard_search_time_limit;
 };
